@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+build/
+
+# Java
+*.class
+hs_err_pid*
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Node
+node_modules/
+
+# Sırlar ve yerel durum
+.env
+.quancrypt/
+*.p12
+*.jks
+*.key
+reference-system/certs/out/
+
+# Claude Code kiti ve tasarım dokümanları (yalnızca kod commit'lenir)
+.claude/
+CLAUDE.md
+docs/
+
+# IDE
+.idea/
+
+# Modeller ve deney kayıtları
+models/*.onnx
+mlruns/

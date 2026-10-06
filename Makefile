@@ -4,25 +4,46 @@ SHELL := /bin/bash
 # Her birinin altında Makefile'ı olan dizinler doğrulanır (docker-local skill'i, bölüm 3).
 VERIFY_DIRS := $(wildcard services/*) $(wildcard apps/*) data-platform ml
 
-.PHONY: help up down ps logs verify-all
+# Ek profiller: make up PROFILES="app data". `postgres` profilsizdir, her zaman kalkar (D-53).
+PROFILES ?=
+ENV_FILE ?= .env
+COMPOSE := docker compose --env-file "$(ENV_FILE)" $(foreach p,$(PROFILES),--profile $(p))
+
+.PHONY: help up down ps logs db-reset verify-all check-env
 
 help: ## Hedefleri listeler
 	@echo "Quancrypt kök Makefile"
 	@echo
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/^([a-z-]+):.*## (.*)$$/  make \1\t\2/'
 
-# TODO(P0.1-1): up, down, ps ve logs P0.3'te (docker-compose.yml ile birlikte) tanımlanacak.
-up: ## docker compose ile servisleri başlatır (P0.3'te tanımlanacak)
-	@echo "P0.3'te tanımlanacak"
+# Fail-closed (D-57): .env yoksa veya hâlâ CHANGE_ME yer tutucusu içeriyorsa hiçbir şey başlamaz.
+# Yalnızca anahtar adları yazdırılır, değerler yazdırılmaz.
+check-env:
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+	  echo "HATA: $(ENV_FILE) yok. 'cp .env.example .env' ile oluşturup CHANGE_ME değerlerini doldurun."; exit 1; \
+	fi
+	@keys="$$(tr -d '\r' < "$(ENV_FILE)" | sed -nE "s/^[[:space:]]*(export[[:space:]]+)?([A-Za-z0-9_]+)[[:space:]]*=[[:space:]]*[\"']?CHANGE_ME[\"']?[[:space:]]*$$/\2/p")"; \
+	if [ -n "$$keys" ]; then \
+	  echo "HATA: $(ENV_FILE) içinde CHANGE_ME yer tutucusu olan anahtarlar var:"; echo "$$keys" | sed 's/^/  /'; exit 1; \
+	fi
 
-down: ## docker compose ile servisleri durdurur (P0.3'te tanımlanacak)
-	@echo "P0.3'te tanımlanacak"
+up: check-env ## Servisleri başlatır ve healthy olmalarını bekler: make up PROFILES="app data"
+	$(COMPOSE) up -d --wait
 
-ps: ## Çalışan servisleri listeler (P0.3'te tanımlanacak)
-	@echo "P0.3'te tanımlanacak"
+down: ## Servisleri durdurur (volume'leri silmez): make down PROFILES="app data"
+	$(COMPOSE) down
 
-logs: ## Servis loglarını gösterir: make logs S=<servis> (P0.3'te tanımlanacak)
-	@echo "P0.3'te tanımlanacak"
+ps: ## Servis durumunu listeler: make ps PROFILES="app data"
+	$(COMPOSE) ps
+
+logs: ## Logları izler: make logs S=<servis> (S verilmezse hepsi)
+	$(COMPOSE) logs -f --tail=200 $(S)
+
+db-reset: ## Volume'leri SİLER (tüm veritabanı verisi gider); önce onay ister
+	@echo "UYARI: Bu komut pgdata dahil tüm compose volume'lerini ve içindeki veriyi siler."
+	@read -r -p "Devam etmek için 'evet' yazın: " answer; \
+	if [ "$$answer" != "evet" ]; then echo "İptal edildi."; exit 1; fi; \
+	$(COMPOSE) down -v
 
 verify-all: ## Her servisin `make verify` hedefini sırayla çalıştırır ve özet basar
 	@found=0; failed=0; summary=""; \

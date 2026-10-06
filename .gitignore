@@ -18,6 +18,8 @@ node_modules/
 
 # Sırlar ve yerel durum
 .env
+.env.*
+!.env.example
 .quancrypt/
 *.p12
 *.jks

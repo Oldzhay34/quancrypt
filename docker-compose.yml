@@ -1,0 +1,47 @@
+name: quancrypt
+
+# Tek kök compose dosyası (D-27). Servis profilleri ilgili alt fazlarda eklenir.
+# `postgres` profilsizdir: her `make up`'ta kalkar (D-53).
+# Ollama host'ta çalışır (D-51); bu dosyada ollama servisi yoktur.
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16
+    # Yalnızca gereken değişkenler konteynere geçer; `.env` dosyasının tamamı geçmez.
+    # Eksik değişken compose'u hata ile durdurur (`:?`).
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD .env içinde tanımlı olmalı}
+      CORE_DB_MIGRATOR_PASSWORD: ${CORE_DB_MIGRATOR_PASSWORD:?CORE_DB_MIGRATOR_PASSWORD .env içinde tanımlı olmalı}
+      CORE_DB_APP_PASSWORD: ${CORE_DB_APP_PASSWORD:?CORE_DB_APP_PASSWORD .env içinde tanımlı olmalı}
+      AGENT_DB_MIGRATOR_PASSWORD: ${AGENT_DB_MIGRATOR_PASSWORD:?AGENT_DB_MIGRATOR_PASSWORD .env içinde tanımlı olmalı}
+      AGENT_DB_APP_PASSWORD: ${AGENT_DB_APP_PASSWORD:?AGENT_DB_APP_PASSWORD .env içinde tanımlı olmalı}
+      WAREHOUSE_DB_MIGRATOR_PASSWORD: ${WAREHOUSE_DB_MIGRATOR_PASSWORD:?WAREHOUSE_DB_MIGRATOR_PASSWORD .env içinde tanımlı olmalı}
+      WAREHOUSE_DB_APP_PASSWORD: ${WAREHOUSE_DB_APP_PASSWORD:?WAREHOUSE_DB_APP_PASSWORD .env içinde tanımlı olmalı}
+      WAREHOUSE_READER_PASSWORD: ${WAREHOUSE_READER_PASSWORD:?WAREHOUSE_READER_PASSWORD .env içinde tanımlı olmalı}
+      MLFLOW_DB_MIGRATOR_PASSWORD: ${MLFLOW_DB_MIGRATOR_PASSWORD:?MLFLOW_DB_MIGRATOR_PASSWORD .env içinde tanımlı olmalı}
+      MLFLOW_DB_APP_PASSWORD: ${MLFLOW_DB_APP_PASSWORD:?MLFLOW_DB_APP_PASSWORD .env içinde tanımlı olmalı}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - quancrypt
+    healthcheck:
+      # `-h 127.0.0.1` (TCP) zorunludur: ilk açılışta geçici sunucu yalnızca unix soketini
+      # dinler, soket üzerinden kontrol init betikleri bitmeden "healthy" derdi.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+networks:
+  # Uygulama ve veri servisleri.
+  quancrypt: {}
+  # Demo sistemi (QBank): dış ağa çıkamaz. İlgili alt fazda servisler bağlanır.
+  qbank-net:
+    internal: true
+
+volumes:
+  pgdata: {}

@@ -49,7 +49,7 @@ class MutualTlsTest extends ServiceIntegrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"gwaccount", "gwpayment", "payaccount"})
+    @ValueSource(strings = {"gwaccount", "payaccount"})
     void everyDemoClientCertificateIsAccepted(String bundle) throws Exception {
         assertThat(clientFor(bundle).get("/.well-known/jwks.json", null).status()).isEqualTo(200);
     }

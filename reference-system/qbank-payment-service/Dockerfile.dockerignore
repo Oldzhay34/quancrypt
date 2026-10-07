@@ -7,8 +7,13 @@ certs
 **/*.jks
 **/.env
 **/.env.*
-# Other services and build output
+# Other services, demo files and build output
 qbank-account-service
+qbank-gateway
+field-device-sim
+mosquitto
+expected
+demo-smoke.sh
 **/build
 **/.gradle
 **/.idea

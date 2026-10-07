@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "field-device-sim"
+version = "1.0.0"
+description = "QBank field terminal simulator (publishes transactions over MQTT with TLS and a client certificate)"
+requires-python = ">=3.10"
+# Dependencies are pinned in requirements.in / requirements.txt (D-28); the only runtime dependency is paho-mqtt.
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks; the integration tests run the docker CLI on purpose.
+"tests/**" = ["S101", "S603", "S607", "S311", "S108"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+mypy_path = ["src", "tests"]
+packages = ["field_device_sim"]
+
+[tool.coverage.run]
+source = ["field_device_sim"]
+branch = true
+
+[tool.importlinter]
+root_package = "field_device_sim"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain depends on nothing in the service"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.domain"]
+forbidden_modules = [
+    "field_device_sim.api",
+    "field_device_sim.facade",
+    "field_device_sim.port",
+    "field_device_sim.usecase",
+    "field_device_sim.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "port depends only on domain"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.port"]
+forbidden_modules = [
+    "field_device_sim.api",
+    "field_device_sim.facade",
+    "field_device_sim.usecase",
+    "field_device_sim.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "usecase depends only on port and domain"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.usecase"]
+forbidden_modules = [
+    "field_device_sim.api",
+    "field_device_sim.facade",
+    "field_device_sim.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "facade depends only on port.inbound"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.facade"]
+forbidden_modules = [
+    "field_device_sim.api",
+    "field_device_sim.domain",
+    "field_device_sim.port.outbound",
+    "field_device_sim.usecase",
+    "field_device_sim.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "api depends only on facade"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.api"]
+forbidden_modules = [
+    "field_device_sim.domain",
+    "field_device_sim.port",
+    "field_device_sim.usecase",
+    "field_device_sim.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "infrastructure does not call use cases, facades or the api"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["field_device_sim.infrastructure"]
+forbidden_modules = [
+    "field_device_sim.api",
+    "field_device_sim.facade",
+    "field_device_sim.port.inbound",
+    "field_device_sim.usecase",
+]
+# The composition root (container.py) is the one infrastructure module that sees every layer, as config/ does in Java.
+ignore_imports = [
+    "field_device_sim.infrastructure.container -> field_device_sim.usecase.*",
+    "field_device_sim.infrastructure.container -> field_device_sim.facade.*",
+]
+
+[[tool.importlinter.contracts]]
+name = "the MQTT client lives only in infrastructure"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = [
+    "field_device_sim.api",
+    "field_device_sim.facade",
+    "field_device_sim.port",
+    "field_device_sim.usecase",
+    "field_device_sim.domain",
+]
+forbidden_modules = ["paho"]

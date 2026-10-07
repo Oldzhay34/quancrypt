@@ -47,9 +47,9 @@ abstract class ServiceIntegrationTest {
         return environment.getRequiredProperty("local.management.port", Integer.class);
     }
 
-    /** A client presenting the gateway-to-payment client certificate, as the gateway does. */
+    /** A client presenting the gateway's client certificate (gateway-to-account serves both back ends, D-109). */
     final ServiceClient gatewayClient() {
-        return new ServiceClient(PemSsl.withIdentity("gateway-to-payment.crt.pem", "gateway-to-payment.key.pem"), port());
+        return new ServiceClient(PemSsl.withIdentity("gateway-to-account.crt.pem", "gateway-to-account.key.pem"), port());
     }
 
     final ServiceClient clientWithoutCertificate() {
@@ -62,6 +62,6 @@ abstract class ServiceIntegrationTest {
     }
 
     final SSLContext gatewaySslContext() {
-        return PemSsl.withIdentity("gateway-to-payment.crt.pem", "gateway-to-payment.key.pem");
+        return PemSsl.withIdentity("gateway-to-account.crt.pem", "gateway-to-account.key.pem");
     }
 }

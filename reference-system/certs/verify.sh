@@ -31,8 +31,6 @@ EXPECTED=(
   "qbank-payment-service.key.pem|ozel anahtar|rsaEncryption|2048"
   "gateway-to-account.crt.pem|sertifika|rsaEncryption|2048"
   "gateway-to-account.key.pem|ozel anahtar|rsaEncryption|2048"
-  "gateway-to-payment.crt.pem|sertifika|rsaEncryption|2048"
-  "gateway-to-payment.key.pem|ozel anahtar|rsaEncryption|2048"
   "payment-to-account.crt.pem|sertifika|rsaEncryption|2048"
   "payment-to-account.key.pem|ozel anahtar|rsaEncryption|2048"
   "payment-to-mosquitto.crt.pem|sertifika|rsaEncryption|2048"

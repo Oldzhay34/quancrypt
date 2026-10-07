@@ -1,0 +1,152 @@
+# QBank beklenen topolojisi (P1.4, D-113) — Quancrypt analizci testlerinin altın verisi.
+#
+# DURUM: kullanıcı onayı BEKLİYOR. Onaylanana kadar Faz 3 testlerinde kullanılmaz; onay DECISIONS.md'ye yazılır.
+#
+# Düğümler QBank'ın çalışan parçalarıdır; kenarlar bağlantıyı kuran taraftan (istemci) dinleyene (sunucu) doğrudur.
+# Sertifika bilgisi dosyalardan gelir (`certs/out`, RSA-2048, SHA-256 imzalı). `negotiated` alanları compose `demo`
+# profili çalışırken 2026-10-07'de ÖLÇÜLDÜ (P1.4 raporunda komut ve çıktılar var); ölçüm yöntemi her kenarda yazılıdır.
+# Kaynaksız teknik iddia yazılmaz. `measured`: true = gerçek bağlantı veya aynı istemci yığını ölçüldü; emulated = gerçek istemci
+# yerine aynı OpenSSL sürüm ailesi taklit edildi (D-113 yalnızca true/false tanımlar; üçüncü değer kullanıcı onayına sunulur);
+# false = ölçülemedi, alan boş.
+#
+# Ölçüm yöntemleri:
+#   openssl-3.0.13-host     WSL'deki `openssl s_client` 3.0.13, istemci tarafı odur (sunucunun seçimi ölçülür).
+#   jdk25-probe             gradle:9.8.0-jdk25 imajında JDK 25 varsayılanlarıyla çalışan bir TLS istemcisi
+#                           (`-Djavax.net.debug=ssl:handshake`); gateway ve payment de JDK 25 istemcisidir, ama ölçüm
+#                           servislerin kendi süreçlerinden değil, aynı sertifikayla ve aynı ağdan yapılan bir probdan gelir.
+#   openssl-3.5.5-emulated  aynı imajdaki `openssl s_client` 3.5.5 (field-device-sim'in Python 3.12.15 imajındaki
+#                           OpenSSL 3.5.7'sinin yerine: Python `ssl` modülü anahtar değişim grubunu göstermez). Python'un
+#                           kendi bağlantısından `TLSv1.3` ve `TLS_AES_256_GCM_SHA384` ayrıca gözlendi.
+#
+# Not (cihaz kenarı): OpenSSL 3.5 istemcisi Mosquitto'ya bağlanırken hibrit X25519MLKEM768 pazarlık eder; yalnızca
+# klasik gruplar sunulursa X25519 seçilir. JDK 25 istemcileri hibrit grup sunmaz. Sertifika ve imza yine RSA'dır.
+version: 1
+nodes:
+  - id: external-client
+    kind: external_client
+    description: Dışarıdan gelen kullanıcı veya tarayıcı; yalnızca gateway'e ulaşır.
+  - id: qbank-gateway
+    kind: gateway
+    host: qbank-gateway
+    port: 9443
+    published: 127.0.0.1:9443
+    networks: [qbank-net, quancrypt]
+  - id: qbank-account-service
+    kind: service
+    host: qbank-account-service
+    port: 9444
+    networks: [qbank-net]
+  - id: qbank-payment-service
+    kind: service
+    host: qbank-payment-service
+    port: 9445
+    networks: [qbank-net]
+  - id: mosquitto
+    kind: broker
+    host: mosquitto
+    port: 8883
+    networks: [qbank-net, qbank-device]
+  - id: terminal-001
+    kind: field_device
+    host: field-device-sim
+    description: Saha terminali simülatörü (PYNQ-Z2'de aynı kod çalışır).
+    networks: [qbank-device]
+edges:
+  - source: external-client
+    target: qbank-gateway
+    protocol: HTTPS
+    tls: true
+    mtls: false
+    crypto:
+      server_certificate: {file: certs/out/qbank-gateway.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: null
+      negotiated:
+        measured: true
+        measured_with: openssl-3.0.13-host
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_128_GCM_SHA256
+        key_exchange_group: X25519
+        handshake_signature: RSA-PSS (SHA-256)
+        notes: TLS 1.2 de kabul edilir (ECDHE-RSA-AES128-GCM-SHA256 ölçüldü); TLS 1.1 için sunucu ölçümü yapılamadı (istemci protokolü sunmadı).
+
+  - source: qbank-gateway
+    target: qbank-account-service
+    protocol: HTTPS
+    tls: true
+    mtls: true
+    crypto:
+      server_certificate: {file: certs/out/qbank-account-service.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: {file: certs/out/gateway-to-account.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      negotiated:
+        measured: true
+        measured_with: jdk25-probe
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_256_GCM_SHA384
+        key_exchange_group: x25519
+    notes: Rotalar /api/v1/auth/**, /api/v1/accounts/**, /.well-known/jwks.json.
+
+  - source: qbank-gateway
+    target: qbank-payment-service
+    protocol: HTTPS
+    tls: true
+    mtls: true
+    crypto:
+      server_certificate: {file: certs/out/qbank-payment-service.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: {file: certs/out/gateway-to-account.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      negotiated:
+        measured: true
+        measured_with: jdk25-probe
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_256_GCM_SHA384
+        key_exchange_group: x25519
+    notes: Rota /api/v1/payments/**. Gateway tek istemci kimliğiyle (gateway-to-account) bağlanır (D-109).
+
+  - source: qbank-payment-service
+    target: qbank-account-service
+    protocol: HTTPS
+    tls: true
+    mtls: true
+    crypto:
+      server_certificate: {file: certs/out/qbank-account-service.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: {file: certs/out/payment-to-account.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      negotiated:
+        measured: true
+        measured_with: jdk25-probe
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_256_GCM_SHA384
+        key_exchange_group: x25519
+    notes: Hesap doğrulama (kullanıcının JWT'si iletilir) ve JWKS indirmesi.
+
+  - source: qbank-payment-service
+    target: mosquitto
+    protocol: MQTT 3.1.1 over TLS
+    tls: true
+    mtls: true
+    crypto:
+      server_certificate: {file: certs/out/mosquitto.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: {file: certs/out/payment-to-mosquitto.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      negotiated:
+        measured: true
+        measured_with: jdk25-probe
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_256_GCM_SHA384
+        key_exchange_group: x25519
+        notes: Mosquitto sunucusu X25519MLKEM768'i duyurur (supported_groups), JDK 25 istemcisi sunmadığı için x25519 seçilir.
+    notes: Abone, konu terminal/+/transactions, QoS 1; ACL ile yalnızca bu kimlik okur.
+
+  - source: terminal-001
+    target: mosquitto
+    protocol: MQTT 3.1.1 over TLS
+    tls: true
+    mtls: true
+    crypto:
+      server_certificate: {file: certs/out/mosquitto.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      client_certificate: {file: certs/out/terminal-001.crt.pem, algorithm: RSA, key_size_bits: 2048, signature: SHA256withRSA}
+      negotiated:
+        measured: emulated
+        measured_with: openssl-3.5.5-emulated
+        tls_version: TLSv1.3
+        cipher_suite: TLS_AES_256_GCM_SHA384
+        key_exchange_group: X25519MLKEM768
+        notes: Yalnızca klasik gruplar sunulduğunda (-groups X25519:P-256) X25519 seçilir. Sertifika ve imza RSA'dır.
+    notes: Yayıncı, konu terminal/terminal-001/transactions, QoS 1; ACL yalnızca kendi konusuna yazmasına izin verir.

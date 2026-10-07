@@ -36,11 +36,121 @@ services:
       retries: 20
       start_period: 15s
 
+  # ---- `demo` profili: QBank referans sistemi (D-29, P1.4) ----
+  # Ağlar (D-122): `qbank-net` (internal) gateway, hesap, ödeme ve Mosquitto'yu taşır; `qbank-device` (internal) yalnızca
+  # Mosquitto ve saha cihazını taşır. Cihaz hesap ve ödeme servisine ağdan ulaşamaz, yalnızca broker'a ulaşır. Yalnızca
+  # `qbank-gateway` ayrıca `quancrypt` ağına bağlıdır ve 127.0.0.1:9443'te yayımlanır. Sertifika ve anahtarlar yalnızca gereken dosyalar tek tek salt okunur bağlanır
+  # (D-115); `ca.key.pem` ve `card-token.key.pem` hiçbir konteynere girmez. Sağlık kontrolleri imajların
+  # HEALTHCHECK'inden gelir (Mosquitto hariç).
+  qbank-account-service:
+    profiles: [demo]
+    build:
+      context: ./reference-system/qbank-account-service
+    image: qbank-account-service:1.0.0
+    networks:
+      - qbank-net
+    volumes:
+      - ./reference-system/certs/out/ca.crt.pem:/certs/ca.crt.pem:ro
+      - ./reference-system/certs/out/qbank-account-service.crt.pem:/certs/qbank-account-service.crt.pem:ro
+      - ./reference-system/certs/out/qbank-account-service.key.pem:/certs/qbank-account-service.key.pem:ro
+      - ./reference-system/certs/out/jwt-signing.key.pem:/certs/jwt-signing.key.pem:ro
+      - ./reference-system/certs/out/jwt-signing.pub.pem:/certs/jwt-signing.pub.pem:ro
+
+  qbank-payment-service:
+    profiles: [demo]
+    build:
+      context: ./reference-system
+      dockerfile: qbank-payment-service/Dockerfile
+    image: qbank-payment-service:1.0.0
+    networks:
+      - qbank-net
+    volumes:
+      - ./reference-system/certs/out/ca.crt.pem:/certs/ca.crt.pem:ro
+      - ./reference-system/certs/out/qbank-payment-service.crt.pem:/certs/qbank-payment-service.crt.pem:ro
+      - ./reference-system/certs/out/qbank-payment-service.key.pem:/certs/qbank-payment-service.key.pem:ro
+      - ./reference-system/certs/out/payment-to-account.crt.pem:/certs/payment-to-account.crt.pem:ro
+      - ./reference-system/certs/out/payment-to-account.key.pem:/certs/payment-to-account.key.pem:ro
+      - ./reference-system/certs/out/payment-to-mosquitto.crt.pem:/certs/payment-to-mosquitto.crt.pem:ro
+      - ./reference-system/certs/out/payment-to-mosquitto.key.pem:/certs/payment-to-mosquitto.key.pem:ro
+      - ./reference-system/certs/out/card-token.pub.pem:/certs/card-token.pub.pem:ro
+      - ./reference-system/certs/out/receipt-signing.pub.pem:/certs/receipt-signing.pub.pem:ro
+      - ./reference-system/certs/out/receipt-signing.key.pem:/certs/receipt-signing.key.pem:ro
+    depends_on:
+      qbank-account-service:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+
+  mosquitto:
+    profiles: [demo]
+    image: eclipse-mosquitto:2.0.22
+    networks:
+      - qbank-net
+      - qbank-device
+    volumes:
+      - ./reference-system/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./reference-system/mosquitto/acl:/mosquitto/config/acl:ro
+      - ./reference-system/certs/out/ca.crt.pem:/mosquitto/certs/ca.crt.pem:ro
+      - ./reference-system/certs/out/mosquitto.crt.pem:/mosquitto/certs/mosquitto.crt.pem:ro
+      - ./reference-system/certs/out/mosquitto.key.pem:/mosquitto/certs/mosquitto.key.pem:ro
+    # Persistence is off (mosquitto.conf has none) and logs go to stdout: tmpfs keeps the image's VOLUME paths from
+    # leaving anonymous volumes behind on every recreate.
+    tmpfs:
+      - /mosquitto/data
+      - /mosquitto/log
+    healthcheck:
+      # Dinleme kontrolü: broker istemci sertifikası zorunlu kıldığından konteyner içinden bir MQTT istemcisi açılmaz.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8883"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  qbank-gateway:
+    profiles: [demo]
+    build:
+      context: ./reference-system/qbank-gateway
+    image: qbank-gateway:1.0.0
+    networks:
+      - qbank-net
+      - quancrypt
+    ports:
+      - "127.0.0.1:9443:9443"
+    volumes:
+      - ./reference-system/certs/out/ca.crt.pem:/certs/ca.crt.pem:ro
+      - ./reference-system/certs/out/qbank-gateway.crt.pem:/certs/qbank-gateway.crt.pem:ro
+      - ./reference-system/certs/out/qbank-gateway.key.pem:/certs/qbank-gateway.key.pem:ro
+      - ./reference-system/certs/out/gateway-to-account.crt.pem:/certs/gateway-to-account.crt.pem:ro
+      - ./reference-system/certs/out/gateway-to-account.key.pem:/certs/gateway-to-account.key.pem:ro
+    depends_on:
+      qbank-account-service:
+        condition: service_healthy
+      qbank-payment-service:
+        condition: service_healthy
+
+  field-device-sim:
+    profiles: [demo]
+    build:
+      context: ./reference-system/field-device-sim
+    image: field-device-sim:1.0.0
+    networks:
+      - qbank-device
+    volumes:
+      - ./reference-system/certs/out/ca.crt.pem:/certs/ca.crt.pem:ro
+      - ./reference-system/certs/out/terminal-001.crt.pem:/certs/terminal-001.crt.pem:ro
+      - ./reference-system/certs/out/terminal-001.key.pem:/certs/terminal-001.key.pem:ro
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+
 networks:
   # Uygulama ve veri servisleri.
   quancrypt: {}
-  # Demo sistemi (QBank): dış ağa çıkamaz. İlgili alt fazda servisler bağlanır.
+  # Demo sistemi (QBank): dış ağa çıkamaz. Yalnızca qbank-gateway ayrıca `quancrypt` ağına bağlıdır (P1.4).
   qbank-net:
+    internal: true
+  # Saha cihazı ağı (P1.4, D-122): yalnızca Mosquitto ve field-device-sim. Dış ağa çıkamaz.
+  qbank-device:
     internal: true
 
 volumes:

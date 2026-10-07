@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: qbank-gateway
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  ssl:
+    bundle:
+      pem:
+        # Server identity towards external clients. The gateway asks for no client certificate.
+        gateway:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/qbank-gateway.crt.pem"
+            private-key: "file:${qbank.certs-dir}/qbank-gateway.key.pem"
+        # Client identity towards the account and payment services (mutual TLS). One identity serves both back ends
+        # because the HttpClient SSL setting is global (D-109).
+        backend:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/gateway-to-account.crt.pem"
+            private-key: "file:${qbank.certs-dir}/gateway-to-account.key.pem"
+          truststore:
+            certificate: "file:${qbank.certs-dir}/ca.crt.pem"
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 10s
+            ssl:
+              ssl-bundle: backend
+          routes:
+            - id: account
+              uri: ${qbank.backends.account-url}
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/accounts/**,/.well-known/jwks.json
+            - id: payment
+              uri: ${qbank.backends.payment-url}
+              predicates:
+                - Path=/api/v1/payments/**
+
+server:
+  port: ${SERVER_PORT:9443}
+  shutdown: graceful
+  ssl:
+    bundle: gateway
+    client-auth: none
+
+# Health endpoints live on a separate plain-HTTP management port that is bound to loopback inside the
+# container and is never published (same as the account and payment services).
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9543}
+    address: 127.0.0.1
+    ssl:
+      enabled: false
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: com.quancrypt.qbank.gateway.infrastructure.observability.JsonLogFormatter
+
+# Defaults are for local development only; every value is overridden by environment variables in the image.
+qbank:
+  certs-dir: ${QBANK_CERTS_DIR:../certs/out}
+  backends:
+    account-url: ${ACCOUNT_SERVICE_URL:https://localhost:9444}
+    payment-url: ${PAYMENT_SERVICE_URL:https://localhost:9445}

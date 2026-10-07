@@ -1,0 +1,463 @@
+# QBank beklenen kripto envanteri (P1.4, D-112) — Quancrypt analizci testlerinin altın verisi.
+#
+# DURUM: kullanıcı onayı BEKLİYOR. Onaylanana kadar Faz 3 testlerinde kullanılmaz; onay DECISIONS.md'ye yazılır.
+#
+# Kapsam ve kurallar:
+#   * `file` yolları `reference-system/` köküne göre yazılır. `certs/out/` üretilmiş dosyalardır (git'te yoktur);
+#     `bash certs/generate.sh` onları üretir. Satır numarası yazılmaz, kod değiştikçe kırılmasın.
+#   * `symbol`: koddaki kayıtlar için sınıf#metot, yapılandırmadaki kayıtlar için yapılandırma anahtarı,
+#     sertifika ve anahtar dosyaları için dosya adı. Kodlar `crypto-domain` skill'indendir.
+#   * Yalnızca kuantum açısından anlamlı kullanımlar yazılır (RSA, RS256 JWT, SHA1withRSA, TLS/mTLS sertifikaları
+#     ve anahtar dosyaları). Kayıt DIŞI: SHA-256 (JWK thumbprint `JwkThumbprint`, istek parmak izi
+#     `RequestFingerprint`) ve BCrypt (parola özeti, `BcryptPasswordVerifier`) kuantum açısından bulgu değildir;
+#     anahtar yükleyiciler (`PemKeyLoader`, `KeyFactory.getInstance("RSA")`) yalnızca anahtar nesnesini kurar,
+#     kullanım bağlamı onu çağıran imza/şifreleme/TLS kayıtlarındadır; `certs/generate.sh` anahtarları ve
+#     sertifikaları üretir, kullanmaz (ürettiği dosyalar aşağıda kayıtlıdır); test kodu (`TEST_CODE`) kapsam dışıdır;
+#     `terminal-transaction.schema.json` ve OpenAPI kontratları kripto içermez.
+#   * Modelleme kuralı (crypto-domain öncelik tablosuna sıkı bağlı, D-112):
+#       - TLS bağlantısının kendisi (sunucu `server.ssl.bundle`, istemci kodu ve adresi `https://`/`ssl://`):
+#         usage_context TLS_KEY_EXCHANGE, P1 HYBRID_TLS_KEX (cihaz bağlantıları DEVICE_HYBRID_TLS).
+#       - mTLS kimlik doğrulaması (`client-auth`, `require_certificate`, istemci kimliği taşıyan SSL bundle'ları):
+#         usage_context MTLS_CLIENT_AUTH, P3 HYBRID_KEX_CLASSIC_CERT. Sunucu SSL bundle'ları ve sertifika
+#         dosyaları: usage_context CERTIFICATE, P3 HYBRID_KEX_CLASSIC_CERT.
+#       - TLS kayıtlarında `algorithm_family` sertifikanın anahtar ailesidir (RSA-2048). Pazarlık edilen TLS sürümü
+#         ve anahtar değişim grubu (x25519, cihaz kenarında X25519MLKEM768) topology.yaml'da ölçülmüş olarak yazılıdır.
+#   * Çıplak anahtar PEM'leri (`*.key.pem`, `*.pub.pem`) `location_kind: CERTIFICATE_FILE` ile yazılır (D-112).
+#     Özel anahtar dosyalarının içeriği okunmaz; bu kayıtlar dosya adı ve başlığına dayanır (D-72).
+#   * Öncelik ve strateji kodları: P0 FIX_WEAK_CLASSIC; P1 HYBRID_TLS_KEX, KEM_DEM_ENCRYPTION, DEVICE_HYBRID_TLS;
+#     P3 KEEP_SHORT_LIVED_TOKEN, HYBRID_KEX_CLASSIC_CERT.
+#   * Bilerek zayıf olanlar: receipt-signing RSA-1024 ve SHA1withRSA (P0), bkz. reference-system/README.md.
+version: 1
+root: reference-system
+entries:
+  # KOD: JWT imzalama ve doğrulama, JWKS yayını, kart şifreleme, makbuz imzası, TLS istemcileri
+  - file: qbank-account-service/src/main/java/com/quancrypt/qbank/account/infrastructure/security/NimbusTokenIssuer.java
+    symbol: NimbusTokenIssuer#issue
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: qbank-account-service/src/main/java/com/quancrypt/qbank/account/infrastructure/security/AccessTokenFilter.java
+    symbol: AccessTokenFilter#AccessTokenFilter
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: qbank-account-service/src/main/java/com/quancrypt/qbank/account/facade/JwksFacade.java
+    symbol: JwksFacade#toView
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/RsaOaepCardTokenizer.java
+    symbol: RsaOaepCardTokenizer#tokenize
+    algorithm_family: RSA
+    usage_context: ENCRYPTION
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P1
+    strategy: KEM_DEM_ENCRYPTION
+  # SHA1withRSA iki ayrı zayıflıktır: SHA-1 özeti ve RSA-1024 anahtarı
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/Sha1WithRsaReceiptSigner.java
+    symbol: Sha1WithRsaReceiptSigner#sign
+    algorithm_family: SHA1
+    usage_context: SIGNATURE
+    key_size_bits: null
+    location_kind: CODE
+    priority: P0
+    strategy: FIX_WEAK_CLASSIC
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/Sha1WithRsaReceiptSigner.java
+    symbol: Sha1WithRsaReceiptSigner#sign
+    algorithm_family: RSA
+    usage_context: SIGNATURE
+    key_size_bits: 1024
+    location_kind: CODE
+    priority: P0
+    strategy: FIX_WEAK_CLASSIC
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/AccountClientConfig.java
+    symbol: AccountClientConfig#accountDirectory
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/AccountClientConfig.java
+    symbol: AccountClientConfig#jwksOverMutualTls
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/MqttConfig.java
+    symbol: MqttConfig#mqttSubscriptionLifecycle
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: field-device-sim/src/field_device_sim/infrastructure/paho_message_publisher.py
+    symbol: PahoMessagePublisher#__init__
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CODE
+    priority: P1
+    strategy: DEVICE_HYBRID_TLS
+  # YAPILANDIRMA: servislerin TLS sunucusu ve mTLS
+  - file: qbank-account-service/src/main/resources/application.yml
+    symbol: server.ssl.bundle
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: server.ssl.bundle
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: server.ssl.bundle
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-account-service/src/main/resources/application.yml
+    symbol: server.ssl.client-auth
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: server.ssl.client-auth
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-account-service/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.account
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.payment
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.accountclient
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.mqttclient
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: spring.security.oauth2.resourceserver.jwt.jws-algorithms
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: qbank.account-service-url
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-payment-service/src/main/resources/application.yml
+    symbol: qbank.mqtt.broker-url
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.gateway
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: spring.ssl.bundle.pem.backend
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: spring.cloud.gateway.server.webflux.httpclient.ssl.ssl-bundle
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: qbank.backends.account-url
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  - file: qbank-gateway/src/main/resources/application.yml
+    symbol: qbank.backends.payment-url
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: HYBRID_TLS_KEX
+  # YAPILANDIRMA: MQTT broker (saha cihazı bağlantıları)
+  - file: mosquitto/mosquitto.conf
+    symbol: certfile
+    algorithm_family: RSA
+    usage_context: TLS_KEY_EXCHANGE
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P1
+    strategy: DEVICE_HYBRID_TLS
+  - file: mosquitto/mosquitto.conf
+    symbol: require_certificate
+    algorithm_family: RSA
+    usage_context: MTLS_CLIENT_AUTH
+    key_size_bits: 2048
+    location_kind: CONFIG
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  # SERTİFİKALAR (RSA-2048, SHA-256 imzalı, 825 gün)
+  - file: certs/out/ca.crt.pem
+    symbol: ca.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-gateway.crt.pem
+    symbol: qbank-gateway.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-account-service.crt.pem
+    symbol: qbank-account-service.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-payment-service.crt.pem
+    symbol: qbank-payment-service.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/mosquitto.crt.pem
+    symbol: mosquitto.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/gateway-to-account.crt.pem
+    symbol: gateway-to-account.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/payment-to-account.crt.pem
+    symbol: payment-to-account.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/payment-to-mosquitto.crt.pem
+    symbol: payment-to-mosquitto.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/terminal-001.crt.pem
+    symbol: terminal-001.crt.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  # ÇIPLAK ANAHTAR DOSYALARI (içerik okunmaz, D-72)
+  - file: certs/out/ca.key.pem
+    symbol: ca.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-gateway.key.pem
+    symbol: qbank-gateway.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-account-service.key.pem
+    symbol: qbank-account-service.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/qbank-payment-service.key.pem
+    symbol: qbank-payment-service.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/mosquitto.key.pem
+    symbol: mosquitto.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/gateway-to-account.key.pem
+    symbol: gateway-to-account.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/payment-to-account.key.pem
+    symbol: payment-to-account.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/payment-to-mosquitto.key.pem
+    symbol: payment-to-mosquitto.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/terminal-001.key.pem
+    symbol: terminal-001.key.pem
+    algorithm_family: RSA
+    usage_context: CERTIFICATE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: HYBRID_KEX_CLASSIC_CERT
+  - file: certs/out/jwt-signing.key.pem
+    symbol: jwt-signing.key.pem
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: certs/out/jwt-signing.pub.pem
+    symbol: jwt-signing.pub.pem
+    algorithm_family: RSA
+    usage_context: TOKEN_SIGNATURE
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P3
+    strategy: KEEP_SHORT_LIVED_TOKEN
+  - file: certs/out/card-token.key.pem
+    symbol: card-token.key.pem
+    algorithm_family: RSA
+    usage_context: ENCRYPTION
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P1
+    strategy: KEM_DEM_ENCRYPTION
+  - file: certs/out/card-token.pub.pem
+    symbol: card-token.pub.pem
+    algorithm_family: RSA
+    usage_context: ENCRYPTION
+    key_size_bits: 2048
+    location_kind: CERTIFICATE_FILE
+    priority: P1
+    strategy: KEM_DEM_ENCRYPTION
+  # RSA-1024, bilerek zayıf (makbuz imzası)
+  - file: certs/out/receipt-signing.key.pem
+    symbol: receipt-signing.key.pem
+    algorithm_family: RSA
+    usage_context: SIGNATURE
+    key_size_bits: 1024
+    location_kind: CERTIFICATE_FILE
+    priority: P0
+    strategy: FIX_WEAK_CLASSIC
+  - file: certs/out/receipt-signing.pub.pem
+    symbol: receipt-signing.pub.pem
+    algorithm_family: RSA
+    usage_context: SIGNATURE
+    key_size_bits: 1024
+    location_kind: CERTIFICATE_FILE
+    priority: P0
+    strategy: FIX_WEAK_CLASSIC

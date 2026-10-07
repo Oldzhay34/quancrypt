@@ -1,0 +1,8 @@
+# User names are the common names of the client certificates (use_identity_as_username true).
+#
+# Every client may publish only below its own terminal topic: terminal-001 writes terminal/terminal-001/transactions.
+pattern write terminal/%u/transactions
+
+# The payment service reads the transactions of all terminals; no terminal can read anything.
+user payment-to-mosquitto
+topic read terminal/+/transactions

@@ -2,14 +2,16 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # Her birinin altında Makefile'ı olan dizinler doğrulanır (docker-local skill'i, bölüm 3).
-VERIFY_DIRS := $(wildcard services/*) $(wildcard apps/*) data-platform ml
+VERIFY_DIRS := $(wildcard services/*) $(wildcard apps/*) data-platform ml \
+  reference-system/qbank-account-service reference-system/qbank-payment-service \
+  reference-system/qbank-gateway reference-system/field-device-sim
 
 # Ek profiller: make up PROFILES="app data". `postgres` profilsizdir, her zaman kalkar (D-53).
 PROFILES ?=
 ENV_FILE ?= .env
 COMPOSE := docker compose --env-file "$(ENV_FILE)" $(foreach p,$(PROFILES),--profile $(p))
 
-.PHONY: help up down ps logs db-reset verify-all check-env
+.PHONY: help up down ps logs db-reset verify-all check-env demo-smoke
 
 help: ## Hedefleri listeler
 	@echo "Quancrypt kök Makefile"
@@ -58,3 +60,8 @@ verify-all: ## Her servisin `make verify` hedefini sırayla çalıştırır ve �
 	if [ "$$found" -eq 0 ]; then echo "henüz doğrulanacak servis yok"; exit 0; fi; \
 	echo; echo "Özet"; printf "$$summary"; \
 	exit $$failed
+
+# QBank demo profilinin uçtan uca kontrolü (P1.4): login, ödeme, makbuz imzası ve saha cihazı işlemi.
+# Önce `make up PROFILES=demo` ile demo profili kalkmış olmalıdır.
+demo-smoke: ## QBank demo'yu uçtan uca doğrular (önce: make up PROFILES=demo)
+	@ENV_FILE="$(ENV_FILE)" bash reference-system/demo-smoke.sh

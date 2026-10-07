@@ -84,4 +84,4 @@ docker run --rm -p 127.0.0.1:9444:9444 \
   qbank-account-service:1.0.0
 ```
 
-**Doğrulanmadı:** Docker imajı bu fazda çekilmediği için `docker build`, `HEALTHCHECK` (`curl`'ün çalışma imajında bulunduğu varsayımı) ve yukarıdaki çalıştırma komutu denenmemiştir. Compose girişi P1.4'tedir.
+**Doğrulandı (P1.4, compose `demo` profili):** `docker build`, `USER 10001` ile sertifika ve anahtar okuma ve `HEALTHCHECK`. `eclipse-temurin` JRE imajında `curl` ve `wget` yoktur; sağlık kontrolü `bash`'in `/dev/tcp`'si ile `GET /health/liveness` ister (D-120).

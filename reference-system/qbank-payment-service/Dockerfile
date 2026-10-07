@@ -27,8 +27,9 @@ USER 10001
 EXPOSE 9445
 
 # Health lives on the plain-HTTP management port, bound to loopback inside the container and never published.
+# The JRE image has neither curl nor wget, so bash's /dev/tcp asks for /health/liveness (D-120).
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
-    CMD curl -fsS "http://127.0.0.1:${MANAGEMENT_SERVER_PORT}/health/liveness" || exit 1
+    CMD ["bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/${MANAGEMENT_SERVER_PORT} && printf 'GET /health/liveness HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200 '"]
 
 # Exec form: the JVM is PID 1 and receives SIGTERM, which triggers the graceful shutdown (30 s).
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -1,0 +1,7 @@
+# Development and verification tools; versions come from docs/VERSIONS.md.
+-r requirements.in
+pytest==9.1.1
+ruff==0.16.10
+mypy==2.4.0
+import-linter==2.15
+coverage==7.16.2

@@ -20,7 +20,7 @@ OUT_DIR="$SCRIPT_DIR/out"
 # Sunucu sertifikaları: SAN olarak servis adı ve localhost taşır.
 SERVERS=(qbank-gateway qbank-account-service qbank-payment-service mosquitto)
 # mTLS istemci ve cihaz sertifikaları: SAN yok (promptta istenmedi).
-CLIENTS=(gateway-to-account gateway-to-payment payment-to-account payment-to-mosquitto terminal-001)
+CLIENTS=(gateway-to-account payment-to-account payment-to-mosquitto terminal-001)
 # Yalnızca anahtar çifti (sertifika yok, D-72): ad:bit
 KEYPAIRS=(jwt-signing:2048 card-token:2048 receipt-signing:1024)
 

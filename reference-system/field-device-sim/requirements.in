@@ -1,0 +1,3 @@
+# Runtime dependencies (D-28: compiled to requirements.txt with `uv pip compile`).
+# The only runtime dependency of the field device simulator is paho-mqtt (PYNQ-Z2 compatibility, P1.4).
+paho-mqtt==2.1.0

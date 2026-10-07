@@ -32,7 +32,6 @@ abstract class ServiceIntegrationTest {
         registry.add("qbank.certs-dir", dir::toString);
         registry.add("management.server.port", () -> "0");
         registerClientBundle(registry, "gwaccount", dir, "gateway-to-account");
-        registerClientBundle(registry, "gwpayment", dir, "gateway-to-payment");
         registerClientBundle(registry, "payaccount", dir, "payment-to-account");
         // A server certificate (serverAuth only) presented as a client certificate.
         registerClientBundle(registry, "servercert", dir, "qbank-gateway");

@@ -24,8 +24,7 @@ Aşağıdaki kullanım, QBank'in tasarımına göre amaçlanan kullanımdır; se
 | `qbank-account-service.crt.pem`, `.key.pem` | Sunucu sertifikası (SAN: `qbank-account-service`, `localhost`) | `qbank-account-service` | Hesap servisinin TLS sunucu kimliği |
 | `qbank-payment-service.crt.pem`, `.key.pem` | Sunucu sertifikası (SAN: `qbank-payment-service`, `localhost`) | `qbank-payment-service` | Ödeme servisinin TLS sunucu kimliği |
 | `mosquitto.crt.pem`, `mosquitto.key.pem` | Sunucu sertifikası (SAN: `mosquitto`, `localhost`) | `mosquitto` | MQTT broker'ının TLS sunucu kimliği |
-| `gateway-to-account.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-gateway` | Gateway → hesap servisi bağlantısında istemci kimliği |
-| `gateway-to-payment.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-gateway` | Gateway → ödeme servisi bağlantısında istemci kimliği |
+| `gateway-to-account.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-gateway` | Gateway'in arka uçlara (hesap ve ödeme servisi) bağlanırken tek istemci kimliği: Spring Cloud Gateway'in HttpClient SSL ayarı global olduğundan iki arka uç için ayrı sertifika verilemez (D-109) |
 | `payment-to-account.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-payment-service` | Ödeme → hesap servisi bağlantısında istemci kimliği |
 | `payment-to-mosquitto.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-payment-service` | Ödeme servisinin MQTT broker'ına (`mosquitto`) bağlanırken istemci kimliği (D-99) |
 | `terminal-001.crt.pem`, `terminal-001.key.pem` | Cihaz istemci sertifikası | `field-device-sim` | Saha terminalinin MQTT bağlantısında istemci kimliği |

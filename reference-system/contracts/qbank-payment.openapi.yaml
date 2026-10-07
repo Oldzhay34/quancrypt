@@ -1,0 +1,313 @@
+openapi: 3.1.0
+info:
+  title: QBank Payment Service
+  version: 1.0.0
+  description: >
+    Contract of the QBank payment service (reference system, intentionally built on RSA).
+    The service accepts a card number, stores only its RSA-OAEP protected token, and issues
+    receipts signed with an intentionally weak RSA-1024 key. Only test card numbers are used.
+    Every endpoint requires a Bearer JWT (RS256) issued by the account service. Errors use RFC 9457
+    problem details.
+tags:
+  - name: payments
+    description: Payments
+  - name: receipts
+    description: Signed receipts
+paths:
+  /api/v1/payments:
+    post:
+      tags: [payments]
+      operationId: createPayment
+      summary: Create a payment
+      description: >
+        Accepts a test card number. The card number is never returned; only its token is stored.
+        Repeating the request with the same Idempotency-Key and body returns the original result.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201':
+          description: The payment was created
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+  /api/v1/payments/{paymentId}:
+    get:
+      tags: [payments]
+      operationId: getPayment
+      summary: Get a payment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: The payment
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/payments/{paymentId}/receipt:
+    post:
+      tags: [receipts]
+      operationId: issueReceipt
+      summary: Issue a signed receipt for a payment
+      description: >
+        Signs the receipt with the receipt-signing key pair (RSA-1024, intentionally weak).
+        Which serialization of the receipt object is signed is defined by the service implementation (P1.3).
+        Repeating the request with the same Idempotency-Key returns the original result.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: The signed receipt
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedReceipt'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 signed JWT issued by the account service (POST /api/v1/auth/login).
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: Correlation id. The service generates one when absent and returns it in the response.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Client generated key; a repeated request with the same key returns the same result.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  headers:
+    TraceId:
+      description: Correlation id of the request.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request is malformed or fails validation
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            validation:
+              value:
+                type: https://quancrypt.local/problems/validation-failed
+                title: Validation failed
+                status: 400
+    Unauthorized:
+      description: Missing, invalid or expired Bearer JWT
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unauthorized:
+              value:
+                type: https://quancrypt.local/problems/unauthorized
+                title: Unauthorized
+                status: 401
+    NotFound:
+      description: The resource does not exist
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            notFound:
+              value:
+                type: https://quancrypt.local/problems/not-found
+                title: Not found
+                status: 404
+    IdempotencyConflict:
+      description: The Idempotency-Key was already used with a different request
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            conflict:
+              value:
+                type: https://quancrypt.local/problems/idempotency-conflict
+                title: Idempotency key reused
+                status: 409
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: 'https://quancrypt.local/problems/<code>'
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      additionalProperties: true
+    AccountId:
+      type: string
+      minLength: 1
+      maxLength: 64
+    Money:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{2}$'
+      description: Decimal amount with exactly two fractional digits.
+      examples: ['12.50']
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      description: ISO 4217 alphabetic currency code.
+      examples: ['TRY']
+    PaymentRequest:
+      type: object
+      required: [accountId, amount, currency, cardNumber]
+      properties:
+        accountId:
+          $ref: '#/components/schemas/AccountId'
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        cardNumber:
+          type: string
+          pattern: '^[0-9]{13,19}$'
+          writeOnly: true
+          description: Test card number only. Real card data must never be used.
+      additionalProperties: false
+    Payment:
+      type: object
+      description: A payment. Neither the card number nor its token is part of the response.
+      required: [paymentId, accountId, amount, currency, createdAt]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        accountId:
+          $ref: '#/components/schemas/AccountId'
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    Receipt:
+      type: object
+      required: [paymentId, accountId, amount, currency, issuedAt]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        accountId:
+          $ref: '#/components/schemas/AccountId'
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        issuedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    SignedReceipt:
+      type: object
+      required: [paymentId, receipt, signature, algorithm, keyId]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        signature:
+          type: string
+          contentEncoding: base64
+          description: Signature over the receipt, base64 encoded.
+        algorithm:
+          type: string
+          enum: [SHA256withRSA]
+        keyId:
+          type: string
+          minLength: 1
+          description: Identifier of the signing key (receipt-signing key pair).
+      additionalProperties: false

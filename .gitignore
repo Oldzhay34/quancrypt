@@ -24,6 +24,8 @@ node_modules/
 *.p12
 *.jks
 *.key
+*.key.pem
+*-key.pem
 reference-system/certs/out/
 
 # Claude Code kiti ve tasarım dokümanları (yalnızca kod commit'lenir)

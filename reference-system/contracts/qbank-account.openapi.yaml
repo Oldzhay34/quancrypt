@@ -1,0 +1,271 @@
+openapi: 3.1.0
+info:
+  title: QBank Account Service
+  version: 1.0.0
+  description: >
+    Contract of the QBank account service (reference system, intentionally built on RSA).
+    The service authenticates users and issues RS256 signed JWTs, publishes the matching public key
+    as a JWKS document, and serves account data. Errors use RFC 9457 problem details.
+tags:
+  - name: auth
+    description: Authentication and token verification keys
+  - name: accounts
+    description: Account data
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Authenticate a user and obtain a JWT
+      description: Returns an RS256 signed JWT (signed with the jwt-signing key pair).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication succeeded
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /.well-known/jwks.json:
+    get:
+      tags: [auth]
+      operationId: getJwks
+      summary: JSON Web Key Set used to verify issued JWTs
+      description: Public key(s) matching the jwt-signing key pair (RFC 7517).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+      responses:
+        '200':
+          description: JSON Web Key Set
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Jwks'
+  /api/v1/accounts/{accountId}:
+    get:
+      tags: [accounts]
+      operationId: getAccount
+      summary: Get an account
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceId'
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AccountId'
+      responses:
+        '200':
+          description: The account
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 signed JWT issued by POST /api/v1/auth/login.
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: Correlation id. The service generates one when absent and returns it in the response.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+  headers:
+    TraceId:
+      description: Correlation id of the request.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: The request is malformed or fails validation
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            validation:
+              value:
+                type: https://quancrypt.local/problems/validation-failed
+                title: Validation failed
+                status: 400
+    Unauthorized:
+      description: Missing, invalid or expired credentials
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unauthorized:
+              value:
+                type: https://quancrypt.local/problems/unauthorized
+                title: Unauthorized
+                status: 401
+    NotFound:
+      description: The resource does not exist
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            notFound:
+              value:
+                type: https://quancrypt.local/problems/not-found
+                title: Not found
+                status: 404
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: 'https://quancrypt.local/problems/<code>'
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      additionalProperties: true
+    AccountId:
+      type: string
+      minLength: 1
+      maxLength: 64
+    Money:
+      type: string
+      pattern: '^[0-9]+\.[0-9]{2}$'
+      description: Decimal amount with exactly two fractional digits.
+      examples: ['12.50']
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      description: ISO 4217 alphabetic currency code.
+      examples: ['TRY']
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+          writeOnly: true
+      additionalProperties: false
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: RS256 signed JWT.
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: Token lifetime in seconds.
+      additionalProperties: false
+    Jwk:
+      type: object
+      description: RSA public key in JWK form (RFC 7517).
+      required: [kty, use, alg, kid, 'n', e]
+      properties:
+        kty:
+          type: string
+          enum: [RSA]
+        use:
+          type: string
+          enum: [sig]
+        alg:
+          type: string
+          enum: [RS256]
+        kid:
+          type: string
+          minLength: 1
+        'n':
+          type: string
+          description: Modulus, base64url encoded.
+        e:
+          type: string
+          description: Public exponent, base64url encoded.
+      additionalProperties: false
+    Jwks:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Jwk'
+      additionalProperties: false
+    Account:
+      type: object
+      required: [accountId, ownerName, currency, balance]
+      properties:
+        accountId:
+          $ref: '#/components/schemas/AccountId'
+        ownerName:
+          type: string
+          minLength: 1
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        balance:
+          $ref: '#/components/schemas/Money'
+      additionalProperties: false

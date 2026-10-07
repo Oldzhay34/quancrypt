@@ -1,0 +1,10 @@
+build
+.gradle
+.idea
+out
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.jks

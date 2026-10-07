@@ -1,0 +1,29 @@
+# Build: Gradle with JDK 25; run: JRE 25 (tags from docs/VERSIONS.md).
+FROM gradle:9.8.0-jdk25 AS build
+USER root
+WORKDIR /workspace
+COPY settings.gradle.kts build.gradle.kts ./
+COPY config config
+COPY src src
+RUN gradle --no-daemon bootJar
+
+FROM eclipse-temurin:25.0.4.1_1-jre
+WORKDIR /app
+COPY --from=build /workspace/build/libs/qbank-account-service.jar /app/app.jar
+
+# Configuration comes from the environment only. Certificates, keys and secrets are never part of the image:
+# mount reference-system/certs/out read-only at /certs when the container runs.
+ENV QBANK_CERTS_DIR=/certs \
+    SERVER_PORT=9444 \
+    MANAGEMENT_SERVER_PORT=9544 \
+    QBANK_JWT_TTL_SECONDS=900
+
+USER 10001
+EXPOSE 9444
+
+# Health lives on the plain-HTTP management port, bound to loopback inside the container and never published.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
+    CMD curl -fsS http://127.0.0.1:9544/health/liveness || exit 1
+
+# Exec form: the JVM is PID 1 and receives SIGTERM, which triggers the graceful shutdown (30 s).
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

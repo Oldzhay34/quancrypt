@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: qbank-account-service
+  main:
+    banner-mode: "off"
+  config:
+    import: classpath:demo-data.yaml
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  jackson:
+    deserialization:
+      # The contract declares additionalProperties: false for request bodies.
+      fail-on-unknown-properties: true
+  ssl:
+    bundle:
+      pem:
+        account:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/qbank-account-service.crt.pem"
+            private-key: "file:${qbank.certs-dir}/qbank-account-service.key.pem"
+          truststore:
+            certificate: "file:${qbank.certs-dir}/ca.crt.pem"
+
+server:
+  port: ${SERVER_PORT:9444}
+  shutdown: graceful
+  ssl:
+    bundle: account
+    client-auth: need
+
+# Health endpoints live on a separate plain-HTTP management port that is bound to loopback inside the
+# container and is never published; the main port stays mutual TLS on every endpoint (D-80, D-88).
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9544}
+    address: 127.0.0.1
+    ssl:
+      enabled: false
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: com.quancrypt.qbank.account.infrastructure.observability.JsonLogFormatter
+
+# Defaults are for local development only; every value is overridden by environment variables in the image.
+qbank:
+  certs-dir: ${QBANK_CERTS_DIR:../certs/out}
+  jwt:
+    ttl-seconds: ${QBANK_JWT_TTL_SECONDS:900}

@@ -84,8 +84,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 components:
@@ -141,6 +145,21 @@ components:
                 type: https://quancrypt.local/problems/unauthorized
                 title: Unauthorized
                 status: 401
+    Forbidden:
+      description: The authenticated user does not own the requested account
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            forbidden:
+              value:
+                type: https://quancrypt.local/problems/forbidden
+                title: Forbidden
+                status: 403
     NotFound:
       description: The resource does not exist
       headers:

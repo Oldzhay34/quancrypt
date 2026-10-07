@@ -1,0 +1,27 @@
+# Demo data of the QBank reference system (D-29, D-87). Passwords are stored only as BCrypt hashes;
+# the clear-text demo credentials are listed in the service README.
+qbank:
+  demo:
+    accounts:
+      - account-id: acc-001
+        owner-name: Demo User 1
+        currency: TRY
+        balance: "1000.00"
+      - account-id: acc-002
+        owner-name: Demo User 2
+        currency: TRY
+        balance: "2500.50"
+      - account-id: acc-003
+        owner-name: Demo User 3
+        currency: TRY
+        balance: "10000.00"
+    users:
+      - username: demo1
+        password-hash: '$2b$10$.nJRULJaucCFTOIeI/ZEO.lnjdnWjapPBa/PaeUICdO/hm9zXJSRC'
+        account-id: acc-001
+      - username: demo2
+        password-hash: '$2b$10$SvJwQIQyCQXTj7PH7GBvF.rgVKwtKdE1gqAuDAVQ4bEdwRxILl6hW'
+        account-id: acc-002
+      - username: demo3
+        password-hash: '$2b$10$PVEBmLN0nJUnfcNRxnKwN.jJgArLBDDKekKZTjKFplwVSGs1u8jsS'
+        account-id: acc-003

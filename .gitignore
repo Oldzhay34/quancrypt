@@ -6,7 +6,7 @@ build/
 *.class
 hs_err_pid*
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # Python
 .venv/

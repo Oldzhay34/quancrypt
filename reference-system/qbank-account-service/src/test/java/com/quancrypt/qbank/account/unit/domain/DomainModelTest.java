@@ -31,6 +31,14 @@ class DomainModelTest {
     }
 
     @Test
+    void accountIdAcceptsOnlyLettersDigitsDotUnderscoreAndHyphen() {
+        assertThat(new AccountId("Acc_001.x-y").value()).isEqualTo("Acc_001.x-y");
+        assertThatThrownBy(() -> new AccountId("acc/001")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new AccountId("acc 001")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new AccountId("acc$001")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void accountNormalizesBalanceToTwoFractionalDigits() {
         Account account = new Account(ID, "Demo User 1", "TRY", new BigDecimal("1000"));
         assertThat(account.balance().toPlainString()).isEqualTo("1000.00");

@@ -1,0 +1,14 @@
+# Applies to the build context reference-system/ (docker build -f qbank-payment-service/Dockerfile ... reference-system).
+# The demo certificates and private keys must never enter the build context or the image.
+certs
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/.env
+**/.env.*
+# Other services and build output
+qbank-account-service
+**/build
+**/.gradle
+**/.idea

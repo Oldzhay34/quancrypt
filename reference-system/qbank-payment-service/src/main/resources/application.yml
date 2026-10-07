@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: qbank-payment-service
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # The account service issues the tokens; its JWKS is fetched over mutual TLS (AccountClientConfig).
+          jwk-set-uri: ${qbank.account-service-url}/.well-known/jwks.json
+          jws-algorithms: RS256
+  jackson:
+    deserialization:
+      # The contract declares additionalProperties: false for request bodies.
+      fail-on-unknown-properties: true
+  ssl:
+    bundle:
+      pem:
+        # Server identity; the trust store validates client certificates (mutual TLS, D-100).
+        payment:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/qbank-payment-service.crt.pem"
+            private-key: "file:${qbank.certs-dir}/qbank-payment-service.key.pem"
+          truststore:
+            certificate: "file:${qbank.certs-dir}/ca.crt.pem"
+        # Client identity towards the account service (JWKS and account lookups).
+        accountclient:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/payment-to-account.crt.pem"
+            private-key: "file:${qbank.certs-dir}/payment-to-account.key.pem"
+          truststore:
+            certificate: "file:${qbank.certs-dir}/ca.crt.pem"
+        # Client identity towards the MQTT broker.
+        mqttclient:
+          keystore:
+            certificate: "file:${qbank.certs-dir}/payment-to-mosquitto.crt.pem"
+            private-key: "file:${qbank.certs-dir}/payment-to-mosquitto.key.pem"
+          truststore:
+            certificate: "file:${qbank.certs-dir}/ca.crt.pem"
+
+server:
+  port: ${SERVER_PORT:9445}
+  shutdown: graceful
+  ssl:
+    bundle: payment
+    client-auth: need
+
+# Health endpoints live on a separate plain-HTTP management port that is bound to loopback inside the
+# container and is never published; the main port stays mutual TLS on every endpoint (D-100, D-88).
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9545}
+    address: 127.0.0.1
+    ssl:
+      enabled: false
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: com.quancrypt.qbank.payment.infrastructure.observability.JsonLogFormatter
+
+# Defaults are for local development only; every value is overridden by environment variables in the image.
+qbank:
+  certs-dir: ${QBANK_CERTS_DIR:../certs/out}
+  account-service-url: ${ACCOUNT_SERVICE_URL:https://localhost:9444}
+  account-client:
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
+  mqtt:
+    broker-url: ${MQTT_BROKER_URL:ssl://localhost:8883}
+    client-id: qbank-payment-service
+    topic-filter: terminal/+/transactions
+    qos: 1
+    retry-seconds: 10

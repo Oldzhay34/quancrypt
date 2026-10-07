@@ -47,8 +47,14 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/IdempotencyConflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /api/v1/payments/{paymentId}:
     get:
       tags: [payments]
@@ -98,6 +104,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignedReceipt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -188,6 +196,36 @@ components:
                 type: https://quancrypt.local/problems/not-found
                 title: Not found
                 status: 404
+    Forbidden:
+      description: The account does not belong to the authenticated user
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            forbidden:
+              value:
+                type: https://quancrypt.local/problems/forbidden
+                title: Forbidden
+                status: 403
+    ServiceUnavailable:
+      description: The account service is unreachable or its circuit breaker is open
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            upstreamUnavailable:
+              value:
+                type: https://quancrypt.local/problems/upstream-unavailable
+                title: Upstream unavailable
+                status: 503
     IdempotencyConflict:
       description: The Idempotency-Key was already used with a different request
       headers:
@@ -229,6 +267,7 @@ components:
       type: string
       minLength: 1
       maxLength: 64
+      pattern: '^[A-Za-z0-9._-]{1,64}$'
     Money:
       type: string
       pattern: '^[0-9]+\.[0-9]{2}$'
@@ -305,7 +344,7 @@ components:
           description: Signature over the receipt, base64 encoded.
         algorithm:
           type: string
-          enum: [SHA256withRSA]
+          enum: [SHA1withRSA]
         keyId:
           type: string
           minLength: 1

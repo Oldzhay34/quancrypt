@@ -12,7 +12,7 @@ Ana port (varsayılan 9444) **tüm uçlarda mTLS** ister (`server.ssl.client-aut
 |---|---|
 | `POST /api/v1/auth/login` | Kullanıcı adı ve parola; yanıt `accessToken` (RS256 JWT), `tokenType`, `expiresIn` (900 sn) |
 | `GET /.well-known/jwks.json` | JWT'yi doğrulayan RSA açık anahtarı (RFC 7517), `kid` JWT başlığındakiyle aynıdır |
-| `GET /api/v1/accounts/{accountId}` | Bearer JWT gerekir; yalnızca token sahibinin hesabı okunabilir (başkasının hesabı 403, olmayan hesap 404) |
+| `GET /api/v1/accounts/{accountId}` | Bearer JWT gerekir; yalnızca token sahibinin hesabı okunabilir (başkasının hesabı 403, olmayan hesap 404, `[A-Za-z0-9._-]` dışı karakter veya 64'ten uzun kimlik 400, D-105) |
 
 Token'da yalnızca `sub` (kullanıcı adı), `iat` ve `exp` vardır; başlıkta `alg=RS256` ve `kid` (RFC 7638 JWK thumbprint) bulunur (D-86). Hatalar RFC 9457 `application/problem+json` biçimindedir; her yanıt `X-Trace-Id` taşır.
 

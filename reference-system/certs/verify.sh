@@ -35,6 +35,8 @@ EXPECTED=(
   "gateway-to-payment.key.pem|ozel anahtar|rsaEncryption|2048"
   "payment-to-account.crt.pem|sertifika|rsaEncryption|2048"
   "payment-to-account.key.pem|ozel anahtar|rsaEncryption|2048"
+  "payment-to-mosquitto.crt.pem|sertifika|rsaEncryption|2048"
+  "payment-to-mosquitto.key.pem|ozel anahtar|rsaEncryption|2048"
   "mosquitto.crt.pem|sertifika|rsaEncryption|2048"
   "mosquitto.key.pem|ozel anahtar|rsaEncryption|2048"
   "terminal-001.crt.pem|sertifika|rsaEncryption|2048"

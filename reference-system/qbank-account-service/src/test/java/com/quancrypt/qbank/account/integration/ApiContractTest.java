@@ -103,6 +103,7 @@ class ApiContractTest extends ServiceIntegrationTest {
         assertProblem(client.get("/api/v1/accounts/acc-001", token), 403, "forbidden");
         assertProblem(client.get("/api/v1/accounts/acc-999", token), 404, "not-found");
         assertProblem(client.get("/api/v1/accounts/" + "a".repeat(65), token), 400, "validation-failed");
+        assertProblem(client.get("/api/v1/accounts/acc$001", token), 400, "validation-failed");
         assertThat(contract.responseCodes("get", "/api/v1/accounts/{accountId}"))
                 .containsExactlyInAnyOrder("200", "400", "401", "403", "404");
     }

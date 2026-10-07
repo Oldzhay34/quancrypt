@@ -27,12 +27,14 @@ Aşağıdaki kullanım, QBank'in tasarımına göre amaçlanan kullanımdır; se
 | `gateway-to-account.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-gateway` | Gateway → hesap servisi bağlantısında istemci kimliği |
 | `gateway-to-payment.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-gateway` | Gateway → ödeme servisi bağlantısında istemci kimliği |
 | `payment-to-account.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-payment-service` | Ödeme → hesap servisi bağlantısında istemci kimliği |
+| `payment-to-mosquitto.crt.pem`, `.key.pem` | mTLS istemci sertifikası | `qbank-payment-service` | Ödeme servisinin MQTT broker'ına (`mosquitto`) bağlanırken istemci kimliği (D-99) |
 | `terminal-001.crt.pem`, `terminal-001.key.pem` | Cihaz istemci sertifikası | `field-device-sim` | Saha terminalinin MQTT bağlantısında istemci kimliği |
 | `jwt-signing.key.pem` | JWT imzalama özel anahtarı (RSA-2048) | `qbank-account-service` | RS256 JWT imzalar |
 | `jwt-signing.pub.pem` | JWT doğrulama genel anahtarı | `qbank-account-service` | `/.well-known/jwks.json` içinde yayımlanır; diğer servisler JWT'yi bununla doğrular |
-| `card-token.pub.pem`, `card-token.key.pem` | Kart token'ı anahtar çifti (RSA-2048) | `qbank-payment-service` | Kart numarası RSA-OAEP ile şifrelenir ve saklanır (D-71) |
-| `receipt-signing.key.pem` | Makbuz imzalama özel anahtarı (**RSA-1024, bilerek zayıf**) | `qbank-payment-service` | Makbuzu imzalar |
-| `receipt-signing.pub.pem` | Makbuz doğrulama genel anahtarı (**RSA-1024**) | `qbank-payment-service` | Makbuz imzasını doğrular |
+| `card-token.pub.pem` | Kart token'ı genel anahtarı (RSA-2048) | `qbank-payment-service` | Kart numarası RSA-OAEP ile şifrelenir ve token saklanır (D-71); servis token'ı geri çözmez |
+| `card-token.key.pem` | Kart token'ı özel anahtarı (RSA-2048) | hiçbir servis | Servise bağlanmaz (D-97); yalnızca payment servisinin gidiş-dönüş testi çözmeyi dener |
+| `receipt-signing.key.pem` | Makbuz imzalama özel anahtarı (**RSA-1024, bilerek zayıf**) | `qbank-payment-service` | Makbuzu `SHA1withRSA` ile imzalar (D-92) |
+| `receipt-signing.pub.pem` | Makbuz doğrulama genel anahtarı (**RSA-1024**) | `qbank-payment-service` | Makbuz imzasını doğrular; `keyId` bu anahtarın RFC 7638 thumbprint'idir |
 
 İstemci sertifikalarında SAN yoktur; kimlik `CN` alanındadır (`CN` dosya adıyla aynıdır). JWT, kart ve makbuz için yalnızca anahtar çifti üretilir, sertifika üretilmez (D-72).
 

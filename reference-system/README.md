@@ -24,11 +24,12 @@ Aşağıdaki zayıflıklar Quancrypt'in bulması için bilerek QBank'e konmuştu
 | # | Zayıflık | Yeri | Beklenen öncelik |
 |---|---|---|---|
 | 1 | Bilerek zayıf RSA-1024 anahtarı | Makbuz imzası (`receipt-signing`) | P0 |
-| 2 | Servisler arası TLS ve mTLS'te RSA sertifikalı, JDK 27 öncesi varsayılanıyla klasik anahtar değişimi (`crypto-domain`: JDK 27 öncesinde hibrit grup yok) | gateway → account, gateway → payment, payment → account | P1 |
-| 3 | Kart numarasının RSA-OAEP ile şifrelenmesi (uygulama içi RSA şifreleme) | Ödeme servisi (`card-token`) | P1 |
-| 4 | Saha terminalinin MQTT üzerinden RSA sertifikalı TLS bağlantısı | `terminal-001` → `mosquitto` | P1 |
-| 5 | RS256 imzalı JWT | Hesap servisi (`jwt-signing`) | P3 |
-| 6 | RSA-2048 sertifikalar ve mTLS kimlik doğrulaması | Tüm sunucu ve istemci sertifikaları | P3 |
+| 2 | SHA-1 ile imza (`SHA1withRSA`) | Makbuz imzası (`receipt-signing`) | P0 |
+| 3 | Servisler arası TLS ve mTLS'te RSA sertifikalı, JDK 27 öncesi varsayılanıyla klasik anahtar değişimi (`crypto-domain`: JDK 27 öncesinde hibrit grup yok) | gateway → account, gateway → payment, payment → account | P1 |
+| 4 | Kart numarasının RSA-OAEP ile şifrelenmesi (uygulama içi RSA şifreleme) | Ödeme servisi (`card-token`) | P1 |
+| 5 | Saha terminalinin MQTT üzerinden RSA sertifikalı TLS bağlantısı | `terminal-001` → `mosquitto` | P1 |
+| 6 | RS256 imzalı JWT | Hesap servisi (`jwt-signing`) | P3 |
+| 7 | RSA-2048 sertifikalar ve mTLS kimlik doğrulaması | Tüm sunucu ve istemci sertifikaları | P3 |
 
 ### Yasak kalıplar ile ilişki
 

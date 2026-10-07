@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    TraceIdFilter copies an incoming X-Trace-Id header to the response header. SpotBugs sees a request value flowing
+    into a header, but the value is only copied after it matched [A-Za-z0-9._-]{1,128}, which cannot contain CR or LF;
+    anything else is replaced by a generated UUID. TraceIdFilterTest covers the unsafe values.
+  -->
+  <Match>
+    <Class name="com.quancrypt.qbank.payment.api.TraceIdFilter"/>
+    <Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+  </Match>
+</FindBugsFilter>

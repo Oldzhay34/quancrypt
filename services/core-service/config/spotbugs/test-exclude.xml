@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    Test sources only. The in-memory database snapshot is a test fixture that copies every table on purpose, so the
+    copies it stores and returns are the point of the class. The negative tests call pure domain methods inside
+    assertThatThrownBy lambdas only to provoke the exception they assert, so the ignored return value is intended.
+  -->
+  <Match>
+    <Class name="~com\.quancrypt\.core\.fake\.InMemoryDatabase\$Snapshot"/>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
+  <Match>
+    <Package name="~com\.quancrypt\.core\.unit\..*"/>
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT,RV_RETURN_VALUE_IGNORED_INFERRED"/>
+  </Match>
+</FindBugsFilter>

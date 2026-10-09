@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    The use case classes (and their collaborators in the usecase package) receive outbound ports through their
+    constructors and keep the reference; that is dependency inversion by design and the ports are interfaces
+    implemented by adapters. SpotBugs 4.10 treats a type as mutable when its methods are named insert, append, delete
+    and the like, which every writer port has, and reports EI_EXPOSE_REP2 for the stored reference. Copying a port
+    would be meaningless. The suppression is limited to the usecase package and to this one pattern.
+  -->
+  <Match>
+    <Package name="com.quancrypt.core.usecase"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+</FindBugsFilter>

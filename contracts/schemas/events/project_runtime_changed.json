@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/project_runtime_changed.json",
+  "title": "project_runtime_changed",
+  "description": "Projenin Java veya Spring Boot sürümü değişti (RecordRuntimeProfile). Zarf alanları her olay dosyasında satır içi tekrarlanır (ortak dosya yoktur). Yük yalnızca kodlu alanlar, sayılar ve desenle sınırlı sürüm metinleridir; yol, sembol, kod parçası veya serbest metin içermez (D-20, D-21).",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "project_runtime_changed"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Proje kimliğinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT)."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "previous": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/runtime_profile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null = ilk profil."
+        },
+        "current": {
+          "$ref": "#/$defs/runtime_profile"
+        }
+      },
+      "required": [
+        "previous",
+        "current"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "runtime_profile": {
+      "type": "object",
+      "properties": {
+        "java_version": {
+          "type": "string",
+          "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+        },
+        "spring_boot_version": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "java_version",
+        "spring_boot_version"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

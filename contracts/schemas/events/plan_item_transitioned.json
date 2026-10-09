@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/plan_item_transitioned.json",
+  "title": "plan_item_transitioned",
+  "description": "Bir plan maddesinin durumu değişti (TransitionPlanItem). Zarf alanları her olay dosyasında satır içi tekrarlanır (ortak dosya yoktur). Yük yalnızca kodlu alanlar, sayılar ve desenle sınırlı sürüm metinleridir; yol, sembol, kod parçası veya serbest metin içermez (D-20, D-21).",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "plan_item_transitioned"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Proje kimliğinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT)."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": [
+            "FIX_WEAK_CLASSIC",
+            "HYBRID_TLS_KEX",
+            "KEM_DEM_ENCRYPTION",
+            "DEVICE_HYBRID_TLS",
+            "PQ_SIGNATURE",
+            "KEEP_SHORT_LIVED_TOKEN",
+            "HYBRID_KEX_CLASSIC_CERT",
+            "JDK_UPGRADE"
+          ]
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "S",
+            "M",
+            "L"
+          ]
+        },
+        "from_state": {
+          "type": "string",
+          "enum": [
+            "DISCOVERED",
+            "PLANNED",
+            "APPROVED",
+            "APPLIED",
+            "VERIFIED",
+            "ROLLED_BACK"
+          ]
+        },
+        "to_state": {
+          "type": "string",
+          "enum": [
+            "DISCOVERED",
+            "PLANNED",
+            "APPROVED",
+            "APPLIED",
+            "VERIFIED",
+            "ROLLED_BACK"
+          ]
+        }
+      },
+      "required": [
+        "strategy",
+        "effort",
+        "from_state",
+        "to_state"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false
+}

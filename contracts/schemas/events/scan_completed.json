@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/scan_completed.json",
+  "title": "scan_completed",
+  "description": "Bir tarama başarıyla tamamlandı (CompleteScan, sonuç COMPLETED). Zarf alanları her olay dosyasında satır içi tekrarlanır (ortak dosya yoktur). Yük yalnızca kodlu alanlar, sayılar ve desenle sınırlı sürüm metinleridir; yol, sembol, kod parçası veya serbest metin içermez (D-20, D-21).",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "scan_completed"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Proje kimliğinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT)."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priority_counts": {
+          "type": "object",
+          "description": "Öncelik koduna göre bulgu sayısı.",
+          "propertyNames": {
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "java_version": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spring_boot_version": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "finding_count",
+        "priority_counts",
+        "java_version",
+        "spring_boot_version",
+        "duration_seconds"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,2514 @@
+openapi: 3.1.0
+info:
+  title: Quancrypt core-service API
+  version: 1.0.0-draft
+  description: 'core-service ortak bilgi modelidir (Blackboard): projeler, KVKK onayları, taramalar, bulgular, topoloji, planlar,
+    denetim günlüğü ve outbox. TASLAK: P2.1 tasarım kontratıdır; G-CORE-DB onayına kadar kod yazılmaz (D-17). Her uç tek bir
+    use case''e karşılık gelir (`operationId` = use case adı; 28 uç). Hatalar RFC 9457; komut POST''ları `Idempotency-Key`
+    kabul eder (istisna: `RelayOutboxEvents`, at-least-once teslim); sayfalar en çok 200 kayıt. Kaynak adları çoğuldur; tarama
+    başına tek olan alt kaynaklar (`topology`, `artifact`, `plan`, `completion`, `profile`) tekil kalır. Transaction planı:
+    `docs/data/core_db-transactions.md`.'
+servers:
+- url: http://127.0.0.1:8081
+  description: Yerel geliştirme (core-service, docs/ports.md)
+tags:
+- name: Proje
+- name: Onay
+- name: Tarama
+- name: Profil
+- name: Plan
+- name: Denetim ve olay
+paths:
+  /api/v1/projects:
+    post:
+      operationId: RegisterProject
+      summary: RegisterProject
+      tags:
+      - Proje
+      description: 'Girdi: `identity` (istemcinin normalleştirilmiş proje kimliği: kök yol veya git remote), `displayName`.
+        Çıktı: `Project` (`id`, `projectKey`, `displayName`, `createdAt`). Başarı: 201 (yeni), 200 (aynı kimlik zaten kayıtlı).
+        409 nedenleri (problem `type`): `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRegistration'
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: ListProjects
+      summary: ListProjects
+      tags:
+      - Proje
+      description: 'Girdi: `page`, `size` (≤ 200). Çıktı: Sayfalı `Project` listesi. Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}:
+    get:
+      operationId: GetProject
+      summary: GetProject
+      tags:
+      - Proje
+      description: 'Girdi: `projectId`. Çıktı: `Project` + güncel çalışma zamanı profili (`v_project_current_runtime`). Başarı:
+        200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: DeleteProject
+      summary: DeleteProject
+      tags:
+      - Proje
+      description: 'Girdi: `projectId`. Çıktı: —. Başarı: 204.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      responses:
+        '204':
+          description: Yanıt gövdesi yok
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/runtime-profiles:
+    post:
+      operationId: RecordRuntimeProfile
+      summary: RecordRuntimeProfile
+      tags:
+      - Proje
+      description: 'Girdi: `javaVersion`, `springBootVersion` (opsiyonel). Çıktı: `RuntimeProfile` (`sequenceNo`, sürümler,
+        `recordedAt`). Başarı: 201 (yeni profil), 200 (güncel profille aynı). 409 nedenleri (problem `type`): `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuntimeProfileInput'
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeProfile'
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/privacy-notices/latest:
+    get:
+      operationId: GetPrivacyNotice
+      summary: GetPrivacyNotice
+      tags:
+      - Onay
+      description: 'Girdi: —. Çıktı: En son `PrivacyNotice` (`version`, `textTr`, `textEn`, `publishedAt`). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyNotice'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/consents:
+    post:
+      operationId: GrantConsent
+      summary: GrantConsent
+      tags:
+      - Onay
+      description: 'Girdi: `consentType`, `privacyNoticeVersion`; geri alınmış onayı yeniden verirken `If-Match` (onay `version`).
+        Çıktı: `Consent` (`consentType`, `grantedAt`, `revokedAt`, `version`). Başarı: 201 (ilk onay), 200 (geri alınmış onayın
+        yeniden verilmesi). 409 nedenleri (problem `type`): `concurrent-modification`, `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: If-Match
+        in: header
+        required: false
+        description: Geri alınmış onayı yeniden verirken onayın `version` değeri (`"<version>"`).
+        schema:
+          type: string
+      security:
+      - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentGrant'
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+            ETag:
+              description: Kaynağın `version` değeri (tırnak içinde).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+            ETag:
+              description: Kaynağın `version` değeri (tırnak içinde).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: GetConsents
+      summary: GetConsents
+      tags:
+      - Onay
+      description: 'Girdi: `projectId`. Çıktı: Proje için `Consent` listesi (geçerli olanlar `revokedAt = null`). Başarı:
+        200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/consents/{consentType}:
+    delete:
+      operationId: RevokeConsent
+      summary: RevokeConsent
+      tags:
+      - Onay
+      description: 'Girdi: `projectId`, `consentType`, `If-Match` (onay `version`, zorunlu). Çıktı: `Consent` (geri alınmış).
+        Başarı: 200. 409 nedenleri (problem `type`): `concurrent-modification`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: consentType
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - WAREHOUSE_ANALYTICS
+          - MODEL_TRAINING
+      - $ref: '#/components/parameters/IfMatch'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+            ETag:
+              description: Kaynağın `version` değeri (tırnak içinde).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/scans:
+    post:
+      operationId: StartScan
+      summary: StartScan
+      tags:
+      - Tarama
+      description: 'Girdi: `projectId`. Çıktı: `Scan` (`id`, `status = RUNNING`, `startedAt`, `runtimeProfileSequenceNo`).
+        Başarı: 201. 409 nedenleri (problem `type`): `scan-already-running`, `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: ListScans
+      summary: ListScans
+      tags:
+      - Tarama
+      description: 'Girdi: `projectId`; `page`, `size` (≤ 200). Çıktı: Sayfalı `Scan` listesi (en yeni önce). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/findings:
+    post:
+      operationId: RecordFindings
+      summary: RecordFindings
+      tags:
+      - Tarama
+      description: 'Girdi: En çok 500 bulgu: `path`, `symbol`, `algorithmFamily`, `usageContext`, `locationKind`, `priority`,
+        `keySizeBits?`, `lineStart?`, `lineEnd?`, `confidence`, `classifiedBy`. Çıktı: `createdCount`, `existingCount` ve
+        yeni bulguların kimlikleri. Başarı: 201. 409 nedenleri (problem `type`): `scan-not-running`, `idempotency-conflict`,
+        `finding-limit-exceeded`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindingBatch'
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingBatchResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: ListFindings
+      summary: ListFindings
+      tags:
+      - Tarama
+      description: 'Girdi: Filtreler: `priority`, `algorithmFamily`, `usageContext`, `locationKind`, `classifiedBy`; `page`,
+        `size` (≤ 200). Çıktı: Sayfalı `Finding` listesi (dosya yolu ve satır aralığıyla; `source_file` ile birleştirilir).
+        Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: priority
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - P0
+          - P1
+          - P2
+          - P3
+      - name: algorithmFamily
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - RSA
+          - ECDSA
+          - ECDH
+          - EDDSA
+          - DH
+          - DSA
+          - ML_KEM
+          - ML_DSA
+          - SLH_DSA
+          - AES
+          - DES
+          - TRIPLE_DES
+          - CHACHA20
+          - SHA1
+          - SHA2
+          - SHA3
+          - MD5
+          - HMAC
+          - X25519
+          - HYBRID_X25519_MLKEM768
+          - UNKNOWN
+      - name: usageContext
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - TLS_KEY_EXCHANGE
+          - TLS_SERVER_AUTH
+          - MTLS_CLIENT_AUTH
+          - CERTIFICATE
+          - ENCRYPTION
+          - KEY_WRAP
+          - SIGNATURE
+          - TOKEN_SIGNATURE
+          - KEY_AGREEMENT
+          - HASH
+          - SYMMETRIC_ENCRYPTION
+          - KEYSTORE
+          - UNKNOWN
+      - name: locationKind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CODE
+          - CONFIG
+          - CERTIFICATE_FILE
+          - KEYSTORE_FILE
+          - BUILD_FILE
+          - TEST_CODE
+      - name: classifiedBy
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - STATIC
+          - LLM
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindingPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/topology:
+    put:
+      operationId: RecordTopology
+      summary: RecordTopology
+      tags:
+      - Tarama
+      description: 'Girdi: `nodes` (`name`, `nodeKind`), `links` (`source`, `target`, `protocol`, `tls`, `mtls`, `callSites`
+        (`path`, `lineStart`, `lineEnd`, `locationKind`), `findingIds`). Çıktı: `Topology` (`recordedAt`, sayılar). Başarı:
+        200. 409 nedenleri (problem `type`): `scan-not-running`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopologyInput'
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topology'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: GetTopology
+      summary: GetTopology
+      tags:
+      - Tarama
+      description: 'Girdi: `scanId`. Çıktı: `Topology` (düğümler, bağlantılar, çağrı noktaları, bağlantı–bulgu ilişkileri).
+        Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topology'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/artifact:
+    put:
+      operationId: RecordScanArtifact
+      summary: RecordScanArtifact
+      tags:
+      - Tarama
+      description: 'Girdi: Gövde: CBOM dosyası (en çok 20 MiB); `Content-Type`. Çıktı: `ScanArtifact` (`contentType`, `sha256`,
+        `createdAt`). Başarı: 200. 409 nedenleri (problem `type`): `scan-not-running`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/vnd.cyclonedx+json:
+            schema:
+              type: string
+              format: binary
+          application/json:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanArtifact'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: GetScanArtifact
+      summary: GetScanArtifact
+      tags:
+      - Tarama
+      description: 'Girdi: `scanId`. Çıktı: CBOM dosyası (gövde), `ETag` = `sha256`. Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+            ETag:
+              description: İçeriğin `sha256` değeri (tırnak içinde).
+              schema:
+                type: string
+          content:
+            application/vnd.cyclonedx+json:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/completion:
+    post:
+      operationId: CompleteScan
+      summary: CompleteScan
+      tags:
+      - Tarama
+      description: 'Girdi: `outcome` (`COMPLETED` veya `FAILED`). Çıktı: `Scan` (`status`, `completedAt`). Başarı: 200. 409
+        nedenleri (problem `type`): `scan-not-running`, `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScanCompletion'
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}:
+    get:
+      operationId: GetScanSummary
+      summary: GetScanSummary
+      tags:
+      - Tarama
+      description: 'Girdi: `scanId`. Çıktı: `ScanSummary`: durum, zamanlar, çalışma zamanı profili, öncelik, algoritma ailesi
+        ve kaynak türü bazında bulgu sayıları. Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/findings/{findingId}:
+    get:
+      operationId: GetFinding
+      summary: GetFinding
+      tags:
+      - Tarama
+      description: 'Girdi: `findingId`. Çıktı: `Finding`. Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: findingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Finding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/clarification-answers:
+    put:
+      operationId: SaveClarificationAnswers
+      summary: SaveClarificationAnswers
+      tags:
+      - Profil
+      description: 'Girdi: En çok 5 yanıt: `questionCode`, `optionCode?`, `freeText?`. Çıktı: Kaydedilen yanıtlar. Başarı:
+        200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClarificationAnswerSet'
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationAnswerSet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{projectId}/profile:
+    get:
+      operationId: GetProjectProfile
+      summary: GetProjectProfile
+      tags:
+      - Profil
+      description: 'Girdi: `projectId`. Çıktı: `ProjectProfile`: güncel çalışma zamanı profili ve netleştirme yanıtları (yanıtlanmayan
+        sorular listede yoktur). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/plan:
+    post:
+      operationId: CreatePlan
+      summary: CreatePlan
+      tags:
+      - Plan
+      description: 'Girdi: Taramanın HER bulgusu için bir madde (en çok 500, D-138): `findingId`, `riskScore` (0–1), `riskFactors`
+        (en çok 10; `featureName`, `shapValue`; sıralı). Çıktı: `Plan` (`id`, `createdAt`, madde sayısı). Başarı: 201. 409
+        nedenleri (problem `type`): `scan-not-completed`, `plan-already-exists`, `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanInput'
+      responses:
+        '201':
+          description: Oluşturuldu
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: GetPlan
+      summary: GetPlan
+      tags:
+      - Plan
+      description: 'Girdi: `scanId`; `page`, `size` (≤ 200), `state?`. Çıktı: `Plan` + sayfalı `PlanItem` listesi (strateji,
+        efor, `riskScore`, türetilmiş `riskClass`, durum, `version`, risk gerekçeleri). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - DISCOVERED
+          - PLANNED
+          - APPROVED
+          - APPLIED
+          - VERIFIED
+          - ROLLED_BACK
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/plan-items/{itemId}/transitions:
+    post:
+      operationId: TransitionPlanItem
+      summary: TransitionPlanItem
+      tags:
+      - Plan
+      description: 'Girdi: `toState`, `If-Match` (madde `version`, zorunlu). Çıktı: `PlanItem` (yeni durum ve `version`).
+        Başarı: 200. 409 nedenleri (problem `type`): `invalid-state-transition`, `concurrent-modification`, `idempotency-conflict`.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/IfMatch'
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanItemTransition'
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+            ETag:
+              description: Kaynağın `version` değeri (tırnak içinde).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '428':
+          $ref: '#/components/responses/PreconditionRequired'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/scans/{scanId}/plan/report:
+    get:
+      operationId: GetPlanReport
+      summary: GetPlanReport
+      tags:
+      - Plan
+      description: 'Girdi: `scanId`. Çıktı: Markdown rapor (`text/markdown`): özet, bulgu bazlı strateji, efor, risk puanı
+        ve sınıfı, gerekçeler, durum. Use case rapor modelini döndürür, Markdown''ı facade üretir; dil `Accept-Language` (`tr`
+        varsayılan, `en`, D-139m). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scanId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Accept-Language
+        in: header
+        required: false
+        description: 'Rapor dili: `tr` (varsayılan) veya `en`; tanınmayan değerde `tr`.'
+        schema:
+          type: string
+          default: tr
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/audit-entries:
+    get:
+      operationId: GetAuditLog
+      summary: GetAuditLog
+      tags:
+      - Denetim ve olay
+      description: 'Girdi: `projectKey` (zorunlu, 64 hex), `page`, `size` (≤ 200). Çıktı: Sayfalı `AuditEntry` listesi (zaman,
+        eylem, bağlam kimliği, çağıran türü). Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: projectKey
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      security:
+      - bearerAuth: []
+      - internalToken: []
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/internal/outbox/relay:
+    post:
+      operationId: RelayOutboxEvents
+      summary: RelayOutboxEvents
+      tags:
+      - Denetim ve olay
+      description: 'Girdi: `batchSize` (≤ 200, varsayılan 100). Çıktı: `relayedCount`, `remainingCount`. Başarı: 200.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      security:
+      - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelayRequest'
+      responses:
+        '200':
+          description: Başarılı
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelayResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 'UI oturumu: yerel, rastgele üretilmiş oturum token''ı (FR-02); JWT olması gerekmez.'
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Servisler arası çağrılar için iç token (`INTERNAL_SERVICE_TOKEN`, `.env`).
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: İzleme kimliği; yoksa servis üretir ve yanıtta döner.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9._-]{1,128}$
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Komutun tekrarını tek sonuca bağlar; aynı anahtar başka istekle gelirse 409 `idempotency-conflict`.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: Kaynağın `version` değeri (tırnak içinde, örn. `"3"`); uyuşmazsa 409 `concurrent-modification`, eksikse
+        428.
+      schema:
+        type: string
+        pattern: ^"[0-9]+"$
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  headers:
+    TraceId:
+      description: İzleme kimliği.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: İstek geçersiz.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Kimlik doğrulama başarısız.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Uç yalnızca servisler arası çağrıya açıktır.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Kaynak bulunamadı.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: Çakışma; `type` alanı nedeni söyler.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PayloadTooLarge:
+      description: Gövde izin verilen boyutu (20 MiB) aşıyor.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnsupportedMediaType:
+      description: Desteklenmeyen ortam türü.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    PreconditionRequired:
+      description: '`If-Match` başlığı zorunludur.'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: Beklenmeyen hata.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
+        validation-failed, unauthorized, forbidden, not-found, scan-already-running, scan-not-running, scan-not-completed,
+        finding-limit-exceeded, plan-already-exists, invalid-state-transition, concurrent-modification, idempotency-conflict,
+        precondition-required, payload-too-large, unsupported-media-type, internal-error).'
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      required:
+      - type
+      - title
+      - status
+      additionalProperties: true
+    ProjectRegistration:
+      type: object
+      properties:
+        identity:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          writeOnly: true
+          description: İstemcinin normalleştirilmiş proje kimliği (kök yol veya git remote). Saklanmaz; yalnızca HMAC'i `projectKey`
+            olarak saklanır (D-129).
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+      additionalProperties: false
+      required:
+      - identity
+      - displayName
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectKey:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Proje kimliğinin HMAC-SHA256 özeti.
+        displayName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+      required:
+      - id
+      - projectKey
+      - displayName
+      - createdAt
+    RuntimeProfileInput:
+      type: object
+      properties:
+        javaVersion:
+          type: string
+          pattern: ^[0-9A-Za-z._+-]{1,32}$
+        springBootVersion:
+          oneOf:
+          - type: string
+            pattern: ^[0-9A-Za-z._+-]{1,32}$
+          - type: 'null'
+          description: null = Spring Boot projesi değil veya bilinmiyor.
+      additionalProperties: false
+      required:
+      - javaVersion
+    RuntimeProfile:
+      type: object
+      properties:
+        sequenceNo:
+          type: integer
+          minimum: 1
+        javaVersion:
+          type: string
+          pattern: ^[0-9A-Za-z._+-]{1,32}$
+        springBootVersion:
+          oneOf:
+          - type: string
+            pattern: ^[0-9A-Za-z._+-]{1,32}$
+          - type: 'null'
+        recordedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+      required:
+      - sequenceNo
+      - javaVersion
+      - springBootVersion
+      - recordedAt
+    ProjectDetail:
+      type: object
+      properties:
+        project:
+          $ref: '#/components/schemas/Project'
+        currentRuntimeProfile:
+          oneOf:
+          - $ref: '#/components/schemas/RuntimeProfile'
+          - type: 'null'
+      additionalProperties: false
+      required:
+      - project
+      - currentRuntimeProfile
+    ProjectPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    PrivacyNotice:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        textTr:
+          type: string
+        textEn:
+          type: string
+        publishedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+      required:
+      - version
+      - textTr
+      - textEn
+      - publishedAt
+    ConsentGrant:
+      type: object
+      properties:
+        consentType:
+          type: string
+          enum:
+          - WAREHOUSE_ANALYTICS
+          - MODEL_TRAINING
+        privacyNoticeVersion:
+          type: integer
+          minimum: 1
+          description: EN SON aydınlatma metni sürümü olmalıdır; değilse 400.
+      additionalProperties: false
+      required:
+      - consentType
+      - privacyNoticeVersion
+    Consent:
+      type: object
+      properties:
+        consentType:
+          type: string
+          enum:
+          - WAREHOUSE_ANALYTICS
+          - MODEL_TRAINING
+        privacyNoticeVersion:
+          type: integer
+          minimum: 1
+        grantedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: null = onay geçerli.
+        version:
+          type: integer
+          minimum: 0
+          description: İyimser kilit sürümü; `If-Match` ve `ETag` değeridir.
+      additionalProperties: false
+      required:
+      - consentType
+      - privacyNoticeVersion
+      - grantedAt
+      - revokedAt
+      - version
+    ConsentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consent'
+      additionalProperties: false
+      required:
+      - items
+    Scan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        projectId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - RUNNING
+          - COMPLETED
+          - FAILED
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          oneOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+        runtimeProfileSequenceNo:
+          type:
+          - integer
+          - 'null'
+          description: Taramanın yapıldığı andaki profil; null = profil henüz kaydedilmemişti.
+      additionalProperties: false
+      required:
+      - id
+      - projectId
+      - status
+      - startedAt
+      - completedAt
+      - runtimeProfileSequenceNo
+    ScanPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scan'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    ScanCompletion:
+      type: object
+      properties:
+        outcome:
+          type: string
+          enum:
+          - COMPLETED
+          - FAILED
+      additionalProperties: false
+      required:
+      - outcome
+    FindingInput:
+      type: object
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Proje köküne göreli dosya yolu.
+        symbol:
+          type: string
+          minLength: 1
+          maxLength: 512
+        algorithmFamily:
+          type: string
+          enum:
+          - RSA
+          - ECDSA
+          - ECDH
+          - EDDSA
+          - DH
+          - DSA
+          - ML_KEM
+          - ML_DSA
+          - SLH_DSA
+          - AES
+          - DES
+          - TRIPLE_DES
+          - CHACHA20
+          - SHA1
+          - SHA2
+          - SHA3
+          - MD5
+          - HMAC
+          - X25519
+          - HYBRID_X25519_MLKEM768
+          - UNKNOWN
+        usageContext:
+          type: string
+          enum:
+          - TLS_KEY_EXCHANGE
+          - TLS_SERVER_AUTH
+          - MTLS_CLIENT_AUTH
+          - CERTIFICATE
+          - ENCRYPTION
+          - KEY_WRAP
+          - SIGNATURE
+          - TOKEN_SIGNATURE
+          - KEY_AGREEMENT
+          - HASH
+          - SYMMETRIC_ENCRYPTION
+          - KEYSTORE
+          - UNKNOWN
+        locationKind:
+          type: string
+          enum:
+          - CODE
+          - CONFIG
+          - CERTIFICATE_FILE
+          - KEYSTORE_FILE
+          - BUILD_FILE
+          - TEST_CODE
+        priority:
+          type: string
+          enum:
+          - P0
+          - P1
+          - P2
+          - P3
+        keySizeBits:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          description: null = bilinmiyor.
+        lineStart:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+          description: null = bütün dosya.
+        lineEnd:
+          type:
+          - integer
+          - 'null'
+          minimum: 1
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        classifiedBy:
+          type: string
+          enum:
+          - STATIC
+          - LLM
+      additionalProperties: false
+      required:
+      - path
+      - symbol
+      - algorithmFamily
+      - usageContext
+      - locationKind
+      - priority
+      - confidence
+      - classifiedBy
+      dependentRequired:
+        lineStart:
+        - lineEnd
+        lineEnd:
+        - lineStart
+    FindingBatch:
+      type: object
+      properties:
+        findings:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/FindingInput'
+      additionalProperties: false
+      required:
+      - findings
+      description: İstek başına en çok 500 bulgu; bir taramada toplam en çok 500 bulgu (aşım 409 `finding-limit-exceeded`).
+        Bir dosyanın `locationKind` değeri tektir (farklıysa 400).
+    FindingBatchResult:
+      type: object
+      properties:
+        createdCount:
+          type: integer
+          minimum: 0
+        existingCount:
+          type: integer
+          minimum: 0
+        createdIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      additionalProperties: false
+      required:
+      - createdCount
+      - existingCount
+      - createdIds
+    Finding:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        scanId:
+          type: string
+          format: uuid
+        path:
+          type: string
+        symbol:
+          type: string
+        algorithmFamily:
+          type: string
+          enum:
+          - RSA
+          - ECDSA
+          - ECDH
+          - EDDSA
+          - DH
+          - DSA
+          - ML_KEM
+          - ML_DSA
+          - SLH_DSA
+          - AES
+          - DES
+          - TRIPLE_DES
+          - CHACHA20
+          - SHA1
+          - SHA2
+          - SHA3
+          - MD5
+          - HMAC
+          - X25519
+          - HYBRID_X25519_MLKEM768
+          - UNKNOWN
+        usageContext:
+          type: string
+          enum:
+          - TLS_KEY_EXCHANGE
+          - TLS_SERVER_AUTH
+          - MTLS_CLIENT_AUTH
+          - CERTIFICATE
+          - ENCRYPTION
+          - KEY_WRAP
+          - SIGNATURE
+          - TOKEN_SIGNATURE
+          - KEY_AGREEMENT
+          - HASH
+          - SYMMETRIC_ENCRYPTION
+          - KEYSTORE
+          - UNKNOWN
+        locationKind:
+          type: string
+          enum:
+          - CODE
+          - CONFIG
+          - CERTIFICATE_FILE
+          - KEYSTORE_FILE
+          - BUILD_FILE
+          - TEST_CODE
+        priority:
+          type: string
+          enum:
+          - P0
+          - P1
+          - P2
+          - P3
+        keySizeBits:
+          type:
+          - integer
+          - 'null'
+        lineStart:
+          type:
+          - integer
+          - 'null'
+        lineEnd:
+          type:
+          - integer
+          - 'null'
+        confidence:
+          type: number
+        classifiedBy:
+          type: string
+          enum:
+          - STATIC
+          - LLM
+      additionalProperties: false
+      required:
+      - id
+      - scanId
+      - path
+      - symbol
+      - algorithmFamily
+      - usageContext
+      - locationKind
+      - priority
+      - keySizeBits
+      - lineStart
+      - lineEnd
+      - confidence
+      - classifiedBy
+    FindingPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Finding'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    ScanSummary:
+      type: object
+      properties:
+        scan:
+          $ref: '#/components/schemas/Scan'
+        runtimeProfile:
+          oneOf:
+          - $ref: '#/components/schemas/RuntimeProfile'
+          - type: 'null'
+        findingCount:
+          type: integer
+          minimum: 0
+        countsByPriority:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          propertyNames:
+            enum:
+            - P0
+            - P1
+            - P2
+            - P3
+        countsByAlgorithmFamily:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          propertyNames:
+            enum:
+            - RSA
+            - ECDSA
+            - ECDH
+            - EDDSA
+            - DH
+            - DSA
+            - ML_KEM
+            - ML_DSA
+            - SLH_DSA
+            - AES
+            - DES
+            - TRIPLE_DES
+            - CHACHA20
+            - SHA1
+            - SHA2
+            - SHA3
+            - MD5
+            - HMAC
+            - X25519
+            - HYBRID_X25519_MLKEM768
+            - UNKNOWN
+        countsByLocationKind:
+          type: object
+          additionalProperties:
+            type: integer
+            minimum: 0
+          propertyNames:
+            enum:
+            - CODE
+            - CONFIG
+            - CERTIFICATE_FILE
+            - KEYSTORE_FILE
+            - BUILD_FILE
+            - TEST_CODE
+      additionalProperties: false
+      required:
+      - scan
+      - runtimeProfile
+      - findingCount
+      - countsByPriority
+      - countsByAlgorithmFamily
+      - countsByLocationKind
+    CallSiteInput:
+      type: object
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        lineStart:
+          type: integer
+          minimum: 1
+        lineEnd:
+          type: integer
+          minimum: 1
+        locationKind:
+          type: string
+          enum:
+          - CODE
+          - CONFIG
+          - CERTIFICATE_FILE
+          - KEYSTORE_FILE
+          - BUILD_FILE
+          - TEST_CODE
+          description: Dosya türü; dosya taramada yoksa bu türle yaratılır, varsa farklıysa 400 (D-146).
+      additionalProperties: false
+      required:
+      - path
+      - lineStart
+      - lineEnd
+      - locationKind
+    NodeInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        nodeKind:
+          type: string
+          enum:
+          - SERVICE
+          - GATEWAY
+          - BROKER
+          - DEVICE
+          - EXTERNAL_CLIENT
+      additionalProperties: false
+      required:
+      - name
+      - nodeKind
+    LinkInput:
+      type: object
+      properties:
+        source:
+          type: string
+          maxLength: 200
+          description: Çağıran düğümün adı.
+        target:
+          type: string
+          maxLength: 200
+          description: Çağrılan düğümün adı.
+        protocol:
+          type: string
+          enum:
+          - HTTP
+          - GRPC
+          - MQTT
+          - AMQP
+          - KAFKA
+          - OTHER
+        tls:
+          type: boolean
+        mtls:
+          type: boolean
+          description: Yalnızca `tls = true` ile.
+        callSites:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CallSiteInput'
+        findingIds:
+          type: array
+          maxItems: 500
+          items:
+            type: string
+            format: uuid
+          description: Bağlantının kullandığı kripto bulguları (aynı tarama).
+      additionalProperties: false
+      required:
+      - source
+      - target
+      - protocol
+      - tls
+      - mtls
+      - callSites
+      - findingIds
+    TopologyInput:
+      type: object
+      properties:
+        nodes:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/NodeInput'
+        links:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/LinkInput'
+      additionalProperties: false
+      required:
+      - nodes
+      - links
+    Topology:
+      type: object
+      properties:
+        scanId:
+          type: string
+          format: uuid
+        recordedAt:
+          type: string
+          format: date-time
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/NodeInput'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkInput'
+      additionalProperties: false
+      required:
+      - scanId
+      - recordedAt
+      - nodes
+      - links
+    ScanArtifact:
+      type: object
+      properties:
+        scanId:
+          type: string
+          format: uuid
+        contentType:
+          type: string
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+      required:
+      - scanId
+      - contentType
+      - sha256
+      - createdAt
+    ClarificationAnswer:
+      type: object
+      properties:
+        questionCode:
+          type: string
+          enum:
+          - TLS_TERMINATION
+          - JDK_UPGRADE_POSSIBLE
+          - HYBRID_INCAPABLE_PARTNERS
+          - COMPLIANCE_REQUIREMENT
+          - DEVICE_HARDWARE_OPENSSL
+        optionCode:
+          type:
+          - string
+          - 'null'
+          maxLength: 32
+          description: Soru türü `TEXT` ise null.
+        freeText:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+      additionalProperties: false
+      required:
+      - questionCode
+    ClarificationAnswerSet:
+      type: object
+      properties:
+        answers:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ClarificationAnswer'
+      additionalProperties: false
+      required:
+      - answers
+    ProjectProfile:
+      type: object
+      properties:
+        runtimeProfile:
+          oneOf:
+          - $ref: '#/components/schemas/RuntimeProfile'
+          - type: 'null'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClarificationAnswer'
+      additionalProperties: false
+      required:
+      - runtimeProfile
+      - answers
+    RiskFactor:
+      type: object
+      properties:
+        featureName:
+          type: string
+          pattern: ^[a-z][a-z0-9_]{0,99}$
+        shapValue:
+          type: number
+          minimum: -999.999999
+          maximum: 999.999999
+      additionalProperties: false
+      required:
+      - featureName
+      - shapValue
+    PlanItemInput:
+      type: object
+      properties:
+        findingId:
+          type: string
+          format: uuid
+        riskScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        riskFactors:
+          type: array
+          maxItems: 10
+          description: SHAP katkıları, en etkiliden başlayarak sıralı.
+          items:
+            $ref: '#/components/schemas/RiskFactor'
+      additionalProperties: false
+      required:
+      - findingId
+      - riskScore
+      - riskFactors
+    PlanInput:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/PlanItemInput'
+      additionalProperties: false
+      required:
+      - items
+    PlanItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        findingId:
+          type: string
+          format: uuid
+        strategy:
+          type: string
+          enum:
+          - FIX_WEAK_CLASSIC
+          - HYBRID_TLS_KEX
+          - KEM_DEM_ENCRYPTION
+          - DEVICE_HYBRID_TLS
+          - PQ_SIGNATURE
+          - KEEP_SHORT_LIVED_TOKEN
+          - HYBRID_KEX_CLASSIC_CERT
+          - JDK_UPGRADE
+        effort:
+          type: string
+          enum:
+          - S
+          - M
+          - L
+        riskScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        riskClass:
+          type: string
+          enum:
+          - CRITICAL
+          - HIGH
+          - MEDIUM
+          - LOW
+          description: Saklanmaz; `risk_class_threshold` eşiklerinden türetilir (D-128).
+        state:
+          type: string
+          enum:
+          - DISCOVERED
+          - PLANNED
+          - APPROVED
+          - APPLIED
+          - VERIFIED
+          - ROLLED_BACK
+        version:
+          type: integer
+          minimum: 0
+          description: İyimser kilit sürümü; `If-Match` ve `ETag` değeridir.
+        riskFactors:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskFactor'
+      additionalProperties: false
+      required:
+      - id
+      - findingId
+      - strategy
+      - effort
+      - riskScore
+      - riskClass
+      - state
+      - version
+      - riskFactors
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        scanId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        itemCount:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - id
+      - scanId
+      - createdAt
+      - itemCount
+    PlanPage:
+      type: object
+      properties:
+        plan:
+          $ref: '#/components/schemas/Plan'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanItem'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - plan
+      - items
+      - page
+      - size
+      - totalElements
+    PlanItemTransition:
+      type: object
+      properties:
+        toState:
+          type: string
+          enum:
+          - DISCOVERED
+          - PLANNED
+          - APPROVED
+          - APPLIED
+          - VERIFIED
+          - ROLLED_BACK
+      additionalProperties: false
+      required:
+      - toState
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+          enum:
+          - PROJECT_REGISTERED
+          - RUNTIME_PROFILE_RECORDED
+          - PROJECT_DELETED
+          - CONSENT_GRANTED
+          - CONSENT_REVOKED
+          - SCAN_STARTED
+          - FINDINGS_RECORDED
+          - TOPOLOGY_RECORDED
+          - SCAN_ARTIFACT_RECORDED
+          - SCAN_COMPLETED
+          - CLARIFICATION_ANSWERS_SAVED
+          - PLAN_CREATED
+          - PLAN_ITEM_TRANSITIONED
+          - OUTBOX_EVENTS_RELAYED
+        projectKey:
+          oneOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          description: null = proje dışı sistem eylemi (yalnızca OUTBOX_EVENTS_RELAYED).
+        subjectId:
+          oneOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        callerKind:
+          type: string
+          enum:
+          - UI
+          - INTERNAL
+      additionalProperties: false
+      required:
+      - id
+      - occurredAt
+      - action
+      - projectKey
+      - subjectId
+      - callerKind
+    AuditPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        totalElements:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+    RelayRequest:
+      type: object
+      properties:
+        batchSize:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 100
+      additionalProperties: false
+    RelayResult:
+      type: object
+      properties:
+        relayedCount:
+          type: integer
+          minimum: 0
+        remainingCount:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      required:
+      - relayedCount
+      - remainingCount

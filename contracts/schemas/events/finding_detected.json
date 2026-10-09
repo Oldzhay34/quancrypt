@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/finding_detected.json",
+  "title": "finding_detected",
+  "description": "Bir tarama yeni bir kripto bulgusu kaydetti (RecordFindings). Zarf alanları her olay dosyasında satır içi tekrarlanır (ortak dosya yoktur). Yük yalnızca kodlu alanlar, sayılar ve desenle sınırlı sürüm metinleridir; yol, sembol, kod parçası veya serbest metin içermez (D-20, D-21).",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "finding_detected"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Proje kimliğinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT)."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "algorithm_family": {
+          "type": "string",
+          "enum": [
+            "RSA",
+            "ECDSA",
+            "ECDH",
+            "EDDSA",
+            "DH",
+            "DSA",
+            "ML_KEM",
+            "ML_DSA",
+            "SLH_DSA",
+            "AES",
+            "DES",
+            "TRIPLE_DES",
+            "CHACHA20",
+            "SHA1",
+            "SHA2",
+            "SHA3",
+            "MD5",
+            "HMAC",
+            "X25519",
+            "HYBRID_X25519_MLKEM768",
+            "UNKNOWN"
+          ]
+        },
+        "usage_context": {
+          "type": "string",
+          "enum": [
+            "TLS_KEY_EXCHANGE",
+            "TLS_SERVER_AUTH",
+            "MTLS_CLIENT_AUTH",
+            "CERTIFICATE",
+            "ENCRYPTION",
+            "KEY_WRAP",
+            "SIGNATURE",
+            "TOKEN_SIGNATURE",
+            "KEY_AGREEMENT",
+            "HASH",
+            "SYMMETRIC_ENCRYPTION",
+            "KEYSTORE",
+            "UNKNOWN"
+          ]
+        },
+        "location_kind": {
+          "type": "string",
+          "enum": [
+            "CODE",
+            "CONFIG",
+            "CERTIFICATE_FILE",
+            "KEYSTORE_FILE",
+            "BUILD_FILE",
+            "TEST_CODE"
+          ]
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "key_size_bits": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "classified_by": {
+          "type": "string",
+          "enum": [
+            "STATIC",
+            "LLM"
+          ]
+        }
+      },
+      "required": [
+        "algorithm_family",
+        "usage_context",
+        "location_kind",
+        "priority",
+        "key_size_bits",
+        "confidence",
+        "classified_by"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false
+}

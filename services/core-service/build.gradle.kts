@@ -23,11 +23,20 @@ repositories {
 
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
-    // Spring Boot is used for bootstrap only (P2.2); domain, port and usecase layers are framework free.
+    // Domain, port and usecase layers stay framework free; Spring is used by api, facade and infrastructure only.
     implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+    implementation("tools.jackson.core:jackson-databind")
+    implementation("org.yaml:snakeyaml")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.4.0")
+    // Compile scope: constraint names of violations are read from PSQLException (SqlErrors).
+    implementation("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
+    testImplementation("org.testcontainers:testcontainers")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -43,11 +52,35 @@ tasks.bootJar {
     archiveFileName.set("core-service.jar")
 }
 
+// The redaction rules are a shared contract (guardrails-security section 5); the service reads its own copy.
+tasks.processResources {
+    from("../../contracts/redaction-rules.yaml") {
+        into("redaction")
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
+    exclude("**/integration/**")
     // The golden inventory lives in reference-system/expected (approved in P1.4, D-123).
     systemProperty("quancrypt.expected.dir", file("../../reference-system/expected").absolutePath)
+    systemProperty("quancrypt.contracts.dir", file("../../contracts").absolutePath)
     finalizedBy(tasks.jacocoTestReport)
+}
+
+// Integration tests run against a real PostgreSQL in Testcontainers; Docker must be running (they fail, never skip).
+val integrationTest by tasks.registering(Test::class) {
+    description = "Runs the Testcontainers integration and JDBC contract tests."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    include("**/integration/**")
+    shouldRunAfter(tasks.test)
+    systemProperty("quancrypt.contracts.dir", file("../../contracts").absolutePath)
+    systemProperty("quancrypt.infra.dir", file("../../infra").absolutePath)
+    systemProperty("quancrypt.migrations.dir", file("src/main/resources/db/migration").absolutePath)
+    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
 }
 
 checkstyle {
@@ -107,5 +140,5 @@ tasks.jacocoTestCoverageVerification {
 }
 
 tasks.check {
-    dependsOn(tasks.jacocoTestCoverageVerification)
+    dependsOn(tasks.jacocoTestCoverageVerification, integrationTest)
 }

@@ -1,0 +1,59 @@
+# Quancrypt redaction rules (guardrails-security section 5). One file for every redactor: core-service (Java, before
+# an event is written to the outbox) and agent-service (Python, before LLM context and logs). Test vectors:
+# contracts/testdata/redaction/vectors.yaml (zero leakage).
+#
+# Regex dialect: only the subset shared by java.util.regex and Python `re` is used (character classes, \b, \s, \S,
+# non-capturing groups, lazy and bounded quantifiers, a leading (?i) flag). No named groups, possessive quantifiers or
+# lookbehind. Python compiles every pattern with re.ASCII so that \b, \s and (?i) mean what they mean in Java.
+#
+# Run time: the shared subset has no possessive quantifiers or atomic groups, so every pattern bounds the parts that
+# could backtrack (e-mail local part and labels, the body of a key block, a quoted value). Input longer than
+# max_input_length is not scanned: the whole text becomes [REDACTED:max_input_length] (fail closed).
+#
+# Rules run in the listed order; high_entropy runs last. A match is replaced by `replacement` with {rule} set to the
+# rule id. When `value_group` is given only that capture group is replaced and the rest of the match is kept.
+
+version: 1
+replacement: "[REDACTED:{rule}]"
+max_input_length: 1048576
+
+rules:
+  - id: private_key_block
+    description: >-
+      PEM private key blocks (PKCS#1, PKCS#8, EC, OpenSSH, encrypted). The END line is searched for within 16384
+      characters of the BEGIN line; a BEGIN line without an END line redacts everything after it.
+    pattern: '-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----(?:[\s\S]{0,16384}?-----END [A-Z0-9 ]{0,40}PRIVATE KEY-----|[\s\S]*)'
+
+  - id: aws_access_key_id
+    # Source: AWS IAM User Guide, "Unique identifiers": access key IDs start with AKIA (long-term) or ASIA (temporary).
+    description: AWS access key IDs.
+    pattern: '\b(?:AKIA|ASIA)[A-Z0-9]{16}\b'
+
+  - id: github_token
+    # Source: GitHub blog "Behind GitHub's new authentication token formats" (2021): prefixes ghp_, gho_, ghu_, ghs_,
+    # ghr_; fine-grained personal access tokens start with github_pat_.
+    description: GitHub tokens.
+    pattern: '\b(?:gh[pousr]_[A-Za-z0-9]{36,251}|github_pat_[A-Za-z0-9_]{22,244})\b'
+
+  - id: jwt
+    description: JWT-like strings (base64url JSON header and payload, optional signature).
+    pattern: '\beyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*'
+
+  - id: secret_assignment
+    description: >-
+      Assignments to password, passwd, pwd, secret, token or api key, also with a prefix or suffix (DB_PASSWORD=,
+      access_token=, client_secret:, secret_key=) and as a JSON key ("password": "..."); the key is kept, the value is
+      replaced. A quoted value ends at its closing quote or at the end of the line.
+    pattern: '(?i)(?:password|passwd|pwd|secret|token|api[_-]?key)(?:[_-]?key)?["'']?\s*[=:]\s*("[^"\r\n]{0,4096}"?|''[^''\r\n]{0,4096}''?|[^\s]+)'
+    value_group: 1
+
+  - id: email
+    description: E-mail addresses (local part at most 64 characters, at most 10 labels of at most 63 characters).
+    pattern: '[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}'
+
+high_entropy:
+  id: high_entropy
+  description: Long random-looking tokens (D-160). Hex strings carry at most 4 bits per character and are not caught.
+  token_pattern: '[A-Za-z0-9+/=_-]+'
+  min_length: 32
+  min_bits_per_char: 4.5

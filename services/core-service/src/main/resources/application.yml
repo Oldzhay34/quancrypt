@@ -1,0 +1,28 @@
+# core-service configuration. Everything comes from environment variables (hexagonal-service section 6); the defaults
+# are for local development only. Secrets have no default: a missing password or salt stops the service at start-up.
+spring:
+  application:
+    name: core-service
+  main:
+    # REST API arrives in P2.4.
+    web-application-type: none
+  datasource:
+    url: ${CORE_DB_URL:jdbc:postgresql://localhost:5432/core_db}
+    username: core_db_app
+    password: ${CORE_DB_APP_PASSWORD}
+
+quancrypt:
+  migration:
+    # Flyway runs as the schema owner (D-54); the service connects as core_db_app.
+    username: core_db_migrator
+    password: ${CORE_DB_MIGRATOR_PASSWORD}
+  anon-salt: ${QUANCRYPT_ANON_SALT}
+  outbox:
+    ingest-url: ${INGEST_API_URL:}
+    connect-timeout: 2s
+    request-timeout: 5s
+    relay:
+      enabled: ${OUTBOX_RELAY_ENABLED:false}
+      interval: ${OUTBOX_RELAY_INTERVAL:5s}
+      batch-size: ${OUTBOX_RELAY_BATCH_SIZE:100}
+      max-backoff: 5m

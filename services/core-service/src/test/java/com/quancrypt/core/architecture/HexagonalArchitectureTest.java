@@ -1,5 +1,7 @@
 package com.quancrypt.core.architecture;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -10,7 +12,10 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
-/** The hexagonal rules of hexagonal-service, section 3; layers without classes yet (api, facade, infrastructure) are optional. */
+/**
+ * The hexagonal rules of hexagonal-service, sections 2 and 3. Only the composition root (infrastructure.config) may see
+ * every layer; it is left out of the layer check and the other adapters are held to the rules below.
+ */
 @AnalyzeClasses(packages = "com.quancrypt.core", importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {
 
@@ -32,7 +37,19 @@ class HexagonalArchitectureTest {
             .whereLayer("PortOutbound").mayOnlyBeAccessedByLayers("UseCase", "Infrastructure")
             .whereLayer("UseCase").mayOnlyBeAccessedByLayers("Infrastructure")
             .whereLayer("Domain").mayOnlyBeAccessedByLayers("PortInbound", "PortOutbound", "UseCase", "Infrastructure")
-            .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer();
+            .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer()
+            .ignoreDependency(JavaClass.Predicates.resideInAPackage("com.quancrypt.core.infrastructure.config.."), DescribedPredicate.alwaysTrue());
+
+    @ArchTest
+    static final ArchRule ADAPTERS_DO_NOT_DRIVE_USE_CASES = noClasses().that().resideInAPackage("com.quancrypt.core.infrastructure..")
+            .and().resideOutsideOfPackage("com.quancrypt.core.infrastructure.config..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "com.quancrypt.core.usecase..", "com.quancrypt.core.port.inbound..", "com.quancrypt.core.facade..", "com.quancrypt.core.api..");
+
+    @ArchTest
+    static final ArchRule ONLY_THE_COMPOSITION_ROOT_SEES_THE_DRIVING_SIDE = noClasses().that().resideOutsideOfPackages(
+                    "com.quancrypt.core.infrastructure.config..", "com.quancrypt.core.api..", "com.quancrypt.core.facade..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.quancrypt.core.api..", "com.quancrypt.core.facade..");
 
     @ArchTest
     static final ArchRule API_ONLY_SEES_THE_FACADE = noClasses().that().resideInAPackage("com.quancrypt.core.api..")

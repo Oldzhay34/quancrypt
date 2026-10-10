@@ -13,4 +13,17 @@
     <Package name="~com\.quancrypt\.core\.unit\..*"/>
     <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT,RV_RETURN_VALUE_IGNORED_INFERRED"/>
   </Match>
+  <!--
+    Test wiring holds shared, stateful collaborators on purpose: the port set of the contract tests and the audit
+    decorator keep the adapters they are given (as the use cases do, see exclude.xml), and the test database hands out its
+    one shared connection pool. Copying them would defeat their purpose.
+  -->
+  <Match>
+    <Or>
+      <Class name="com.quancrypt.core.contract.PortSet"/>
+      <Class name="com.quancrypt.core.integration.support.ArmedAuditLogWriter"/>
+      <Class name="com.quancrypt.core.integration.support.PostgresTestDatabase"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

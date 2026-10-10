@@ -1,0 +1,173 @@
+# Redaction test vectors for contracts/redaction-rules.yaml (guardrails-security section 5). Every redactor (Java and
+# Python) must pass all of them.
+#
+# positive: the output contains "[REDACTED:<rule>]" and none of the strings listed under `secrets`.
+# negative: the output equals the input exactly.
+#
+# All values are fabricated test data. AKIAIOSFODNN7EXAMPLE is the example key ID from the AWS documentation; the private
+# key bodies below are not keys.
+
+version: 1
+vectors:
+  - id: private_key_block-positive-pkcs8
+    rule: private_key_block
+    kind: positive
+    input: "key=-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCnotarealkeyjusttestdata\nAbCdEfGh\n-----END PRIVATE KEY----- end"
+    secrets: ["MIIEvQIBADANBgkqhkiG9w0BAQEFAASCnotarealkeyjusttestdata", "AbCdEfGh"]
+  - id: private_key_block-positive-rsa
+    rule: private_key_block
+    kind: positive
+    input: "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAKnotarealkey\n-----END RSA PRIVATE KEY-----"
+    secrets: ["MIIBOgIBAAJBAKnotarealkey"]
+  - id: private_key_block-positive-unterminated
+    rule: private_key_block
+    kind: positive
+    input: "pasted -----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIBnotarealkeyjusttestdata
+and the END line is missing"
+    secrets: ["MHcCAQEEIBnotarealkeyjusttestdata", "END line is missing"]
+  - id: private_key_block-negative-public-key
+    rule: private_key_block
+    kind: negative
+    input: "-----BEGIN PUBLIC KEY-----\nMFwwDQYJKoZIhvcNAQEBBQADSwAw\n-----END PUBLIC KEY-----"
+
+  - id: aws_access_key_id-positive
+    rule: aws_access_key_id
+    kind: positive
+    input: "aws_access_key_id AKIAIOSFODNN7EXAMPLE in config"
+    secrets: ["AKIAIOSFODNN7EXAMPLE"]
+  - id: aws_access_key_id-negative-too-short
+    rule: aws_access_key_id
+    kind: negative
+    input: "the prefix AKIA1234 alone is not a key"
+
+  - id: github_token-positive-classic
+    rule: github_token
+    kind: positive
+    input: "export GH=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789 done"
+    secrets: ["ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789", "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"]
+  - id: github_token-positive-fine-grained
+    rule: github_token
+    kind: positive
+    input: "github_pat_11ABCDEFG0123456789_abcdefghijklmnop"
+    secrets: ["11ABCDEFG0123456789_abcdefghijklmnop"]
+  - id: github_token-negative-short
+    rule: github_token
+    kind: negative
+    input: "branch ghp_short is not a token"
+
+  - id: jwt-positive
+    rule: jwt
+    kind: positive
+    input: "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkZW1vMSJ9.c2lnbmF0dXJlLW5vdC1yZWFs"
+    secrets: ["eyJzdWIiOiJkZW1vMSJ9", "c2lnbmF0dXJlLW5vdC1yZWFs"]
+  - id: jwt-negative-single-segment
+    rule: jwt
+    kind: negative
+    input: "header only eyJhbGciOiJIUzI1NiJ9 is not a token"
+
+  - id: secret_assignment-positive-password
+    rule: secret_assignment
+    kind: positive
+    input: "spring.datasource.password=hunter2-demo"
+    secrets: ["hunter2-demo"]
+  - id: secret_assignment-positive-quoted-token
+    rule: secret_assignment
+    kind: positive
+    input: "token: \"abc def ghi\""
+    secrets: ["abc def ghi"]
+  - id: secret_assignment-positive-uppercase-secret
+    rule: secret_assignment
+    kind: positive
+    input: "SECRET = 's3cr3t-value'"
+    secrets: ["s3cr3t-value"]
+  - id: secret_assignment-positive-env-prefix
+    rule: secret_assignment
+    kind: positive
+    input: "DB_PASSWORD=hunter2"
+    secrets: ["hunter2"]
+  - id: secret_assignment-positive-snake-case-token
+    rule: secret_assignment
+    kind: positive
+    input: "access_token=abc123 next"
+    secrets: ["abc123"]
+  - id: secret_assignment-positive-client-secret-yaml
+    rule: secret_assignment
+    kind: positive
+    input: "client_secret: xyz-demo-value"
+    secrets: ["xyz-demo-value"]
+  - id: secret_assignment-positive-secret-key-suffix
+    rule: secret_assignment
+    kind: positive
+    input: "secret_key=demo-secret-key-value"
+    secrets: ["demo-secret-key-value"]
+  - id: secret_assignment-positive-api-key
+    rule: secret_assignment
+    kind: positive
+    input: "api_key=demo-api-key-value"
+    secrets: ["demo-api-key-value"]
+  - id: secret_assignment-positive-json-key
+    rule: secret_assignment
+    kind: positive
+    input: "{\"user\": \"demo\", \"password\": \"hunter2 with spaces\"}"
+    secrets: ["hunter2 with spaces"]
+  - id: secret_assignment-positive-value-with-separators
+    rule: secret_assignment
+    kind: positive
+    input: "pwd=a,b;c&d end"
+    secrets: ["a,b;c&d"]
+  - id: secret_assignment-positive-unclosed-quote
+    rule: secret_assignment
+    kind: positive
+    input: "token: \"never closed value
+next line"
+    secrets: ["never closed value"]
+  - id: secret_assignment-positive-unicode-prefix
+    rule: secret_assignment
+    kind: positive
+    input: "şpassword=gizli-deger"
+    secrets: ["gizli-deger"]
+  - id: secret_assignment-negative-longer-word
+    rule: secret_assignment
+    kind: negative
+    input: "token_count = 5"
+  - id: secret_assignment-negative-prose
+    rule: secret_assignment
+    kind: negative
+    input: "password policy requires at least 12 characters"
+
+  - id: secret_assignment-negative-plural-word
+    rule: secret_assignment
+    kind: negative
+    input: "max_tokens: 100"
+  - id: email-positive
+    rule: email
+    kind: positive
+    input: "contact demo.user+qb@example.com today"
+    secrets: ["demo.user+qb@example.com"]
+  - id: email-negative-spelled-out
+    rule: email
+    kind: negative
+    input: "demo.user at example dot com"
+
+  - id: high_entropy-positive
+    rule: high_entropy
+    kind: positive
+    input: "api key Zx8Qp3LmW7rTn2VbKc9YhJ4sDf6GuA1eRtPoIqMn here"
+    secrets: ["Zx8Qp3LmW7rTn2VbKc9YhJ4sDf6GuA1eRtPoIqMn"]
+  - id: high_entropy-negative-sha256-hex
+    rule: high_entropy
+    kind: negative
+    input: "sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  - id: high_entropy-negative-low-entropy
+    rule: high_entropy
+    kind: negative
+    input: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  - id: high_entropy-negative-short
+    rule: high_entropy
+    kind: negative
+    input: "short Zx8Qp3LmW7rTn2VbKc9Yh token"
+  - id: high_entropy-negative-uuid-and-codes
+    rule: high_entropy
+    kind: negative
+    input: "6f1d2c0e-3b7a-4c55-9e21-5a0b7d4e8c01 HYBRID_KEX_CLASSIC_CERT KEEP_SHORT_LIVED_TOKEN"

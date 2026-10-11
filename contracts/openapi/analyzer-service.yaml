@@ -1,0 +1,431 @@
+openapi: 3.1.0
+info:
+  title: Quancrypt analyzer-service API
+  version: 1.0.0-draft
+  description: 'analyzer-service durumsuzdur ve veritabanı kullanmaz; proje dizinini salt okunur okur (`/workspace`, korpus için
+    `/corpus`), kripto kullanımlarını bulur, CycloneDX CBOM üretir ve servis topolojisini çıkarır. Dile özgü iş bir dil eklentisinin
+    arkasındadır (NFR-06). TASLAK: P3.1 kontratıdır. Alan adları snake_case''tir (D-175). Analiz uçları senkrondur, istemci zaman
+    aşımı 300 sn (D-172). Uçlar yan etkisizdir; `Idempotency-Key` kabul edilmez (D-178a). Hatalar RFC 9457; tüm uçlar yalnızca
+    servisler arası çağrıya açıktır (`X-Internal-Token`).'
+servers:
+- url: http://analyzer-service:8082
+  description: İç compose ağı (analyzer-service, docs/ports.md)
+tags:
+- name: Analiz
+- name: Eklenti
+security:
+- internalToken: []
+paths:
+  /api/v1/analyses:
+    post:
+      operationId: AnalyzeCrypto
+      summary: AnalyzeCrypto
+      tags:
+      - Analiz
+      description: 'Kökteki projenin türünü belirler, uygun dil eklentisini seçer ve kripto kullanımlarını bulur. `include_tests`
+        false ise `location_kind: TEST_CODE` bulguları sonuçtan çıkarılır; true (varsayılan) ise işaretli olarak döner (D-173).
+        422 nedenleri: proje Maven veya Gradle değil, kökte iki build sistemi birden var, projeyi destekleyen eklenti yok veya
+        okuma sınırları aşıldı (200.000 dosya, dosya başına 5 MiB, analiz başına 5000 bulgu; D-181).'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisRequest'
+      responses:
+        '200':
+          description: Analiz sonucu.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnsupportedProject'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/topologies:
+    post:
+      operationId: BuildTopology
+      summary: BuildTopology
+      tags:
+      - Analiz
+      description: Kökteki projenin servis topolojisini (düğümler ve kenarlar) statik analizle çıkarır.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopologyRequest'
+      responses:
+        '200':
+          description: Topoloji.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '../schemas/topology.schema.json'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnsupportedProject'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/snippets:
+    get:
+      operationId: GetSnippet
+      summary: GetSnippet
+      tags:
+      - Analiz
+      description: 'Bir dosyanın `line` satırını ve çevresindeki `context` kadar satırı döner. Redaksiyon dosyanın tamamına
+        uygulanır, sonra pencere kesilir; birden çok satıra yayılan sır (özel anahtar bloğu) pencere ortasından başlasa da
+        maskelenir (`contracts/redaction-rules.yaml`, D-179). Ortam dosyaları (`.env`, `.env.*`), keystore''lar (`.p12`, `.pfx`,
+        `.jks`, `.jceks`, `.keystore`, `.bks`) ve özel anahtar dosyaları (`*.key`, `*.key.pem`, `*-key.pem`, `id_rsa`, `id_dsa`,
+        `id_ecdsa`, `id_ed25519`) hiç sunulmaz: 400 `path-not-allowed` (D-180). 404: dosya yok veya satır dosyanın dışında.
+        422: dosya 5 MiB okuma sınırını aşıyor (D-181).'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: root
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/Root'
+      - name: path
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/RelativePath'
+      - name: line
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: context
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
+      responses:
+        '200':
+          description: Redakte edilmiş satırlar.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snippet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnsupportedProject'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/plugins:
+    get:
+      operationId: ListPlugins
+      summary: ListPlugins
+      tags:
+      - Eklenti
+      description: Yüklü dil eklentileri.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      responses:
+        '200':
+          description: Eklenti listesi.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Servisler arası çağrılar için iç token (`INTERNAL_SERVICE_TOKEN`, `.env`).
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: İzleme kimliği; yoksa servis üretir ve yanıtta döner.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9._-]{1,128}$
+  headers:
+    TraceId:
+      description: İzleme kimliği.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 'İstek geçersiz. `type`: `validation-failed` veya `path-not-allowed` (kök izinli dizinlerin dışında, yol
+        kökten çıkıyor, sembolik bağlantı ya da snippet için sır taşıyan dosya, D-180).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Kimlik doğrulama başarısız.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Dosya veya satır bulunamadı.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnsupportedProject:
+      description: 'Proje desteklenmiyor veya okuma sınırları aşıldı (`type`: `unsupported-project`; sınırlar: 200.000 dosya,
+        dosya başına 5 MiB, analiz başına 5000 bulgu; D-181).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: Beklenmeyen hata.
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
+        validation-failed, path-not-allowed, unauthorized, not-found, unsupported-project, internal-error).'
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      required:
+      - type
+      - title
+      - status
+      additionalProperties: true
+    Root:
+      type: string
+      description: Analiz kökü; yalnızca `/workspace` veya `/corpus` ya da bunların altındaki bir dizin. `.` ve `..` bölümü
+        yoktur; sunucu ayrıca kanonikleştirir ve sembolik bağlantıyı reddeder.
+      maxLength: 1024
+      pattern: '^/(workspace|corpus)(/(?!\.\.?(/|$))[^/\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb\\]+)*$'
+    RelativePath:
+      type: string
+      description: Köke göre göreli yol, `/` ayraçlı; mutlak yol ve `..` bölümü yoktur.
+      minLength: 1
+      maxLength: 1024
+      pattern: '^(?![A-Za-z]:)(?![/\\])(?!.*//)(?!(.*/)?\.{1,2}(/|$))(?!.*/$)[^\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb\\]+$'
+    AnalysisRequest:
+      type: object
+      properties:
+        root:
+          $ref: '#/components/schemas/Root'
+        include_tests:
+          type: boolean
+          default: true
+      required:
+      - root
+      additionalProperties: false
+    TopologyRequest:
+      type: object
+      properties:
+        root:
+          $ref: '#/components/schemas/Root'
+      required:
+      - root
+      additionalProperties: false
+    Version:
+      type:
+      - string
+      - 'null'
+      pattern: ^[0-9A-Za-z._+-]{1,32}$
+    RuntimeInfo:
+      type: object
+      description: Build dosyalarından tespit edilen sürümler; tespit edilemeyen alan null.
+      properties:
+        java_version:
+          $ref: '#/components/schemas/Version'
+        spring_boot_version:
+          $ref: '#/components/schemas/Version'
+      required:
+      - java_version
+      - spring_boot_version
+      additionalProperties: false
+    Cbom:
+      type: object
+      description: CycloneDX BOM (JSON). İçeriği ve şema sürümü P3.3'te belirlenir; bu kontrat yalnızca çerçeveyi sabitler.
+      properties:
+        bomFormat:
+          const: CycloneDX
+        specVersion:
+          type: string
+          pattern: ^[0-9]+\.[0-9]+$
+      required:
+      - bomFormat
+      - specVersion
+      additionalProperties: true
+    AnalysisStats:
+      type: object
+      properties:
+        files_scanned:
+          type: integer
+          minimum: 0
+        findings_total:
+          type: integer
+          minimum: 0
+        duration_ms:
+          type: integer
+          minimum: 0
+      required:
+      - files_scanned
+      - findings_total
+      - duration_ms
+      additionalProperties: false
+    AnalysisResult:
+      type: object
+      properties:
+        analysis_id:
+          type: string
+          format: uuid
+        project_type:
+          type: string
+          enum:
+          - MAVEN
+          - GRADLE
+        runtime:
+          $ref: '#/components/schemas/RuntimeInfo'
+        findings:
+          type: array
+          maxItems: 5000
+          items:
+            $ref: '../schemas/finding.schema.json'
+        cbom:
+          $ref: '#/components/schemas/Cbom'
+        stats:
+          $ref: '#/components/schemas/AnalysisStats'
+      required:
+      - analysis_id
+      - project_type
+      - runtime
+      - findings
+      - cbom
+      - stats
+      additionalProperties: false
+    SnippetLine:
+      type: object
+      properties:
+        number:
+          type: integer
+          minimum: 1
+        text:
+          type: string
+          maxLength: 4096
+      required:
+      - number
+      - text
+      additionalProperties: false
+    Snippet:
+      type: object
+      properties:
+        path:
+          $ref: '#/components/schemas/RelativePath'
+        lines:
+          type: array
+          maxItems: 21
+          items:
+            $ref: '#/components/schemas/SnippetLine'
+      required:
+      - path
+      - lines
+      additionalProperties: false
+    Plugin:
+      type: object
+      properties:
+        id:
+          type: string
+          pattern: ^[a-z0-9.-]{1,64}$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: ^[0-9A-Za-z._+-]{1,32}$
+        project_types:
+          type: array
+          items:
+            type: string
+            enum:
+            - MAVEN
+            - GRADLE
+      required:
+      - id
+      - name
+      - version
+      - project_types
+      additionalProperties: false
+    PluginList:
+      type: object
+      properties:
+        plugins:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plugin'
+      required:
+      - plugins
+      additionalProperties: false

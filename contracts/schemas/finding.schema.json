@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/finding.schema.json",
+  "title": "finding",
+  "description": "analyzer-service'in buldu\u011fu tek bir kripto kullan\u0131m\u0131 (P3.1). Alan adlar\u0131 snake_case'tir (D-175). Kod listeleri crypto-domain skill'indendir; `priority` ve `symbol` D-171 ile eklendi; `mode`, `padding`, `hash` ve `library` kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc haliyle yaz\u0131l\u0131r, kod listesi yoktur (D-174). Kod par\u00e7as\u0131 i\u00e7ermez; sat\u0131rlar gerekti\u011finde `GET /api/v1/snippets` ile redakte edilerek okunur.",
+  "type": "object",
+  "properties": {
+    "file": {
+      "type": "string",
+      "description": "Analiz k\u00f6k\u00fcne g\u00f6re g\u00f6reli yol, `/` ayra\u00e7l\u0131. Mutlak yol ve `..` b\u00f6l\u00fcm\u00fc yoktur.",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*//)(?!(.*/)?\\.{1,2}(/|$))(?!.*/$)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb\\\\]+$"
+    },
+    "line_start": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Bulgunun ilk sat\u0131r\u0131; b\u00fct\u00fcn dosyaya ait bulgularda (sertifika, keystore) null."
+    },
+    "line_end": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Bulgunun son sat\u0131r\u0131; `line_start` null ise null."
+    },
+    "raw_name": {
+      "type": "string",
+      "description": "Kodda veya yap\u0131land\u0131rmada ge\u00e7en ham ad (\u00f6rn. `RSA/ECB/OAEPWithSHA-256AndMGF1Padding`, `SHA1withRSA`, `RS256`).",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "Kodda `S\u0131n\u0131f#metot`, yap\u0131land\u0131rmada anahtar, sertifika ve anahtar dosyalar\u0131nda dosya ad\u0131 (D-171).",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
+    },
+    "algorithm_family": {
+      "type": "string",
+      "enum": [
+        "RSA",
+        "ECDSA",
+        "ECDH",
+        "EDDSA",
+        "DH",
+        "DSA",
+        "ML_KEM",
+        "ML_DSA",
+        "SLH_DSA",
+        "AES",
+        "DES",
+        "TRIPLE_DES",
+        "CHACHA20",
+        "SHA1",
+        "SHA2",
+        "SHA3",
+        "MD5",
+        "HMAC",
+        "X25519",
+        "HYBRID_X25519_MLKEM768",
+        "UNKNOWN"
+      ]
+    },
+    "mode": {
+      "$ref": "#/$defs/rawToken",
+      "description": "Blok \u015fifre modu, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `GCM`, `ECB`); yoksa null."
+    },
+    "padding": {
+      "$ref": "#/$defs/rawToken",
+      "description": "Dolgu, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `OAEPWithSHA-256AndMGF1Padding`, `PKCS1Padding`); yoksa null."
+    },
+    "hash": {
+      "$ref": "#/$defs/rawToken",
+      "description": "\u00d6zet algoritmas\u0131, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `SHA-256`, `SHA1`); yoksa null."
+    },
+    "key_size_bits": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "description": "Anahtar boyutu; belirlenemiyorsa null."
+    },
+    "usage_context": {
+      "type": "string",
+      "enum": [
+        "TLS_KEY_EXCHANGE",
+        "TLS_SERVER_AUTH",
+        "MTLS_CLIENT_AUTH",
+        "CERTIFICATE",
+        "ENCRYPTION",
+        "KEY_WRAP",
+        "SIGNATURE",
+        "TOKEN_SIGNATURE",
+        "KEY_AGREEMENT",
+        "HASH",
+        "SYMMETRIC_ENCRYPTION",
+        "KEYSTORE",
+        "UNKNOWN"
+      ]
+    },
+    "location_kind": {
+      "type": "string",
+      "enum": [
+        "CODE",
+        "CONFIG",
+        "CERTIFICATE_FILE",
+        "KEYSTORE_FILE",
+        "BUILD_FILE",
+        "TEST_CODE"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "P0",
+        "P1",
+        "P2",
+        "P3"
+      ],
+      "description": "crypto-domain \u00f6ncelik tablosundan; core-service bunu do\u011frular (D-149)."
+    },
+    "library": {
+      "$ref": "#/$defs/rawToken",
+      "description": "Kullan\u0131lan k\u00fct\u00fcphane veya API, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `JCA`, `BouncyCastle`, `Nimbus`); belirlenemiyorsa null."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "detector_id": {
+      "type": "string",
+      "description": "Bulguyu \u00fcreten dedekt\u00f6r\u00fcn kimli\u011fi.",
+      "pattern": "^[a-z0-9.-]{1,64}$"
+    }
+  },
+  "required": [
+    "file",
+    "line_start",
+    "line_end",
+    "raw_name",
+    "symbol",
+    "algorithm_family",
+    "mode",
+    "padding",
+    "hash",
+    "key_size_bits",
+    "usage_context",
+    "location_kind",
+    "priority",
+    "library",
+    "confidence",
+    "detector_id"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "rawToken": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._/+()#-]+$"
+    }
+  }
+}

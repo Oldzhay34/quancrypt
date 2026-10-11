@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/topology.schema.json",
+  "title": "topology",
+  "description": "analyzer-service'in statik analizle \u00e7\u0131kard\u0131\u011f\u0131 servis topolojisi (P3.1). D\u00fc\u011f\u00fcmler projenin par\u00e7alar\u0131 ve konu\u015ftu\u011fu d\u0131\u015f u\u00e7lard\u0131r; kenarlar ba\u011flant\u0131y\u0131 kuran taraftan (istemci) dinleyene (sunucu) do\u011frudur. Statik analiz pazarl\u0131k edilen TLS s\u00fcr\u00fcm\u00fcn\u00fc ve anahtar de\u011fi\u015fim grubunu \u00f6l\u00e7emez, bu y\u00fczden kenarda yoktur (D-178e). `kind` listesi D-170'tir; core-service'e iletirken `EXTERNAL` \u2192 `EXTERNAL_CLIENT` e\u015flenir ve `DATABASE` d\u00fc\u011f\u00fcmleri iletilmez.",
+  "type": "object",
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    }
+  },
+  "required": [
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,200}$"
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "SERVICE",
+            "GATEWAY",
+            "BROKER",
+            "DEVICE",
+            "DATABASE",
+            "EXTERNAL"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "target": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "HTTP",
+            "GRPC",
+            "MQTT",
+            "AMQP",
+            "KAFKA",
+            "OTHER"
+          ]
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "mtls": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "protocol",
+        "tls",
+        "mtls",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "description": "D\u00fc\u011f\u00fcm\u00fc veya kenar\u0131 g\u00f6steren dosya ve sat\u0131r aral\u0131\u011f\u0131.",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*//)(?!(.*/)?\\.{1,2}(/|$))(?!.*/$)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb\\\\]+$"
+        },
+        "line_start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "line_end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "location_kind": {
+          "type": "string",
+          "enum": [
+            "CODE",
+            "CONFIG",
+            "CERTIFICATE_FILE",
+            "KEYSTORE_FILE",
+            "BUILD_FILE",
+            "TEST_CODE"
+          ]
+        }
+      },
+      "required": [
+        "file",
+        "line_start",
+        "line_end",
+        "location_kind"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

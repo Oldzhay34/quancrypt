@@ -37,6 +37,9 @@ class RelayConfigurationTest {
                 "--spring.datasource.password=" + database.appPassword(),
                 "--quancrypt.migration.password=" + database.migratorPassword(),
                 "--quancrypt.anon-salt=" + SALT,
+                "--quancrypt.session-token=" + "s".repeat(40),
+                "--quancrypt.internal-token=" + "i".repeat(40),
+                "--server.port=0",
                 "--quancrypt.outbox.ingest-url=" + ingestUrl,
                 "--quancrypt.outbox.relay.enabled=" + relayEnabled,
                 "--quancrypt.outbox.relay.interval=1m");

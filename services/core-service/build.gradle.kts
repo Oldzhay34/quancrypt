@@ -25,6 +25,10 @@ dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
     // Domain, port and usecase layers stay framework free; Spring is used by api, facade and infrastructure only.
     implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -35,6 +39,8 @@ dependencies {
     implementation("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("com.networknt:json-schema-validator:3.0.8")
     testImplementation("com.tngtech.archunit:archunit-junit5:1.5.1")
     testImplementation("org.testcontainers:testcontainers")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

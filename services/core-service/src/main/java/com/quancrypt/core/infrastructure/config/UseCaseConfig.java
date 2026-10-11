@@ -337,9 +337,9 @@ public class UseCaseConfig {
 
     @Bean
     GetPlanReportUseCase getPlanReport(TransactionRunner tx, ScanReader scans, PlanReader plans, FindingReader findings,
-                                       PlanningContextReader contexts, RuntimeProfileReader profiles, RiskThresholdReader thresholds,
-                                       StrategyPlanner planner) {
-        return new GetPlanReportService(tx, scans, plans, findings, contexts, profiles, thresholds, planner);
+                                       PlanningContextReader contexts, RuntimeProfileReader profiles, ClarificationReader answers,
+                                       RiskThresholdReader thresholds, StrategyPlanner planner) {
+        return new GetPlanReportService(tx, scans, plans, findings, contexts, profiles, answers, thresholds, planner);
     }
 
     // ------------------------------------------------------------------ audit and events

@@ -42,6 +42,34 @@ services:
   # `qbank-gateway` ayrıca `quancrypt` ağına bağlıdır ve 127.0.0.1:9443'te yayımlanır. Sertifika ve anahtarlar yalnızca gereken dosyalar tek tek salt okunur bağlanır
   # (D-115); `ca.key.pem` ve `card-token.key.pem` hiçbir konteynere girmez. Sağlık kontrolleri imajların
   # HEALTHCHECK'inden gelir (Mosquitto hariç).
+  core-service:
+    profiles: [app]
+    build:
+      # The build context is the repository root (the redaction rules are copied from contracts/); the allow-list in
+      # services/core-service/Dockerfile.dockerignore keeps .env, keys and every other service out of it.
+      context: .
+      dockerfile: services/core-service/Dockerfile
+    image: core-service:1.0.0
+    environment:
+      CORE_DB_URL: jdbc:postgresql://postgres:5432/core_db
+      # No :? here, so that make up without the app profile keeps working before these keys exist in .env; the service itself
+      # refuses to start without a real value (it never has a default for a secret).
+      CORE_DB_APP_PASSWORD: ${CORE_DB_APP_PASSWORD:-}
+      CORE_DB_MIGRATOR_PASSWORD: ${CORE_DB_MIGRATOR_PASSWORD:-}
+      QUANCRYPT_ANON_SALT: ${QUANCRYPT_ANON_SALT:-}
+      QUANCRYPT_SESSION_TOKEN: ${QUANCRYPT_SESSION_TOKEN:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      INGEST_API_URL: ${INGEST_API_URL:-}
+      OUTBOX_RELAY_ENABLED: ${OUTBOX_RELAY_ENABLED:-false}
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks:
+      - quancrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 40s
+
   qbank-account-service:
     profiles: [demo]
     build:

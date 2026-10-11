@@ -15,6 +15,7 @@ import com.quancrypt.core.port.inbound.GetPlanReportQuery;
 import com.quancrypt.core.port.inbound.GetPlanReportUseCase;
 import com.quancrypt.core.port.inbound.view.PlanReportItemView;
 import com.quancrypt.core.port.inbound.view.PlanReportView;
+import com.quancrypt.core.port.outbound.ClarificationReader;
 import com.quancrypt.core.port.outbound.FindingContext;
 import com.quancrypt.core.port.outbound.FindingReader;
 import com.quancrypt.core.port.outbound.IsolationLevel;
@@ -40,18 +41,20 @@ public final class GetPlanReportService implements GetPlanReportUseCase {
     private final FindingReader findings;
     private final PlanningContextReader contexts;
     private final RuntimeProfileReader profiles;
+    private final ClarificationReader answers;
     private final RiskThresholdReader thresholds;
     private final StrategyPlanner planner;
 
     public GetPlanReportService(
             TransactionRunner tx, ScanReader scans, PlanReader plans, FindingReader findings, PlanningContextReader contexts,
-            RuntimeProfileReader profiles, RiskThresholdReader thresholds, StrategyPlanner planner) {
+            RuntimeProfileReader profiles, ClarificationReader answers, RiskThresholdReader thresholds, StrategyPlanner planner) {
         this.tx = tx;
         this.scans = scans;
         this.plans = plans;
         this.findings = findings;
         this.contexts = contexts;
         this.profiles = profiles;
+        this.answers = answers;
         this.thresholds = thresholds;
         this.planner = planner;
     }
@@ -73,7 +76,8 @@ public final class GetPlanReportService implements GetPlanReportUseCase {
                     .sorted(Comparator.comparing(PlanReportItemView::riskScore).reversed().thenComparing(PlanReportItemView::path))
                     .toList();
             return new PlanReportView(ViewMapper.plan(plan, items.size()), ViewMapper.scan(scan),
-                    profile.map(p -> ViewMapper.runtimeProfile(p, false)), rows);
+                    profile.map(p -> ViewMapper.runtimeProfile(p, false)),
+                    answers.list(scan.projectId()).stream().map(ViewMapper::answer).toList(), rows);
         });
     }
 

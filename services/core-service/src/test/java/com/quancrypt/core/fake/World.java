@@ -166,7 +166,7 @@ public final class World {
         createPlan = new CreatePlanService(tx, access, findings, findings, profiles, planner, plans, plans, events, idempotency, audit, clock, ids);
         getPlan = new GetPlanService(tx, scans, plans, plans);
         transitionPlanItem = new TransitionPlanItemService(tx, projects, gate, plans, plans, plans, events, idempotency, audit, clock, ids);
-        getPlanReport = new GetPlanReportService(tx, scans, plans, findings, findings, profiles, plans, planner);
+        getPlanReport = new GetPlanReportService(tx, scans, plans, findings, findings, profiles, clarifications, plans, planner);
         getAuditLog = new GetAuditLogService(auditLog);
         relayOutboxEvents = new RelayOutboxEventsService(tx, outbox, publisher, idempotencyStore, audit, clock);
     }

@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -52,13 +53,17 @@ import org.springframework.transaction.PlatformTransactionManager;
  * PostgreSQL, connected as core_db_app, with the relay scheduler off as in production (D-155) and the publisher pointed
  * at a loopback ingest-api stub. Every test starts from an empty database.
  */
-@SpringBootTest(classes = {CoreServiceApplication.class, IntegrationTest.TestDoubles.class})
+@SpringBootTest(classes = {CoreServiceApplication.class, IntegrationTest.TestDoubles.class},
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationTest {
 
     protected static final IngestApiStub INGEST = new IngestApiStub();
     private static final SecureRandom RANDOM = new SecureRandom();
     protected static final String SALT = randomSalt();
+    protected static final String SESSION_TOKEN = randomSalt();
+    protected static final String INTERNAL_TOKEN = randomSalt();
 
+    @Value("${local.server.port}") protected int port;
     @Autowired protected ArmedAuditLogWriter auditFailure;
     @Autowired protected RetryLog retries;
     @Autowired protected JdbcClient jdbc;
@@ -84,6 +89,8 @@ public abstract class IntegrationTest {
         registry.add("spring.datasource.password", database::appPassword);
         registry.add("quancrypt.migration.password", database::migratorPassword);
         registry.add("quancrypt.anon-salt", () -> SALT);
+        registry.add("quancrypt.session-token", () -> SESSION_TOKEN);
+        registry.add("quancrypt.internal-token", () -> INTERNAL_TOKEN);
         registry.add("quancrypt.outbox.ingest-url", INGEST::url);
         registry.add("quancrypt.outbox.relay.enabled", () -> "false");
     }
@@ -100,6 +107,10 @@ public abstract class IntegrationTest {
         byte[] bytes = new byte[32];
         RANDOM.nextBytes(bytes);
         return HexFormat.of().formatHex(bytes);
+    }
+
+    protected ApiClient api() {
+        return new ApiClient(port);
     }
 
     /** Row count of a table, read as the migrator so the check does not depend on the app role's grants. */

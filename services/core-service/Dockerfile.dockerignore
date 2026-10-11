@@ -1,0 +1,11 @@
+# Applies to the build context at the repository root (docker build -f services/core-service/Dockerfile ... .).
+# Everything is excluded, then only what the image build needs is let back in: no .env, no keys, no other service.
+*
+!contracts/redaction-rules.yaml
+!services/core-service/settings.gradle.kts
+!services/core-service/build.gradle.kts
+!services/core-service/config
+!services/core-service/config/**
+!services/core-service/src
+!services/core-service/src/main
+!services/core-service/src/main/**

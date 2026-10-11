@@ -26,4 +26,15 @@
     </Or>
     <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
   </Match>
+  <!--
+    The HTTP test client and the parsed contract are short-lived value holders of the test code (response bytes and
+    headers, operations read from the OpenAPI file); nothing outside the test reads or changes them.
+  -->
+  <Match>
+    <Or>
+      <Class name="~com\.quancrypt\.core\.integration\.support\.ApiClient\$.*"/>
+      <Class name="~com\.quancrypt\.core\.integration\.support\.OpenApiContract\$Operation"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

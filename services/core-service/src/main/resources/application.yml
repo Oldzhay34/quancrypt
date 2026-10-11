@@ -1,17 +1,59 @@
 # core-service configuration. Everything comes from environment variables (hexagonal-service section 6); the defaults
-# are for local development only. Secrets have no default: a missing password or salt stops the service at start-up.
+# are for local development only. Secrets have no default: a missing password, salt or token stops the service at start-up.
 spring:
   application:
     name: core-service
   main:
-    # REST API arrives in P2.4.
-    web-application-type: none
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   datasource:
     url: ${CORE_DB_URL:jdbc:postgresql://localhost:5432/core_db}
     username: core_db_app
     password: ${CORE_DB_APP_PASSWORD}
+  jackson:
+    deserialization:
+      # The contract declares additionalProperties: false for request bodies.
+      fail-on-unknown-properties: true
+
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+  tomcat:
+    # A refused upload (413) is still read and discarded up to this size, so the caller sees the answer instead of a reset.
+    max-swallow-size: 25MB
+  # Error pages never show stack traces or messages.
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+# Health lives on the main port: only /health/liveness and /health/readiness are open (D-165); readiness checks the database.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db
+
+logging:
+  structured:
+    format:
+      console: com.quancrypt.core.infrastructure.observability.JsonLogFormatter
 
 quancrypt:
+  session-token: ${QUANCRYPT_SESSION_TOKEN}
+  internal-token: ${INTERNAL_SERVICE_TOKEN}
   migration:
     # Flyway runs as the schema owner (D-54); the service connects as core_db_app.
     username: core_db_migrator

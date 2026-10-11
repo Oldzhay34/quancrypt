@@ -11,4 +11,23 @@
     <Package name="com.quancrypt.core.usecase"/>
     <Bug pattern="EI_EXPOSE_REP2"/>
   </Match>
+  <!--
+    Controllers and facades keep the collaborator they are constructed with (dependency inversion); the facade
+    records are copied defensively where they hold lists or arrays.
+  -->
+  <Match>
+    <Or>
+      <Package name="com.quancrypt.core.api.controller"/>
+      <Package name="com.quancrypt.core.facade"/>
+    </Or>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
+  <!--
+    TraceIdFilter copies the request's X-Trace-Id into the response header only when it matches
+    [A-Za-z0-9._-]{1,128}; otherwise it generates one. No header splitting is possible (same as QBank, D-89d).
+  -->
+  <Match>
+    <Class name="com.quancrypt.core.api.TraceIdFilter"/>
+    <Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+  </Match>
 </FindBugsFilter>

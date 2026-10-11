@@ -1,0 +1,8 @@
+# Quancrypt geçiş planı raporu
+## 1. Özet
+## 2. Maddeler (riske göre sıralı)
+## 3. Madde ayrıntıları
+### 3.n. <dosya yolu> — <sembol>
+## 4. JDK önerisi
+## 5. Netleştirme yanıtları
+## 6. Kaynaklar

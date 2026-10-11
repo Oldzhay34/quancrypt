@@ -1,0 +1,8 @@
+# Quancrypt migration plan report
+## 1. Summary
+## 2. Items (ordered by risk)
+## 3. Item details
+### 3.n. <file path> — <symbol>
+## 4. JDK recommendation
+## 5. Clarification answers
+## 6. References

@@ -47,6 +47,9 @@ public abstract class SourceTreeReaderContract {
 
         /** A root path where nothing exists. */
         AnalysisRoot missingRoot();
+
+        /** A reader that hands out at most {@code bytes} bytes per opened tree, over the same project. */
+        SourceTreeReader readerWithTotalBudget(long bytes);
     }
 
     private Fixture fixture;
@@ -133,6 +136,16 @@ public abstract class SourceTreeReaderContract {
 
         assertThat(tree.read(RelativePath.of("edge.bin"))).hasSize((int) LIMIT);
         assertThatThrownBy(() -> tree.read(RelativePath.of("big.bin"))).isInstanceOf(SourceTooLargeException.class);
+    }
+
+    @Test
+    void aTreeStopsHandingOutBytesWhenItsTotalBudgetIsSpent() {
+        fixture.file("a.bin", new byte[60]);
+        fixture.file("b.bin", new byte[60]);
+        SourceTree tree = fixture.readerWithTotalBudget(100).open(fixture.root());
+
+        tree.read(RelativePath.of("a.bin"));
+        assertThatThrownBy(() -> tree.read(RelativePath.of("b.bin"))).isInstanceOf(SourceTooLargeException.class);
     }
 
     @Test

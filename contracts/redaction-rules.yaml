@@ -20,9 +20,9 @@ max_input_length: 1048576
 rules:
   - id: private_key_block
     description: >-
-      PEM private key blocks (PKCS#1, PKCS#8, EC, OpenSSH, encrypted). The END line is searched for within 16384
+      PEM private key blocks (PKCS#1, PKCS#8, EC, OpenSSH, encrypted) and PGP private key blocks ("PRIVATE KEY BLOCK"). The END line is searched for within 16384
       characters of the BEGIN line; a BEGIN line without an END line redacts everything after it.
-    pattern: '-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY-----(?:[\s\S]{0,16384}?-----END [A-Z0-9 ]{0,40}PRIVATE KEY-----|[\s\S]*)'
+    pattern: '-----BEGIN [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----(?:[\s\S]{0,16384}?-----END [A-Z0-9 ]{0,40}PRIVATE KEY(?: BLOCK)?-----|[\s\S]*)'
 
   - id: aws_access_key_id
     # Source: AWS IAM User Guide, "Unique identifiers": access key IDs start with AKIA (long-term) or ASIA (temporary).
@@ -36,8 +36,13 @@ rules:
     pattern: '\b(?:gh[pousr]_[A-Za-z0-9]{36,251}|github_pat_[A-Za-z0-9_]{22,244})\b'
 
   - id: jwt
-    description: JWT-like strings (base64url JSON header and payload, optional signature).
-    pattern: '\beyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*'
+    description: >-
+      JWT-like strings (base64url JSON header and payload, optional signature). Every part is bounded (header at most 512,
+      payload at most 2048, signature at most 1024 characters), and the first two parts are matched atomically (a lookahead
+      that captures the part, then a back reference: the portable form of an atomic group), so a failed match does not try every
+      shorter length. An unbounded class next to the word boundary made a long run of "eyJxxxxx-" take quadratic time
+      (security review P3.3). A longer part is still caught by high_entropy.
+    pattern: '\beyJ(?=([A-Za-z0-9_-]{5,512}))\1\.eyJ(?=([A-Za-z0-9_-]{5,2048}))\2\.[A-Za-z0-9_-]{0,1024}'
 
   - id: secret_assignment
     description: >-

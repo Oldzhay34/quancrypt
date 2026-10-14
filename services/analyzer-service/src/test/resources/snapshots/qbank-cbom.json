@@ -1,0 +1,928 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.6",
+  "serialNumber" : "urn:uuid:00000000-0000-4000-8000-000000000001",
+  "version" : 1,
+  "metadata" : {
+    "timestamp" : "2026-10-14T12:00:00Z",
+    "tools" : {
+      "components" : [ {
+        "type" : "application",
+        "name" : "quancrypt-analyzer-service",
+        "version" : "1.0.0"
+      } ]
+    }
+  },
+  "components" : [ {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-1024/PKCS1_V1_5/SHA-1/signature",
+    "name" : "RSA-1024/PKCS1_V1_5/SHA-1/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/Sha1WithRsaReceiptSigner.java",
+        "line" : 50,
+        "symbol" : "Sha1WithRsaReceiptSigner#sign"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "parameterSetIdentifier" : "1024",
+        "padding" : "pkcs1v15",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-1024/signature",
+    "name" : "RSA-1024/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/receipt-signing.key.pem",
+        "symbol" : "receipt-signing.key.pem"
+      }, {
+        "location" : "certs/out/receipt-signing.pub.pem",
+        "symbol" : "receipt-signing.pub.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "parameterSetIdentifier" : "1024",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-2048",
+    "name" : "RSA-2048",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/ca.crt.pem",
+        "symbol" : "ca.crt.pem"
+      }, {
+        "location" : "certs/out/ca.key.pem",
+        "symbol" : "ca.key.pem"
+      }, {
+        "location" : "certs/out/gateway-to-account.crt.pem",
+        "symbol" : "gateway-to-account.crt.pem"
+      }, {
+        "location" : "certs/out/gateway-to-account.key.pem",
+        "symbol" : "gateway-to-account.key.pem"
+      }, {
+        "location" : "certs/out/mosquitto.crt.pem",
+        "symbol" : "mosquitto.crt.pem"
+      }, {
+        "location" : "certs/out/mosquitto.key.pem",
+        "symbol" : "mosquitto.key.pem"
+      }, {
+        "location" : "certs/out/payment-to-account.crt.pem",
+        "symbol" : "payment-to-account.crt.pem"
+      }, {
+        "location" : "certs/out/payment-to-account.key.pem",
+        "symbol" : "payment-to-account.key.pem"
+      }, {
+        "location" : "certs/out/payment-to-mosquitto.crt.pem",
+        "symbol" : "payment-to-mosquitto.crt.pem"
+      }, {
+        "location" : "certs/out/payment-to-mosquitto.key.pem",
+        "symbol" : "payment-to-mosquitto.key.pem"
+      }, {
+        "location" : "certs/out/qbank-account-service.crt.pem",
+        "symbol" : "qbank-account-service.crt.pem"
+      }, {
+        "location" : "certs/out/qbank-account-service.key.pem",
+        "symbol" : "qbank-account-service.key.pem"
+      }, {
+        "location" : "certs/out/qbank-gateway.crt.pem",
+        "symbol" : "qbank-gateway.crt.pem"
+      }, {
+        "location" : "certs/out/qbank-gateway.key.pem",
+        "symbol" : "qbank-gateway.key.pem"
+      }, {
+        "location" : "certs/out/qbank-payment-service.crt.pem",
+        "symbol" : "qbank-payment-service.crt.pem"
+      }, {
+        "location" : "certs/out/qbank-payment-service.key.pem",
+        "symbol" : "qbank-payment-service.key.pem"
+      }, {
+        "location" : "certs/out/terminal-001.crt.pem",
+        "symbol" : "terminal-001.crt.pem"
+      }, {
+        "location" : "certs/out/terminal-001.key.pem",
+        "symbol" : "terminal-001.key.pem"
+      }, {
+        "location" : "mosquitto/mosquitto.conf",
+        "line" : 5,
+        "symbol" : "certfile"
+      }, {
+        "location" : "mosquitto/mosquitto.conf",
+        "line" : 7,
+        "symbol" : "require_certificate"
+      }, {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 19,
+        "symbol" : "spring.ssl.bundle.pem.account"
+      }, {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 28,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 29,
+        "symbol" : "server.ssl.client-auth"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/ServiceIntegrationTest.java",
+        "line" : 57,
+        "symbol" : "ServiceIntegrationTest#sslContext"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 14,
+        "symbol" : "spring.ssl.bundle.pem.gateway"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 20,
+        "symbol" : "spring.ssl.bundle.pem.backend"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 32,
+        "symbol" : "spring.cloud.gateway.server.webflux.httpclient.ssl.ssl-bundle"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 35,
+        "symbol" : "spring.cloud.gateway.server.webflux.routes[0].uri"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 39,
+        "symbol" : "spring.cloud.gateway.server.webflux.routes[1].uri"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 47,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 79,
+        "symbol" : "qbank.backends.account-url"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 80,
+        "symbol" : "qbank.backends.payment-url"
+      }, {
+        "location" : "qbank-gateway/src/test/java/com/quancrypt/qbank/gateway/support/PemSsl.java",
+        "line" : 88,
+        "symbol" : "PemSsl#build"
+      }, {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/AccountClientConfig.java",
+        "line" : 67,
+        "symbol" : "AccountClientConfig#requestFactory"
+      }, {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/MqttConfig.java",
+        "line" : 54,
+        "symbol" : "MqttConfig#mqttSubscriptionLifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 13,
+        "symbol" : "spring.security.oauth2.resourceserver.jwt.jwk-set-uri"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 25,
+        "symbol" : "spring.ssl.bundle.pem.payment"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 32,
+        "symbol" : "spring.ssl.bundle.pem.accountclient"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 39,
+        "symbol" : "spring.ssl.bundle.pem.mqttclient"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 48,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 49,
+        "symbol" : "server.ssl.client-auth"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 79,
+        "symbol" : "qbank.account-service-url"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 84,
+        "symbol" : "qbank.mqtt.broker-url"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/infrastructure/config/MqttSubscriptionLifecycleTest.java",
+        "line" : 18,
+        "symbol" : "MqttSubscriptionLifecycleTest#lifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/infrastructure/config/MqttSubscriptionLifecycleTest.java",
+        "line" : 20,
+        "symbol" : "MqttSubscriptionLifecycleTest#lifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 73,
+        "symbol" : "MqttIntegrationTest#properties"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 85,
+        "symbol" : "MqttIntegrationTest#brokerUrl"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 96,
+        "symbol" : "MqttIntegrationTest#connect"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/support/PemSsl.java",
+        "line" : 75,
+        "symbol" : "PemSsl#build"
+      }, {
+        "location" : "qbank-payment-service/src/test/resources/mosquitto/mosquitto.conf",
+        "line" : 5,
+        "symbol" : "certfile"
+      }, {
+        "location" : "qbank-payment-service/src/test/resources/mosquitto/mosquitto.conf",
+        "line" : 7,
+        "symbol" : "require_certificate"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "unknown",
+        "parameterSetIdentifier" : "2048",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-2048/OAEP/SHA-256/pke",
+    "name" : "RSA-2048/OAEP/SHA-256/pke",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/RsaOaepCardTokenizer.java",
+        "line" : 43,
+        "symbol" : "RsaOaepCardTokenizer#tokenize"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "pke",
+        "parameterSetIdentifier" : "2048",
+        "padding" : "oaep",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-2048/PKCS1_V1_5/SHA-256/signature",
+    "name" : "RSA-2048/PKCS1_V1_5/SHA-256/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-account-service/src/main/java/com/quancrypt/qbank/account/infrastructure/security/AccessTokenFilter.java",
+        "line" : 39,
+        "symbol" : "AccessTokenFilter#AccessTokenFilter"
+      }, {
+        "location" : "qbank-account-service/src/main/java/com/quancrypt/qbank/account/infrastructure/security/NimbusTokenIssuer.java",
+        "line" : 36,
+        "symbol" : "NimbusTokenIssuer#issue"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/support/TokenFactory.java",
+        "line" : 102,
+        "symbol" : "TokenFactory#sign"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/unit/infrastructure/NimbusTokenIssuerTest.java",
+        "line" : 29,
+        "symbol" : "NimbusTokenIssuerTest#issuesAnRs256TokenWithKeyIdAndExactlyTheClaimsSubIatExp"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "parameterSetIdentifier" : "2048",
+        "padding" : "pkcs1v15",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-2048/pke",
+    "name" : "RSA-2048/pke",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/card-token.key.pem",
+        "symbol" : "card-token.key.pem"
+      }, {
+        "location" : "certs/out/card-token.pub.pem",
+        "symbol" : "card-token.pub.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "pke",
+        "parameterSetIdentifier" : "2048",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA-2048/signature",
+    "name" : "RSA-2048/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/jwt-signing.key.pem",
+        "symbol" : "jwt-signing.key.pem"
+      }, {
+        "location" : "certs/out/jwt-signing.pub.pem",
+        "symbol" : "jwt-signing.pub.pem"
+      }, {
+        "location" : "qbank-account-service/src/main/java/com/quancrypt/qbank/account/infrastructure/security/NimbusTokenIssuer.java",
+        "line" : 23,
+        "symbol" : "NimbusTokenIssuer#NimbusTokenIssuer"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/support/TokenFactory.java",
+        "line" : 104,
+        "symbol" : "TokenFactory#sign"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/unit/infrastructure/KeyLoadingTest.java",
+        "line" : 37,
+        "symbol" : "KeyLoadingTest#thumbprintMatchesTheNimbusImplementationOfRfc7638"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/unit/infrastructure/NimbusTokenIssuerTest.java",
+        "line" : 31,
+        "symbol" : "NimbusTokenIssuerTest#issuesAnRs256TokenWithKeyIdAndExactlyTheClaimsSubIatExp"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "parameterSetIdentifier" : "2048",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA/OAEP/SHA-256/pke",
+    "name" : "RSA/OAEP/SHA-256/pke",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/unit/infrastructure/CryptoRoundTripTest.java",
+        "line" : 36,
+        "symbol" : "CryptoRoundTripTest#decrypt"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "pke",
+        "padding" : "oaep",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA/PKCS1_V1_5/SHA-256/signature",
+    "name" : "RSA/PKCS1_V1_5/SHA-256/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-account-service/src/main/java/com/quancrypt/qbank/account/facade/JwksFacade.java",
+        "line" : 28,
+        "symbol" : "JwksFacade#toView"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/MutualTlsTest.java",
+        "line" : 81,
+        "symbol" : "MutualTlsTest#loginIssuesAnRs256TokenThatTheJwksVerifies"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/unit/facade/FacadeTest.java",
+        "line" : 85,
+        "symbol" : "FacadeTest#jwksEncodesModulusAndExponentAsUnsignedBase64Url"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 14,
+        "symbol" : "spring.security.oauth2.resourceserver.jwt.jws-algorithms"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/support/TokenFactory.java",
+        "line" : 79,
+        "symbol" : "TokenFactory#sign"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "padding" : "pkcs1v15",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:RSA/signature",
+    "name" : "RSA/signature",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/MutualTlsTest.java",
+        "line" : 85,
+        "symbol" : "MutualTlsTest#loginIssuesAnRs256TokenThatTheJwksVerifies"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/MutualTlsTest.java",
+        "line" : 87,
+        "symbol" : "MutualTlsTest#loginIssuesAnRs256TokenThatTheJwksVerifies"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/MutualTlsTest.java",
+        "line" : 162,
+        "symbol" : "MutualTlsTest#jwksParsesAsAJwkSet"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/support/TokenFactory.java",
+        "line" : 80,
+        "symbol" : "TokenFactory#sign"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "signature",
+        "nistQuantumSecurityLevel" : 0
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:SHA1",
+    "name" : "SHA1",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/crypto/Sha1WithRsaReceiptSigner.java",
+        "line" : 50,
+        "symbol" : "Sha1WithRsaReceiptSigner#sign"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "hash"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "alg:unknown:Signature.getInstance:unresolved",
+    "name" : "unknown:Signature.getInstance:unresolved",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/PaymentFlowTest.java",
+        "line" : 254,
+        "symbol" : "PaymentFlowTest#verifies"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/unit/infrastructure/CryptoRoundTripTest.java",
+        "line" : 46,
+        "symbol" : "CryptoRoundTripTest#verifies"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "algorithm",
+      "algorithmProperties" : {
+        "primitive" : "unknown"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/ca.crt.pem",
+    "name" : "ca.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/ca.crt.pem",
+        "symbol" : "ca.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/gateway-to-account.crt.pem",
+    "name" : "gateway-to-account.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/gateway-to-account.crt.pem",
+        "symbol" : "gateway-to-account.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/mosquitto.crt.pem",
+    "name" : "mosquitto.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/mosquitto.crt.pem",
+        "symbol" : "mosquitto.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/payment-to-account.crt.pem",
+    "name" : "payment-to-account.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/payment-to-account.crt.pem",
+        "symbol" : "payment-to-account.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/payment-to-mosquitto.crt.pem",
+    "name" : "payment-to-mosquitto.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/payment-to-mosquitto.crt.pem",
+        "symbol" : "payment-to-mosquitto.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/qbank-account-service.crt.pem",
+    "name" : "qbank-account-service.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-account-service.crt.pem",
+        "symbol" : "qbank-account-service.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/qbank-gateway.crt.pem",
+    "name" : "qbank-gateway.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-gateway.crt.pem",
+        "symbol" : "qbank-gateway.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/qbank-payment-service.crt.pem",
+    "name" : "qbank-payment-service.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-payment-service.crt.pem",
+        "symbol" : "qbank-payment-service.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:certs/out/terminal-001.crt.pem",
+    "name" : "terminal-001.crt.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/terminal-001.crt.pem",
+        "symbol" : "terminal-001.crt.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:qbank-account-service/src/main/resources/application.yml#spring.ssl.bundle.pem.account",
+    "name" : "spring.ssl.bundle.pem.account",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 19,
+        "symbol" : "spring.ssl.bundle.pem.account"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:qbank-gateway/src/main/resources/application.yml#spring.ssl.bundle.pem.gateway",
+    "name" : "spring.ssl.bundle.pem.gateway",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 14,
+        "symbol" : "spring.ssl.bundle.pem.gateway"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "cert:qbank-payment-service/src/main/resources/application.yml#spring.ssl.bundle.pem.payment",
+    "name" : "spring.ssl.bundle.pem.payment",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 25,
+        "symbol" : "spring.ssl.bundle.pem.payment"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "certificate"
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/ca.key.pem",
+    "name" : "ca.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/ca.key.pem",
+        "symbol" : "ca.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/gateway-to-account.key.pem",
+    "name" : "gateway-to-account.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/gateway-to-account.key.pem",
+        "symbol" : "gateway-to-account.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/mosquitto.key.pem",
+    "name" : "mosquitto.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/mosquitto.key.pem",
+        "symbol" : "mosquitto.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/payment-to-account.key.pem",
+    "name" : "payment-to-account.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/payment-to-account.key.pem",
+        "symbol" : "payment-to-account.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/payment-to-mosquitto.key.pem",
+    "name" : "payment-to-mosquitto.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/payment-to-mosquitto.key.pem",
+        "symbol" : "payment-to-mosquitto.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/qbank-account-service.key.pem",
+    "name" : "qbank-account-service.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-account-service.key.pem",
+        "symbol" : "qbank-account-service.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/qbank-gateway.key.pem",
+    "name" : "qbank-gateway.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-gateway.key.pem",
+        "symbol" : "qbank-gateway.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/qbank-payment-service.key.pem",
+    "name" : "qbank-payment-service.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/qbank-payment-service.key.pem",
+        "symbol" : "qbank-payment-service.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "key:certs/out/terminal-001.key.pem",
+    "name" : "terminal-001.key.pem",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "certs/out/terminal-001.key.pem",
+        "symbol" : "terminal-001.key.pem"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "related-crypto-material",
+      "relatedCryptoMaterialProperties" : {
+        "type" : "private-key"
+      }
+    }
+  }, {
+    "type" : "cryptographic-asset",
+    "bom-ref" : "proto:TLS",
+    "name" : "TLS",
+    "evidence" : {
+      "occurrences" : [ {
+        "location" : "mosquitto/mosquitto.conf",
+        "line" : 5,
+        "symbol" : "certfile"
+      }, {
+        "location" : "mosquitto/mosquitto.conf",
+        "line" : 7,
+        "symbol" : "require_certificate"
+      }, {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 28,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-account-service/src/main/resources/application.yml",
+        "line" : 29,
+        "symbol" : "server.ssl.client-auth"
+      }, {
+        "location" : "qbank-account-service/src/test/java/com/quancrypt/qbank/account/integration/ServiceIntegrationTest.java",
+        "line" : 57,
+        "symbol" : "ServiceIntegrationTest#sslContext"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 20,
+        "symbol" : "spring.ssl.bundle.pem.backend"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 32,
+        "symbol" : "spring.cloud.gateway.server.webflux.httpclient.ssl.ssl-bundle"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 35,
+        "symbol" : "spring.cloud.gateway.server.webflux.routes[0].uri"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 39,
+        "symbol" : "spring.cloud.gateway.server.webflux.routes[1].uri"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 47,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 79,
+        "symbol" : "qbank.backends.account-url"
+      }, {
+        "location" : "qbank-gateway/src/main/resources/application.yml",
+        "line" : 80,
+        "symbol" : "qbank.backends.payment-url"
+      }, {
+        "location" : "qbank-gateway/src/test/java/com/quancrypt/qbank/gateway/support/PemSsl.java",
+        "line" : 88,
+        "symbol" : "PemSsl#build"
+      }, {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/AccountClientConfig.java",
+        "line" : 67,
+        "symbol" : "AccountClientConfig#requestFactory"
+      }, {
+        "location" : "qbank-payment-service/src/main/java/com/quancrypt/qbank/payment/infrastructure/config/MqttConfig.java",
+        "line" : 54,
+        "symbol" : "MqttConfig#mqttSubscriptionLifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 13,
+        "symbol" : "spring.security.oauth2.resourceserver.jwt.jwk-set-uri"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 32,
+        "symbol" : "spring.ssl.bundle.pem.accountclient"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 39,
+        "symbol" : "spring.ssl.bundle.pem.mqttclient"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 48,
+        "symbol" : "server.ssl.bundle"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 49,
+        "symbol" : "server.ssl.client-auth"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 79,
+        "symbol" : "qbank.account-service-url"
+      }, {
+        "location" : "qbank-payment-service/src/main/resources/application.yml",
+        "line" : 84,
+        "symbol" : "qbank.mqtt.broker-url"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/infrastructure/config/MqttSubscriptionLifecycleTest.java",
+        "line" : 18,
+        "symbol" : "MqttSubscriptionLifecycleTest#lifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/infrastructure/config/MqttSubscriptionLifecycleTest.java",
+        "line" : 20,
+        "symbol" : "MqttSubscriptionLifecycleTest#lifecycle"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 73,
+        "symbol" : "MqttIntegrationTest#properties"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 85,
+        "symbol" : "MqttIntegrationTest#brokerUrl"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/integration/MqttIntegrationTest.java",
+        "line" : 96,
+        "symbol" : "MqttIntegrationTest#connect"
+      }, {
+        "location" : "qbank-payment-service/src/test/java/com/quancrypt/qbank/payment/support/PemSsl.java",
+        "line" : 75,
+        "symbol" : "PemSsl#build"
+      }, {
+        "location" : "qbank-payment-service/src/test/resources/mosquitto/mosquitto.conf",
+        "line" : 5,
+        "symbol" : "certfile"
+      }, {
+        "location" : "qbank-payment-service/src/test/resources/mosquitto/mosquitto.conf",
+        "line" : 7,
+        "symbol" : "require_certificate"
+      } ]
+    },
+    "cryptoProperties" : {
+      "assetType" : "protocol",
+      "protocolProperties" : {
+        "type" : "tls",
+        "cryptoRefArray" : [ "alg:RSA-2048" ]
+      }
+    }
+  } ]
+}

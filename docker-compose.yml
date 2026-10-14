@@ -70,6 +70,32 @@ services:
         condition: service_healthy
     stop_grace_period: 40s
 
+  analyzer-service:
+    profiles: [app]
+    build:
+      # The build context is the repository root (the canonical dictionary and the redaction rules are copied from
+      # contracts/); the allow-list in services/analyzer-service/Dockerfile.dockerignore keeps .env, keys and every other
+      # service out of it.
+      context: .
+      dockerfile: services/analyzer-service/Dockerfile
+    image: analyzer-service:1.0.0
+    environment:
+      # No :? here, so that make up without the app profile keeps working before this key exists in .env; the service itself
+      # refuses to start without a real value (it never has a default for a secret).
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      ANALYSIS_TIME_BUDGET_SECONDS: ${ANALYSIS_TIME_BUDGET_SECONDS:-300}
+    ports:
+      - "127.0.0.1:8082:8082"
+    volumes:
+      # The analyzed project, read-only: the analyzer never writes (docker-local, section 2). PROJECT_ROOT must be set in .env
+      # for this service; the /dev/null default only keeps the file valid for the other profiles and fails clearly here.
+      - ${PROJECT_ROOT:-/dev/null}:/workspace:ro
+    networks:
+      - quancrypt
+    # JavaParser needs memory in proportion to the largest source file; the JVM takes 75 % of this limit (MaxRAMPercentage).
+    mem_limit: 2g
+    stop_grace_period: 40s
+
   qbank-account-service:
     profiles: [demo]
     build:

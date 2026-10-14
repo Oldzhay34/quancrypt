@@ -40,4 +40,12 @@ public interface SourceTree {
      * {@link #read(RelativePath)}.
      */
     List<String> readLines(RelativePath path);
+
+    /**
+     * A point where a long analysis may be stopped (D-199): a tree with a time budget throws
+     * {@link com.quancrypt.analyzer.domain.exception.AnalysisTimeoutException} once the budget is spent; any other tree does
+     * nothing. A plugin calls it before every file, so a run does not outlast its budget by more than one file.
+     */
+    default void checkpoint() {
+    }
 }

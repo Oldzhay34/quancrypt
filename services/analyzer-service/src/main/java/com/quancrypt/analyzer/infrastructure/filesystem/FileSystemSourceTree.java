@@ -26,6 +26,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A read-only view of one canonical root directory. Every path is resolved segment by segment and refused when a
@@ -39,12 +42,21 @@ final class FileSystemSourceTree implements SourceTree {
     private final Path base;
     private final long maxFileBytes;
     private final int maxFiles;
+    private final int maxEntries;
+    private final int maxDepth;
+    private final long maxTotalBytes;
+    private final AtomicLong totalBytes = new AtomicLong();
+    private final Set<Path> verifiedDirectories = ConcurrentHashMap.newKeySet();
+    private List<RelativePath> listing;
 
-    FileSystemSourceTree(AnalysisRoot root, Path base, long maxFileBytes, int maxFiles) {
+    FileSystemSourceTree(AnalysisRoot root, Path base, long maxFileBytes, int maxFiles, int maxEntries, int maxDepth, long maxTotalBytes) {
         this.root = root;
         this.base = base;
         this.maxFileBytes = maxFileBytes;
         this.maxFiles = maxFiles;
+        this.maxEntries = maxEntries;
+        this.maxDepth = maxDepth;
+        this.maxTotalBytes = maxTotalBytes;
     }
 
     @Override
@@ -52,14 +64,37 @@ final class FileSystemSourceTree implements SourceTree {
         return root;
     }
 
+    /**
+     * The files of the tree, listed once: a tree is the view of one analysis, which asks for the list three times (the
+     * detectors, the runtime versions, the statistics), and on a slow disk (WSL's /mnt/c) every walk of a project with
+     * 90,000 entries is minutes (P3.3 measurement, D-205). A file created while the analysis runs is not listed.
+     */
     @Override
-    public List<RelativePath> files() {
+    public synchronized List<RelativePath> files() {
+        if (listing == null) {
+            listing = walk();
+        }
+        return List.copyOf(listing);
+    }
+
+    private List<RelativePath> walk() {
         List<RelativePath> found = new ArrayList<>();
         try {
             // No FOLLOW_LINKS: a link is visited as a link and never entered or listed.
-            Files.walkFileTree(base, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+            int[] visited = new int[1];
+            Files.walkFileTree(base, EnumSet.noneOf(FileVisitOption.class), maxDepth, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                    count(visited);
+                    return FileVisitResult.CONTINUE;
+                }
+
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                    count(visited);
+                    if (attributes.isDirectory()) {
+                        throw new SourceTooLargeException("the project is nested deeper than the reading limit");
+                    }
                     if (attributes.isRegularFile()) {
                         addIfValid(found, file);
                     }
@@ -78,14 +113,21 @@ final class FileSystemSourceTree implements SourceTree {
         return List.copyOf(found);
     }
 
+    private void count(int[] visited) {
+        if (++visited[0] > maxEntries) {
+            throw new SourceTooLargeException("the project has more entries than the reading limit");
+        }
+    }
+
     @Override
     public boolean exists(RelativePath path) {
-        return Files.isRegularFile(resolve(path), LinkOption.NOFOLLOW_LINKS);
+        return Files.isRegularFile(resolve(path, true), LinkOption.NOFOLLOW_LINKS);
     }
 
     @Override
     public byte[] read(RelativePath path) {
-        Path file = resolve(path);
+        // The attributes below are read without following links, so a link as the last segment is refused there.
+        Path file = resolve(path, false);
         BasicFileAttributes attributes;
         try {
             attributes = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -105,6 +147,9 @@ final class FileSystemSourceTree implements SourceTree {
             byte[] content = in.readNBytes((int) maxFileBytes + 1);
             if (content.length > maxFileBytes) {
                 throw new SourceTooLargeException("the file is larger than the reading limit");
+            }
+            if (totalBytes.addAndGet(content.length) > maxTotalBytes) {
+                throw new SourceTooLargeException("the project is larger than the reading limit");
             }
             return content;
         } catch (NoSuchFileException e) {
@@ -158,12 +203,27 @@ final class FileSystemSourceTree implements SourceTree {
         }
     }
 
-    private Path resolve(RelativePath path) {
+    /**
+     * The file system path of a relative path, refusing any symbolic link on the way. A directory that has been checked once
+     * is not checked again for this tree: a project has few directories and many files, and one {@code lstat} per path
+     * segment and per file made a 5,000 file project take minutes on a slow disk (WSL's /mnt/c, a bind mounted Windows
+     * folder; P3.3 measurement, D-205). The last segment is checked here only when the caller does not check it itself.
+     */
+    private Path resolve(RelativePath path, boolean checkLastSegment) {
         Path current = base;
-        for (String segment : path.segments()) {
-            current = current.resolve(segment);
-            if (Files.isSymbolicLink(current)) {
-                throw new PathNotAllowedException("the path passes through a symbolic link");
+        List<String> segments = path.segments();
+        for (int i = 0; i < segments.size(); i++) {
+            current = current.resolve(segments.get(i));
+            boolean last = i == segments.size() - 1;
+            if (last) {
+                if (checkLastSegment && Files.isSymbolicLink(current)) {
+                    throw new PathNotAllowedException("the path passes through a symbolic link");
+                }
+            } else if (!verifiedDirectories.contains(current)) {
+                if (Files.isSymbolicLink(current)) {
+                    throw new PathNotAllowedException("the path passes through a symbolic link");
+                }
+                verifiedDirectories.add(current);
             }
         }
         if (!current.normalize().startsWith(base)) {

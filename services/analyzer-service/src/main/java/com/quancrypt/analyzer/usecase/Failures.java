@@ -1,5 +1,6 @@
 package com.quancrypt.analyzer.usecase;
 
+import com.quancrypt.analyzer.domain.exception.AnalysisTimeoutException;
 import com.quancrypt.analyzer.domain.exception.PathNotAllowedException;
 import com.quancrypt.analyzer.domain.exception.SourceNotFoundException;
 import com.quancrypt.analyzer.domain.exception.SourceTooLargeException;
@@ -27,6 +28,8 @@ final class Failures {
         } catch (SourceTooLargeException e) {
             // Reading limits are reported as an unsupported project (D-181).
             throw new AnalyzerUseCaseException(ProblemCode.UNSUPPORTED_PROJECT, e.getMessage());
+        } catch (AnalysisTimeoutException e) {
+            throw new AnalyzerUseCaseException(ProblemCode.ANALYSIS_TIMEOUT, e.getMessage());
         } catch (UnsupportedProjectException e) {
             throw new AnalyzerUseCaseException(ProblemCode.UNSUPPORTED_PROJECT, e.getMessage());
         }

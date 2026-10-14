@@ -14,10 +14,20 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
 
 /**
  * The hexagonal rules of hexagonal-service, sections 2 and 3, as in core-service. Only the composition root
- * (infrastructure.config, empty in P3.1) may see every layer.
+ * (infrastructure.config) may see every layer.
  */
-@AnalyzeClasses(packages = "com.quancrypt.analyzer", importOptions = ImportOption.DoNotIncludeTests.class)
+@AnalyzeClasses(packages = "com.quancrypt.analyzer", importOptions = {ImportOption.DoNotIncludeTests.class,
+        HexagonalArchitectureTest.WithoutEvaluationTooling.class})
 class HexagonalArchitectureTest {
+
+    /** The evaluation code (eval source set, on the test class path) is tooling around the service, not a part of it. */
+    static final class WithoutEvaluationTooling implements ImportOption {
+
+        @Override
+        public boolean includes(com.tngtech.archunit.core.importer.Location location) {
+            return !location.contains("/evaluation/");
+        }
+    }
 
     private static final String[] FRAMEWORKS = {"org.springframework..", "jakarta..", "com.fasterxml..", "tools.jackson.."};
 
@@ -72,8 +82,42 @@ class HexagonalArchitectureTest {
 
     @ArchTest
     static final ArchRule LANGUAGE_PLUGINS_ARE_ADAPTERS = classes().that().implement(com.quancrypt.analyzer.port.outbound.LanguagePlugin.class)
-            .should().resideInAPackage("com.quancrypt.analyzer.infrastructure..")
-            .allowEmptyShould(true);
+            .should().resideInAPackage("com.quancrypt.analyzer.infrastructure..");
+
+    @ArchTest
+    static final ArchRule DETECTORS_LIVE_IN_THE_PLUGIN = classes().that().implement(
+                    com.quancrypt.analyzer.infrastructure.plugin.javaspring.CryptoDetector.class)
+            .should().resideInAnyPackage("com.quancrypt.analyzer.infrastructure.plugin.javaspring.code..",
+                    "com.quancrypt.analyzer.infrastructure.plugin.javaspring.file..");
+
+    @ArchTest
+    static final ArchRule SOURCE_PARSERS_ARE_ADAPTER_DETAILS = noClasses().that().resideOutsideOfPackage("com.quancrypt.analyzer.infrastructure..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.github.javaparser..", "org.yaml..", "javax.xml..")
+            .because("parsing Java, YAML and XML belongs to the language plugin");
+
+    @ArchTest
+    static final ArchRule NOTHING_WRITES_TO_THE_ANALYZED_PROJECT = noClasses().should().callMethod(java.nio.file.Files.class, "write",
+            java.nio.file.Path.class, byte[].class, java.nio.file.OpenOption[].class)
+            .orShould().callMethod(java.nio.file.Files.class, "delete", java.nio.file.Path.class)
+            .orShould().callMethod(java.nio.file.Files.class, "writeString", java.nio.file.Path.class, CharSequence.class,
+                    java.nio.file.OpenOption[].class)
+            .because("the analyzer only reads the project (read-only mount, D-176)");
+
+    @ArchTest
+    static final ArchRule CYCLONEDX_STAYS_IN_THE_CBOM_ADAPTER = noClasses().that()
+            .resideOutsideOfPackage("com.quancrypt.analyzer.infrastructure.cbom..")
+            .should().dependOnClassesThat().resideInAPackage("org.cyclonedx..")
+            .because("the CBOM library is a detail of the CycloneDxCbomWriter (D-202)");
+
+    @ArchTest
+    static final ArchRule USE_CASES_DEPEND_ONLY_ON_DOMAIN_PORTS_AND_THE_JDK = classes().that()
+            .resideInAPackage("com.quancrypt.analyzer.usecase..")
+            .should().onlyDependOnClassesThat().resideInAnyPackage("com.quancrypt.analyzer.usecase..", "com.quancrypt.analyzer.domain..",
+                    "com.quancrypt.analyzer.port..", "java..");
+
+    @ArchTest
+    static final ArchRule FACADE_USES_NO_FRAMEWORK = noClasses().that().resideInAPackage("com.quancrypt.analyzer.facade..")
+            .should().dependOnClassesThat().resideInAnyPackage(FRAMEWORKS);
 
     @ArchTest
     static final ArchRule NO_CYCLES = slices().matching("com.quancrypt.analyzer.(*)..").should().beFreeOfCycles();

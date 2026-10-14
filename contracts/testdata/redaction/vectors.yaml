@@ -14,6 +14,11 @@ vectors:
     kind: positive
     input: "key=-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCnotarealkeyjusttestdata\nAbCdEfGh\n-----END PRIVATE KEY----- end"
     secrets: ["MIIEvQIBADANBgkqhkiG9w0BAQEFAASCnotarealkeyjusttestdata", "AbCdEfGh"]
+  - id: private_key_block-positive-pgp
+    rule: private_key_block
+    kind: positive
+    input: "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\nlQOYBGnotarealpgpkeyjusttestdata\nAbCdEfGhIjKl\n-----END PGP PRIVATE KEY BLOCK-----"
+    secrets: ["lQOYBGnotarealpgpkeyjusttestdata", "AbCdEfGhIjKl"]
   - id: private_key_block-positive-rsa
     rule: private_key_block
     kind: positive

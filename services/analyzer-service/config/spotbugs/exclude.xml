@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    TraceIdFilter copies the request's X-Trace-Id into the response header only when it matches
+    [A-Za-z0-9._-]{1,128}; otherwise it generates one. No header splitting is possible (same as core-service and QBank,
+    D-169, D-89d). This is the only suppression of the service.
+  -->
+  <Match>
+    <Class name="com.quancrypt.analyzer.api.TraceIdFilter"/>
+    <Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+  </Match>
+</FindBugsFilter>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!--
+    The HTTP test client and the contract reader of the integration tests hold plain values (a response body, a map of
+    headers, the response map of an operation) in records that are never shared outside the test. Copying them would
+    only add noise to the tests (same suppression as core-service, D-169).
+  -->
+  <Match>
+    <Class name="~com\.quancrypt\.analyzer\.integration\.support\..*"/>
+    <Or>
+      <Bug pattern="EI_EXPOSE_REP"/>
+      <Bug pattern="EI_EXPOSE_REP2"/>
+    </Or>
+  </Match>
+  <!--
+    The in-memory source tree reader is a test double: its directories are plain maps that the tests fill through the
+    builder methods and the tree it opens hands out copies of the bytes, so nothing outside the test can change it.
+  -->
+  <Match>
+    <Class name="com.quancrypt.analyzer.fake.InMemorySourceTreeReader"/>
+    <Or>
+      <Bug pattern="EI_EXPOSE_REP"/>
+      <Bug pattern="EI_EXPOSE_REP2"/>
+    </Or>
+  </Match>
+</FindBugsFilter>

@@ -13,7 +13,8 @@ class SensitiveFilePolicyTest {
 
     @ParameterizedTest
     @ValueSource(strings = {".env", "app/.env", ".env.local", ".ENV.production", "certs/server.p12", "a.PFX", "keystore.jks",
-        "x.jceks", "app.keystore", "b.bks", "certs/out/ca.key.pem", "server-key.pem", "tls.key", "home/.ssh/id_rsa", "id_ed25519"})
+        "x.jceks", "app.keystore", "b.bks", "certs/out/ca.key.pem", "server-key.pem", "tls.key", "home/.ssh/id_rsa", "id_ed25519", "key.der", "a.PK8", "k.p8", "putty.ppk", "home/.netrc", "_netrc", ".pgpass",
+        ".git-credentials", "home/.aws/credentials"})
     void secretBearingFilesAreRefused(String path) {
         assertThat(policy.isRefused(RelativePath.of(path))).isTrue();
     }

@@ -4,7 +4,7 @@ info:
   version: 1.0.0-draft
   description: 'analyzer-service durumsuzdur ve veritabanı kullanmaz; proje dizinini salt okunur okur (`/workspace`, korpus için
     `/corpus`), kripto kullanımlarını bulur, CycloneDX CBOM üretir ve servis topolojisini çıkarır. Dile özgü iş bir dil eklentisinin
-    arkasındadır (NFR-06). TASLAK: P3.1 kontratıdır. Alan adları snake_case''tir (D-175). Analiz uçları senkrondur, istemci zaman
+    arkasındadır (NFR-06). P3.1 kontratı; P3.3''te CBOM ve zaman bütçesi eklendi. Alan adları snake_case''tir (D-175). Analiz uçları senkrondur, istemci zaman
     aşımı 300 sn (D-172). Uçlar yan etkisizdir; `Idempotency-Key` kabul edilmez (D-178a). Hatalar RFC 9457; tüm uçlar yalnızca
     servisler arası çağrıya açıktır (`X-Internal-Token`).'
 servers:
@@ -50,6 +50,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/UnsupportedProject'
+        '504':
+          $ref: '#/components/responses/AnalysisTimeout'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/topologies:
@@ -83,6 +85,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '422':
           $ref: '#/components/responses/UnsupportedProject'
+        '504':
+          $ref: '#/components/responses/AnalysisTimeout'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/snippets:
@@ -94,8 +98,8 @@ paths:
       description: 'Bir dosyanın `line` satırını ve çevresindeki `context` kadar satırı döner. Redaksiyon dosyanın tamamına
         uygulanır, sonra pencere kesilir; birden çok satıra yayılan sır (özel anahtar bloğu) pencere ortasından başlasa da
         maskelenir (`contracts/redaction-rules.yaml`, D-179). Ortam dosyaları (`.env`, `.env.*`), keystore''lar (`.p12`, `.pfx`,
-        `.jks`, `.jceks`, `.keystore`, `.bks`) ve özel anahtar dosyaları (`*.key`, `*.key.pem`, `*-key.pem`, `id_rsa`, `id_dsa`,
-        `id_ecdsa`, `id_ed25519`) hiç sunulmaz: 400 `path-not-allowed` (D-180). 404: dosya yok veya satır dosyanın dışında.
+        `.jks`, `.jceks`, `.keystore`, `.bks`) ve özel anahtar dosyaları (`*.key`, `*.key.pem`, `*-key.pem`, `*.ppk`, `*.p8`, `*.pk8`, `*.der`, `id_rsa`, `id_dsa`,
+        `id_ecdsa`, `id_ed25519`) ve kimlik bilgisi dosyaları (`.netrc`, `_netrc`, `.pgpass`, `.git-credentials`, `credentials`) hiç sunulmaz: 400 `path-not-allowed` (D-180). 404: dosya yok veya satır dosyanın dışında.
         422: dosya 5 MiB okuma sınırını aşıyor (D-181).'
       parameters:
       - $ref: '#/components/parameters/TraceId'
@@ -226,6 +230,16 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    AnalysisTimeout:
+      description: 'Analiz sunucu taraflı zaman bütçesini (300 sn, `ANALYSIS_TIME_BUDGET_SECONDS`) aştı (`type`: `analysis-timeout`;
+        D-199).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     InternalError:
       description: Beklenmeyen hata.
       headers:
@@ -239,7 +253,7 @@ components:
     Problem:
       type: object
       description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
-        validation-failed, path-not-allowed, unauthorized, not-found, unsupported-project, internal-error).'
+        validation-failed, path-not-allowed, unauthorized, not-found, unsupported-project, analysis-timeout, internal-error).'
       properties:
         type:
           type: string
@@ -308,13 +322,16 @@ components:
       additionalProperties: false
     Cbom:
       type: object
-      description: CycloneDX BOM (JSON). İçeriği ve şema sürümü P3.3'te belirlenir; bu kontrat yalnızca çerçeveyi sabitler.
+      description: 'CycloneDX 1.6 BOM (JSON; D-195). Her kanonik algoritma, sertifika, TLS kullanımı ve anahtar malzemesi bir
+        `cryptographic-asset` bileşenidir ve `evidence.occurrences` alanında `location` (göreli dosya yolu), `line` ve `symbol`
+        taşır (D-196). `nistQuantumSecurityLevel` yalnızca kuantuma açık ailelerde 0 yazılır (D-197).'
       properties:
         bomFormat:
           const: CycloneDX
         specVersion:
           type: string
-          pattern: ^[0-9]+\.[0-9]+$
+          enum:
+          - '1.6'
       required:
       - bomFormat
       - specVersion

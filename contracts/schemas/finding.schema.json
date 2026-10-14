@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://quancrypt.local/schemas/finding.schema.json",
   "title": "finding",
-  "description": "analyzer-service'in buldu\u011fu tek bir kripto kullan\u0131m\u0131 (P3.1). Alan adlar\u0131 snake_case'tir (D-175). Kod listeleri crypto-domain skill'indendir; `priority` ve `symbol` D-171 ile eklendi; `mode`, `padding`, `hash` ve `library` kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc haliyle yaz\u0131l\u0131r, kod listesi yoktur (D-174). Kod par\u00e7as\u0131 i\u00e7ermez; sat\u0131rlar gerekti\u011finde `GET /api/v1/snippets` ile redakte edilerek okunur.",
+  "description": "analyzer-service'in buldu\u011fu tek bir kripto kullan\u0131m\u0131 (P3.1). Alan adlar\u0131 snake_case'tir (D-175). Kod listeleri crypto-domain skill'indendir; `priority` ve `symbol` D-171 ile eklendi; `mode`, `padding` ve `hash` kanonik s\u00f6zl\u00fc\u011f\u00fcn (contracts/canonical_dictionary.csv) de\u011ferleridir ve kod listesi yoktur (D-174, D-192a); `library` bilinen k\u00fct\u00fcphane ad\u0131d\u0131r. Kod par\u00e7as\u0131 i\u00e7ermez; sat\u0131rlar gerekti\u011finde `GET /api/v1/snippets` ile redakte edilerek okunur.",
   "type": "object",
   "properties": {
     "file": {
@@ -70,15 +70,15 @@
     },
     "mode": {
       "$ref": "#/$defs/rawToken",
-      "description": "Blok \u015fifre modu, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `GCM`, `ECB`); yoksa null."
+      "description": "Blok \u015fifre modu veya TLS protokol\u00fc, s\u00f6zl\u00fc\u011f\u00fcn de\u011feriyle (\u00f6rn. `GCM`, `ECB`; RSA i\u00e7in `NONE`, `TLSv1.2`); yoksa null."
     },
     "padding": {
       "$ref": "#/$defs/rawToken",
-      "description": "Dolgu, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `OAEPWithSHA-256AndMGF1Padding`, `PKCS1Padding`); yoksa null."
+      "description": "Dolgu, s\u00f6zl\u00fc\u011f\u00fcn de\u011feriyle (\u00f6rn. `OAEP`, `PKCS1_V1_5`, `PSS`, `NONE`); yoksa null."
     },
     "hash": {
       "$ref": "#/$defs/rawToken",
-      "description": "\u00d6zet algoritmas\u0131, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `SHA-256`, `SHA1`); yoksa null."
+      "description": "\u00d6zet algoritmas\u0131, s\u00f6zl\u00fc\u011f\u00fcn de\u011feriyle (\u00f6rn. `SHA-256`, `SHA-1`); yoksa null."
     },
     "key_size_bits": {
       "type": [
@@ -129,7 +129,7 @@
     },
     "library": {
       "$ref": "#/$defs/rawToken",
-      "description": "Kullan\u0131lan k\u00fct\u00fcphane veya API, kodda g\u00f6r\u00fcnd\u00fc\u011f\u00fc gibi (\u00f6rn. `JCA`, `BouncyCastle`, `Nimbus`); belirlenemiyorsa null."
+      "description": "Kullan\u0131lan k\u00fct\u00fcphane veya API'nin bilinen ad\u0131 (\u00f6rn. `JCA`, `BouncyCastle`, `nimbus-jose-jwt`); belirlenemiyorsa null."
     },
     "confidence": {
       "type": "number",

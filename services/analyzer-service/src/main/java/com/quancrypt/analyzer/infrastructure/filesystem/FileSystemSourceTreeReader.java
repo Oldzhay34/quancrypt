@@ -18,20 +18,35 @@ public final class FileSystemSourceTreeReader implements SourceTreeReader {
     /** 5 MiB per file (D-178i). */
     public static final long DEFAULT_MAX_FILE_BYTES = 5L * 1024 * 1024;
     public static final int DEFAULT_MAX_FILES = 200_000;
+    /** Files and directories visited by one listing (D-190e). */
+    public static final int DEFAULT_MAX_ENTRIES = 1_000_000;
+    public static final int DEFAULT_MAX_DEPTH = 64;
+    /** All bytes one source tree hands out, 512 MiB (D-190e). */
+    public static final long DEFAULT_MAX_TOTAL_BYTES = 512L * 1024 * 1024;
 
     private final long maxFileBytes;
     private final int maxFiles;
+    private final int maxEntries;
+    private final int maxDepth;
+    private final long maxTotalBytes;
 
     public FileSystemSourceTreeReader() {
         this(DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILES);
     }
 
     public FileSystemSourceTreeReader(long maxFileBytes, int maxFiles) {
-        if (maxFileBytes < 1 || maxFileBytes > Integer.MAX_VALUE - 1 || maxFiles < 1) {
+        this(maxFileBytes, maxFiles, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_DEPTH, DEFAULT_MAX_TOTAL_BYTES);
+    }
+
+    public FileSystemSourceTreeReader(long maxFileBytes, int maxFiles, int maxEntries, int maxDepth, long maxTotalBytes) {
+        if (maxFileBytes < 1 || maxFileBytes > Integer.MAX_VALUE - 1 || maxFiles < 1 || maxEntries < 1 || maxDepth < 1 || maxTotalBytes < 1) {
             throw new IllegalArgumentException("the reading limits must be positive");
         }
         this.maxFileBytes = maxFileBytes;
         this.maxFiles = maxFiles;
+        this.maxEntries = maxEntries;
+        this.maxDepth = maxDepth;
+        this.maxTotalBytes = maxTotalBytes;
     }
 
     @Override
@@ -49,6 +64,6 @@ public final class FileSystemSourceTreeReader implements SourceTreeReader {
         if (!real.equals(given.toAbsolutePath().normalize())) {
             throw new PathNotAllowedException("the root passes through a symbolic link");
         }
-        return new FileSystemSourceTree(root, real, maxFileBytes, maxFiles);
+        return new FileSystemSourceTree(root, real, maxFileBytes, maxFiles, maxEntries, maxDepth, maxTotalBytes);
     }
 }

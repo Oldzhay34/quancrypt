@@ -67,6 +67,11 @@ class FileSystemSourceTreeReaderContractTest extends SourceTreeReaderContract {
             public AnalysisRoot missingRoot() {
                 return new AnalysisRoot(base.resolve("missing").toString());
             }
+
+            @Override
+            public SourceTreeReader readerWithTotalBudget(long bytes) {
+                return new FileSystemSourceTreeReader(LIMIT, 1000, 1000, 64, bytes);
+            }
         };
     }
 

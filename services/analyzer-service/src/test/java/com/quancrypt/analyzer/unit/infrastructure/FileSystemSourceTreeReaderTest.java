@@ -61,7 +61,33 @@ class FileSystemSourceTreeReaderTest {
     }
 
     @Test
+    void moreEntriesThanTheLimitAreRefusedEvenWhenTheyAreDirectories() throws IOException {
+        Path root = temp.toRealPath();
+        for (int i = 0; i < 6; i++) {
+            Files.createDirectories(root.resolve("dir" + i));
+        }
+
+        assertThatThrownBy(() -> new FileSystemSourceTreeReader(1024, 100, 4, 64, 1_000_000).open(new AnalysisRoot(root.toString())).files())
+                .isInstanceOf(SourceTooLargeException.class);
+    }
+
+    @Test
+    void aProjectNestedDeeperThanTheLimitIsRefused() throws IOException {
+        Path root = temp.toRealPath();
+        Files.createDirectories(root.resolve("a/b/c/d"));
+        Files.writeString(root.resolve("a/b/c/d/deep.txt"), "x");
+
+        assertThatThrownBy(() -> new FileSystemSourceTreeReader(1024, 100, 1000, 3, 1_000_000).open(new AnalysisRoot(root.toString())).files())
+                .isInstanceOf(SourceTooLargeException.class);
+        assertThat(new FileSystemSourceTreeReader(1024, 100, 1000, 6, 1_000_000).open(new AnalysisRoot(root.toString())).files())
+                .extracting(RelativePath::value).containsExactly("a/b/c/d/deep.txt");
+    }
+
+    @Test
     void theLimitsMustBePositive() {
+        assertThatThrownBy(() -> new FileSystemSourceTreeReader(1, 1, 0, 1, 1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new FileSystemSourceTreeReader(1, 1, 1, 0, 1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new FileSystemSourceTreeReader(1, 1, 1, 1, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new FileSystemSourceTreeReader(0, 1)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new FileSystemSourceTreeReader(1, 0)).isInstanceOf(IllegalArgumentException.class);
     }

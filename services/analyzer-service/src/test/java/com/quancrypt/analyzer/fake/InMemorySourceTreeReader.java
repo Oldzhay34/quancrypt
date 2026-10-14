@@ -23,6 +23,7 @@ import java.util.TreeMap;
 public final class InMemorySourceTreeReader implements SourceTreeReader {
 
     private final long maxFileBytes;
+    private final long maxTotalBytes;
     private final Map<String, Map<String, byte[]>> roots = new HashMap<>();
     private final Map<String, Set<String>> links = new HashMap<>();
     private final Set<String> linkedRoots = new HashSet<>();
@@ -32,7 +33,21 @@ public final class InMemorySourceTreeReader implements SourceTreeReader {
     }
 
     public InMemorySourceTreeReader(long maxFileBytes) {
+        this(maxFileBytes, Long.MAX_VALUE);
+    }
+
+    public InMemorySourceTreeReader(long maxFileBytes, long maxTotalBytes) {
         this.maxFileBytes = maxFileBytes;
+        this.maxTotalBytes = maxTotalBytes;
+    }
+
+    /** A reader over the same directories that stops handing out bytes after {@code bytes} per opened tree. */
+    public InMemorySourceTreeReader withTotalBudget(long bytes) {
+        InMemorySourceTreeReader copy = new InMemorySourceTreeReader(maxFileBytes, bytes);
+        copy.roots.putAll(roots);
+        copy.links.putAll(links);
+        copy.linkedRoots.addAll(linkedRoots);
+        return copy;
     }
 
     public InMemorySourceTreeReader directory(String root) {
@@ -79,6 +94,7 @@ public final class InMemorySourceTreeReader implements SourceTreeReader {
         private final AnalysisRoot root;
         private final Map<String, byte[]> files;
         private final Set<String> linkPaths;
+        private long totalBytes;
 
         Tree(AnalysisRoot root, Map<String, byte[]> files, Set<String> linkPaths) {
             this.root = root;
@@ -117,6 +133,10 @@ public final class InMemorySourceTreeReader implements SourceTreeReader {
             }
             if (content.length > maxFileBytes) {
                 throw new SourceTooLargeException("the file is larger than the reading limit");
+            }
+            totalBytes += content.length;
+            if (totalBytes > maxTotalBytes) {
+                throw new SourceTooLargeException("the project is larger than the reading limit");
             }
             return content.clone();
         }

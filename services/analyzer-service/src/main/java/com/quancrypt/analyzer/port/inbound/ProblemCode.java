@@ -5,7 +5,8 @@ public enum ProblemCode {
     VALIDATION_FAILED("validation-failed"),
     PATH_NOT_ALLOWED("path-not-allowed"),
     NOT_FOUND("not-found"),
-    UNSUPPORTED_PROJECT("unsupported-project");
+    UNSUPPORTED_PROJECT("unsupported-project"),
+    ANALYSIS_TIMEOUT("analysis-timeout");
 
     private final String code;
 

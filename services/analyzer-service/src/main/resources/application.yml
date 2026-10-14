@@ -1,0 +1,64 @@
+# analyzer-service configuration. Everything comes from environment variables (hexagonal-service section 6); the defaults
+# are for local development only. The service token has no default: a missing token stops the service at start-up.
+spring:
+  application:
+    name: analyzer-service
+  main:
+    banner-mode: "off"
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  jackson:
+    # The analyzer contract writes snake_case (D-175) and declares additionalProperties: false for request bodies.
+    property-naming-strategy: SNAKE_CASE
+    deserialization:
+      fail-on-unknown-properties: true
+
+server:
+  port: ${SERVER_PORT:8082}
+  # Loopback by default (guardrails-security section 1); the image sets 0.0.0.0 because Docker publishes the port to
+  # 127.0.0.1 only (docker-compose.yml).
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  shutdown: graceful
+  tomcat:
+    # An analysis can use about 0.8 GB for a 5 MiB source file (P3.2 measurement) and the container has 2 GB, so only a few
+    # requests run at once; the others wait in the accept queue (P3.3 security review, D-205).
+    threads:
+      max: ${ANALYZER_MAX_THREADS:4}
+  # Error pages never show stack traces or messages.
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+# Health lives on the main port: only /health/liveness and /health/readiness are open (D-165 precedent); readiness needs a
+# mounted project directory.
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health
+      path-mapping:
+        health: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,analyzer
+
+logging:
+  structured:
+    format:
+      console: com.quancrypt.analyzer.infrastructure.observability.JsonLogFormatter
+
+quancrypt:
+  internal-token: ${INTERNAL_SERVICE_TOKEN}
+
+analyzer:
+  # The directories a root may lie in; the contract allows /workspace and /corpus (P3.1).
+  allowed-roots: ${ANALYZER_ALLOWED_ROOTS:/workspace,/corpus}
+  # Server side time budget of one analysis (D-199); the client gives up after 300 s as well (D-172).
+  time-budget-seconds: ${ANALYSIS_TIME_BUDGET_SECONDS:300}

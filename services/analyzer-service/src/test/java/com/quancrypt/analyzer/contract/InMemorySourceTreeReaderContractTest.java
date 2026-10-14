@@ -53,6 +53,11 @@ class InMemorySourceTreeReaderContractTest extends SourceTreeReaderContract {
             public AnalysisRoot missingRoot() {
                 return new AnalysisRoot("/workspace/missing");
             }
+
+            @Override
+            public SourceTreeReader readerWithTotalBudget(long bytes) {
+                return reader.withTotalBudget(bytes);
+            }
         };
     }
 }

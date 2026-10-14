@@ -1,0 +1,12 @@
+# Applies to the build context at the repository root (docker build -f services/analyzer-service/Dockerfile ... .).
+# Everything is excluded, then only what the image build needs is let back in: no .env, no keys, no other service.
+*
+!contracts/redaction-rules.yaml
+!contracts/canonical_dictionary.csv
+!services/analyzer-service/settings.gradle.kts
+!services/analyzer-service/build.gradle.kts
+!services/analyzer-service/config
+!services/analyzer-service/config/**
+!services/analyzer-service/src
+!services/analyzer-service/src/main
+!services/analyzer-service/src/main/**

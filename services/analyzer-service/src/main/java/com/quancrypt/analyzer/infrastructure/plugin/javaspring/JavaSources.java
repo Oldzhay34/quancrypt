@@ -13,6 +13,10 @@ import java.util.Optional;
 /** Parses Java files with JavaParser (language level 25, tokens stored because line ranges need them; no symbol solving, nothing is compiled, FR-12). */
 public final class JavaSources {
 
+    /** Texts that make a file worth a look for the topology detectors; checked on the source text while it is at hand. */
+    private static final java.util.List<String> TOPOLOGY_MARKERS = java.util.List.of("RestTemplate", "RestClient", "WebClient", "FeignClient",
+            "ManagedChannelBuilder", "NettyChannelBuilder", "OkHttpChannelBuilder", "org.eclipse.paho", "jdk.tls.namedGroups", "getBundle");
+
     private final JavaParser parser;
 
     public JavaSources() {
@@ -30,11 +34,18 @@ public final class JavaSources {
      */
     public Optional<JavaUnit> parse(SourceTree tree, ProjectFile file) {
         try {
-            String source = new String(tree.read(file.path()), StandardCharsets.UTF_8);
-            ParseResult<CompilationUnit> result = parser.parse(source);
-            return result.getResult().map(unit -> new JavaUnit(file.path(), file.location(), unit));
+            return parseSource(file, new String(tree.read(file.path()), StandardCharsets.UTF_8));
         } catch (SourceNotFoundException | PathNotAllowedException e) {
             return Optional.empty();
+        }
+    }
+
+    /** The parsed unit of source text already read (same failures as {@link #parse}); empty when it cannot be parsed. */
+    public Optional<JavaUnit> parseSource(ProjectFile file, String source) {
+        try {
+            ParseResult<CompilationUnit> result = parser.parse(source);
+            return result.getResult().map(unit -> new JavaUnit(file.path(), file.location(), unit,
+                    TOPOLOGY_MARKERS.stream().anyMatch(source::contains)));
         } catch (StackOverflowError e) {
             // an absurdly deep expression: the file is skipped and counted, the analysis goes on
             return Optional.empty();

@@ -35,7 +35,8 @@ class FileClassifierTest {
         "build.gradle.kts,GRADLE,BUILD_FILE",
         "settings.gradle,GRADLE,BUILD_FILE",
         "docs/readme.md,OTHER,CONFIG",
-        "docker-compose.yml,OTHER,CONFIG"})
+        "docker-compose.yml,COMPOSE,CONFIG", "deploy/docker-compose.override.yaml,COMPOSE,CONFIG", "compose.yml,COMPOSE,CONFIG",
+        "k8s/app.yaml,KUBERNETES,CONFIG", "deploy/kubernetes/web.yml,KUBERNETES,CONFIG", "docs/app.yaml,OTHER,CONFIG", "src/test/k8s/x.yaml,KUBERNETES,TEST_CODE"})
     void filesAreClassifiedByTheirPath(String path, FileKind kind, LocationKind location) {
         ProjectFile file = classifier.classify(RelativePath.of(path));
 

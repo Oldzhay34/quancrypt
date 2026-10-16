@@ -21,6 +21,7 @@ import com.quancrypt.analyzer.infrastructure.plugin.javaspring.file.PemCertifica
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.file.SpringJwtConfigDetector;
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.file.SpringSslConfigDetector;
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.pem.PemReader;
+import com.quancrypt.analyzer.infrastructure.plugin.javaspring.topology.TopologyBuilder;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -52,7 +53,10 @@ public final class JavaSpringPlugins {
 
     public static JavaSpringPlugin of(CanonicalNames names, List<CryptoDetector> detectors, BuildRuntime runtime,
             UnaryOperator<String> sanitizer) {
-        ProjectIndexBuilder index = new ProjectIndexBuilder(new FileClassifier(), new SpringConfigReader(), new PemReader(names));
-        return new JavaSpringPlugin(detectors, runtime, index, new JavaSources(), new UsageAssembler(new PriorityClassifier(), sanitizer));
+        SpringConfigReader configReader = new SpringConfigReader();
+        ProjectIndexBuilder index = new ProjectIndexBuilder(new FileClassifier(), configReader, new PemReader(names));
+        JavaSources sources = new JavaSources();
+        return new JavaSpringPlugin(detectors, runtime, index, sources, new UsageAssembler(new PriorityClassifier(), sanitizer),
+                new TopologyBuilder(runtime, sources, configReader));
     }
 }

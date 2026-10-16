@@ -5,6 +5,8 @@ import com.quancrypt.analyzer.domain.model.Cbom;
 import com.quancrypt.analyzer.domain.model.CryptoAlgorithm;
 import com.quancrypt.analyzer.domain.model.CryptoUsage;
 import com.quancrypt.analyzer.domain.model.Evidence;
+import com.quancrypt.analyzer.domain.model.FindingRef;
+import com.quancrypt.analyzer.domain.model.KeyExchange;
 import com.quancrypt.analyzer.domain.model.LineRange;
 import com.quancrypt.analyzer.domain.model.PluginInfo;
 import com.quancrypt.analyzer.domain.model.ProjectDescriptor;
@@ -17,7 +19,9 @@ import com.quancrypt.analyzer.port.inbound.AnalysisView;
 import com.quancrypt.analyzer.port.inbound.CbomView;
 import com.quancrypt.analyzer.port.inbound.EdgeView;
 import com.quancrypt.analyzer.port.inbound.EvidenceView;
+import com.quancrypt.analyzer.port.inbound.FindingRefView;
 import com.quancrypt.analyzer.port.inbound.FindingView;
+import com.quancrypt.analyzer.port.inbound.KeyExchangeView;
 import com.quancrypt.analyzer.port.inbound.NodeView;
 import com.quancrypt.analyzer.port.inbound.PluginView;
 import com.quancrypt.analyzer.port.inbound.ProjectView;
@@ -73,7 +77,16 @@ final class Views {
     }
 
     private static EdgeView edge(ServiceEdge edge) {
-        return new EdgeView(edge.source(), edge.target(), edge.protocol().name(), edge.tls(), edge.mtls(), evidence(edge.evidence()));
+        return new EdgeView(edge.source(), edge.target(), edge.protocol().name(), edge.tls(), edge.mtls(), evidence(edge.evidence()),
+                edge.findings().stream().map(Views::findingRef).toList(), edge.keyExchange().map(Views::keyExchange));
+    }
+
+    private static FindingRefView findingRef(FindingRef ref) {
+        return new FindingRefView(ref.file().value(), ref.symbol(), ref.algorithmFamily().name(), ref.usageContext().name(), ref.lineStart());
+    }
+
+    private static KeyExchangeView keyExchange(KeyExchange exchange) {
+        return new KeyExchangeView(exchange.groupFamily().name(), exchange.groups(), exchange.inferred(), exchange.confidence());
     }
 
     private static List<EvidenceView> evidence(List<Evidence> evidence) {

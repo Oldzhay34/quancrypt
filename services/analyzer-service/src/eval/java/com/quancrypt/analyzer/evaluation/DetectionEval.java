@@ -43,10 +43,14 @@ public final class DetectionEval {
         Path report = Path.of(System.getProperty("quancrypt.report.file"));
         Files.createDirectories(Objects.requireNonNull(report.getParent(), "the report file needs a directory"));
         String performance = performanceSection(report);
-        Files.writeString(report, DetectionReport.render(run, BENCHMARK_NOT_MEASURED) + "\n" + performance, StandardCharsets.UTF_8);
+        TopologyEvaluation.Run topology = TopologyEvaluation.run(JavaSpringPlugins.standard(names), Path.of(System.getProperty("quancrypt.reference.dir")),
+                Path.of(System.getProperty("quancrypt.expected.dir")));
+        Files.writeString(report, DetectionReport.render(run, BENCHMARK_NOT_MEASURED) + "\n" + performance.stripTrailing() + "\n\n"
+                + TopologyEvaluation.render(topology), StandardCharsets.UTF_8);
         GoldenComparison.Result result = run.comparison();
         System.out.println("QBank: recall=" + result.recall() + " precision=" + result.precision() + " report=" + report);
-        if (result.recall() < 1.0 || result.precision() < 0.95 || !result.priorityMismatches().isEmpty()) {
+        System.out.println("QBank topology: " + (topology.matches() ? "matches the golden file" : "DIFFERS: " + topology.edgeDifferences() + topology.nodeDifferences()));
+        if (result.recall() < 1.0 || result.precision() < 0.95 || !result.priorityMismatches().isEmpty() || !topology.matches()) {
             throw new IllegalStateException("QBank targets missed: see " + report);
         }
     }
@@ -69,8 +73,10 @@ public final class DetectionEval {
         if (Files.exists(report)) {
             String existing = Files.readString(report, StandardCharsets.UTF_8);
             int start = existing.indexOf(PERFORMANCE_HEADING);
-            if (start >= 0 && !existing.substring(start).contains("**Ölçülmedi.**")) {
-                return existing.substring(start);
+            int end = existing.indexOf("\n## 6.", start);
+            String section = start < 0 ? "" : end < 0 ? existing.substring(start) : existing.substring(start, end);
+            if (start >= 0 && !section.contains("**Ölçülmedi.**")) {
+                return section;
             }
         }
         return PERFORMANCE_NOT_MEASURED;

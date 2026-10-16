@@ -20,6 +20,8 @@ public final class FileClassifier {
     private static final Pattern SPRING_CONFIG = Pattern.compile("(application|bootstrap)(-[A-Za-z0-9_.-]+)?\\.(ya?ml|properties)");
     private static final Pattern TEST_SOURCE_SET = Pattern.compile("(test|integrationTest|testFixtures|functionalTest)");
     private static final Set<String> KEYSTORES = Set.of("p12", "pfx", "jks", "jceks", "keystore", "bks");
+    private static final Pattern COMPOSE_FILE = Pattern.compile("(docker-)?compose([.-][A-Za-z0-9_.-]+)?\\.ya?ml");
+    private static final Set<String> KUBERNETES_DIRECTORIES = Set.of("k8s", "kubernetes", "manifests");
     private static final Set<String> PEM_EXTENSIONS = Set.of("pem", "crt", "cer", "key");
 
     /** Whether a directory name at this place is skipped; {@code siblingNames} are the names in the directory's parent. */
@@ -43,6 +45,12 @@ public final class FileClassifier {
             FileKind kind = extension.equals("properties") ? FileKind.SPRING_PROPERTIES : FileKind.SPRING_YAML;
             return new ProjectFile(path, kind, test ? LocationKind.TEST_CODE : LocationKind.CONFIG);
         }
+        if (COMPOSE_FILE.matcher(lower).matches()) {
+            return new ProjectFile(path, FileKind.COMPOSE, test ? LocationKind.TEST_CODE : LocationKind.CONFIG);
+        }
+        if ((extension.equals("yaml") || extension.equals("yml")) && underKubernetesDirectory(segments)) {
+            return new ProjectFile(path, FileKind.KUBERNETES, test ? LocationKind.TEST_CODE : LocationKind.CONFIG);
+        }
         if (lower.equals("mosquitto.conf") || (extension.equals("conf") && lower.startsWith("mosquitto"))) {
             return new ProjectFile(path, FileKind.MOSQUITTO_CONF, test ? LocationKind.TEST_CODE : LocationKind.CONFIG);
         }
@@ -59,6 +67,10 @@ public final class FileClassifier {
             return new ProjectFile(path, FileKind.GRADLE, LocationKind.BUILD_FILE);
         }
         return new ProjectFile(path, FileKind.OTHER, LocationKind.CONFIG);
+    }
+
+    private static boolean underKubernetesDirectory(List<String> segments) {
+        return segments.subList(0, segments.size() - 1).stream().anyMatch(KUBERNETES_DIRECTORIES::contains);
     }
 
     private static boolean inTestSourceSet(List<String> segments, String name) {

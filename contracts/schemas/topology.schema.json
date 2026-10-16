@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://quancrypt.local/schemas/topology.schema.json",
   "title": "topology",
-  "description": "analyzer-service'in statik analizle \u00e7\u0131kard\u0131\u011f\u0131 servis topolojisi (P3.1). D\u00fc\u011f\u00fcmler projenin par\u00e7alar\u0131 ve konu\u015ftu\u011fu d\u0131\u015f u\u00e7lard\u0131r; kenarlar ba\u011flant\u0131y\u0131 kuran taraftan (istemci) dinleyene (sunucu) do\u011frudur. Statik analiz pazarl\u0131k edilen TLS s\u00fcr\u00fcm\u00fcn\u00fc ve anahtar de\u011fi\u015fim grubunu \u00f6l\u00e7emez, bu y\u00fczden kenarda yoktur (D-178e). `kind` listesi D-170'tir; core-service'e iletirken `EXTERNAL` \u2192 `EXTERNAL_CLIENT` e\u015flenir ve `DATABASE` d\u00fc\u011f\u00fcmleri iletilmez.",
+  "description": "analyzer-service'in statik analizle \u00e7\u0131kard\u0131\u011f\u0131 servis topolojisi (P3.1, P3.4). D\u00fc\u011f\u00fcmler projenin par\u00e7alar\u0131 ve konu\u015ftu\u011fu d\u0131\u015f u\u00e7lard\u0131r; kenarlar ba\u011flant\u0131y\u0131 kuran taraftan (istemci) dinleyene (sunucu) do\u011frudur. Statik analiz pazarl\u0131k edilen TLS s\u00fcr\u00fcm\u00fcn\u00fc ve anahtar de\u011fi\u015fim grubunu \u00f6l\u00e7emez; kenardaki `key_exchange` yaln\u0131zca \u00e7\u0131kar\u0131md\u0131r (`inferred`, `confidence` < 1) ve kenar `findings` ile kulland\u0131\u011f\u0131 kripto bulgular\u0131n\u0131 do\u011fal anahtar\u0131yla g\u00f6sterir (D-208). `kind` listesi D-170'tir; core-service'e iletirken `EXTERNAL` \u2192 `EXTERNAL_CLIENT` e\u015flenir ve `DATABASE` d\u00fc\u011f\u00fcmleri iletilmez.",
   "type": "object",
   "properties": {
     "nodes": {
@@ -101,6 +101,17 @@
           "items": {
             "$ref": "#/$defs/evidence"
           }
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 500,
+          "description": "Kenar\u0131n kulland\u0131\u011f\u0131 kripto bulgular\u0131; bulgu, core-service'in `uq_finding_location` anahtar\u0131yla g\u00f6sterilir (kimlik analizcide yoktur, agent core kimli\u011fine e\u015fler; D-208).",
+          "items": {
+            "$ref": "#/$defs/findingRef"
+          }
+        },
+        "key_exchange": {
+          "$ref": "#/$defs/keyExchange"
         }
       },
       "required": [
@@ -154,6 +165,122 @@
         "line_start",
         "line_end",
         "location_kind"
+      ],
+      "additionalProperties": false
+    },
+    "findingRef": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Analiz k\u00f6k\u00fcne g\u00f6re g\u00f6reli yol, `/` ayra\u00e7l\u0131. Mutlak yol ve `..` b\u00f6l\u00fcm\u00fc yoktur.",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*//)(?!(.*/)?\\.{1,2}(/|$))(?!.*/$)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb\\\\]+$"
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Kodda `S\u0131n\u0131f#metot`, yap\u0131land\u0131rmada anahtar, sertifika ve anahtar dosyalar\u0131nda dosya ad\u0131 (D-171).",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
+        },
+        "algorithm_family": {
+          "type": "string",
+          "enum": [
+            "RSA",
+            "ECDSA",
+            "ECDH",
+            "EDDSA",
+            "DH",
+            "DSA",
+            "ML_KEM",
+            "ML_DSA",
+            "SLH_DSA",
+            "AES",
+            "DES",
+            "TRIPLE_DES",
+            "CHACHA20",
+            "SHA1",
+            "SHA2",
+            "SHA3",
+            "MD5",
+            "HMAC",
+            "X25519",
+            "HYBRID_X25519_MLKEM768",
+            "UNKNOWN"
+          ]
+        },
+        "usage_context": {
+          "type": "string",
+          "enum": [
+            "TLS_KEY_EXCHANGE",
+            "TLS_SERVER_AUTH",
+            "MTLS_CLIENT_AUTH",
+            "CERTIFICATE",
+            "ENCRYPTION",
+            "KEY_WRAP",
+            "SIGNATURE",
+            "TOKEN_SIGNATURE",
+            "KEY_AGREEMENT",
+            "HASH",
+            "SYMMETRIC_ENCRYPTION",
+            "KEYSTORE",
+            "UNKNOWN"
+          ]
+        },
+        "line_start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "Bulgunun ilk sat\u0131r\u0131; b\u00fct\u00fcn dosyaya ait bulgularda (sertifika, keystore) null."
+        }
+      },
+      "required": [
+        "file",
+        "symbol",
+        "algorithm_family",
+        "usage_context",
+        "line_start"
+      ],
+      "additionalProperties": false
+    },
+    "keyExchange": {
+      "type": "object",
+      "description": "Kenarda kullan\u0131lan TLS anahtar de\u011fi\u015fiminin statik \u00e7\u0131kar\u0131m\u0131 (D-208, D-213): kod ve yap\u0131land\u0131rma grup belirtmiyorsa projenin Java s\u00fcr\u00fcm\u00fcn\u00fcn varsay\u0131lan gruplar\u0131d\u0131r, bu y\u00fczden `inferred` true ve `confidence` 1'den k\u00fc\u00e7\u00fckt\u00fcr. Pazarl\u0131k edilen grup yaln\u0131z el s\u0131k\u0131\u015fma testiyle \u00f6l\u00e7\u00fcl\u00fcr (Faz 8).",
+      "properties": {
+        "group_family": {
+          "type": "string",
+          "enum": [
+            "CLASSICAL",
+            "HYBRID"
+          ]
+        },
+        "groups": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,32}$"
+          },
+          "description": "\u0130stemci taraf\u0131n Java s\u00fcr\u00fcm\u00fcn\u00fcn varsay\u0131lan gruplar\u0131 (tercih s\u0131ras\u0131yla) ya da kod ve yap\u0131land\u0131rman\u0131n adland\u0131rd\u0131\u011f\u0131 gruplar; s\u0131ras\u0131 kaynakla do\u011frulanmad\u0131ysa bo\u015f (D-213)."
+        },
+        "inferred": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "group_family",
+        "groups",
+        "inferred",
+        "confidence"
       ],
       "additionalProperties": false
     }

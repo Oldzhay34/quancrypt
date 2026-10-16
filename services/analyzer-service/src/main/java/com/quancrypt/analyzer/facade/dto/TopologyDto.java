@@ -22,11 +22,30 @@ public record TopologyDto(List<NodeDto> nodes, List<EdgeDto> edges) {
         }
     }
 
-    /** An edge. */
-    public record EdgeDto(String source, String target, String protocol, boolean tls, boolean mtls, List<EvidenceDto> evidence) {
+    /** The natural key of a finding an edge uses (D-208). */
+    public record FindingRefDto(String file, String symbol, String algorithmFamily, String usageContext, Integer lineStart) {
+    }
+
+    /** The inferred key exchange of a TLS edge (D-208). */
+    public record KeyExchangeDto(String groupFamily, List<String> groups, boolean inferred, double confidence) {
+
+        public KeyExchangeDto {
+            groups = List.copyOf(groups);
+        }
+    }
+
+    /** An edge; {@code keyExchange} is null for an edge without TLS or without an inference. */
+    public record EdgeDto(String source, String target, String protocol, boolean tls, boolean mtls, List<EvidenceDto> evidence,
+            List<FindingRefDto> findings, KeyExchangeDto keyExchange) {
 
         public EdgeDto {
             evidence = List.copyOf(evidence);
+            findings = List.copyOf(findings);
+        }
+
+        /** An edge without crypto details. */
+        public EdgeDto(String source, String target, String protocol, boolean tls, boolean mtls, List<EvidenceDto> evidence) {
+            this(source, target, protocol, tls, mtls, evidence, List.of(), null);
         }
     }
 }

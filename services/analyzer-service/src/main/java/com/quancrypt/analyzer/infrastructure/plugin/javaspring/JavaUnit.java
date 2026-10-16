@@ -38,11 +38,13 @@ public final class JavaUnit {
     private final LocationKind location;
     private final CompilationUnit unit;
     private final ConstantResolver constants;
+    private final boolean topologyRelevant;
 
-    JavaUnit(RelativePath path, LocationKind location, CompilationUnit unit) {
+    JavaUnit(RelativePath path, LocationKind location, CompilationUnit unit, boolean topologyRelevant) {
         this.path = path;
         this.location = location;
         this.unit = unit;
+        this.topologyRelevant = topologyRelevant;
         this.constants = new ConstantResolver(unit);
     }
 
@@ -52,6 +54,11 @@ public final class JavaUnit {
 
     public LocationKind location() {
         return location;
+    }
+
+    /** Whether the source mentions something a topology detector looks for (an HTTP client, a channel, a Paho client ...). */
+    public boolean topologyRelevant() {
+        return topologyRelevant;
     }
 
     /** All nodes of a type in the unit (the tree itself is not handed out, it is mutable). */

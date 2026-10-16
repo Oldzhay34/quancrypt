@@ -3,11 +3,13 @@ package com.quancrypt.analyzer.infrastructure.plugin.javaspring;
 import com.quancrypt.analyzer.domain.exception.AnalysisTimeoutException;
 import com.quancrypt.analyzer.domain.exception.SourceTooLargeException;
 import com.quancrypt.analyzer.domain.model.CryptoUsage;
+import com.quancrypt.analyzer.domain.model.LocationKind;
 import com.quancrypt.analyzer.domain.model.PluginInfo;
 import com.quancrypt.analyzer.domain.model.ProjectDescriptor;
 import com.quancrypt.analyzer.domain.model.ProjectType;
 import com.quancrypt.analyzer.domain.model.RuntimeInfo;
 import com.quancrypt.analyzer.domain.model.ServiceGraph;
+import com.quancrypt.analyzer.infrastructure.plugin.javaspring.topology.TopologyBuilder;
 import com.quancrypt.analyzer.port.outbound.LanguagePlugin;
 import com.quancrypt.analyzer.port.outbound.SourceTree;
 import java.util.ArrayList;
@@ -33,14 +35,16 @@ public final class JavaSpringPlugin implements LanguagePlugin {
     private final ProjectIndexBuilder indexBuilder;
     private final JavaSources sources;
     private final UsageAssembler assembler;
+    private final TopologyBuilder topology;
 
     JavaSpringPlugin(List<CryptoDetector> detectors, BuildRuntime runtime, ProjectIndexBuilder indexBuilder, JavaSources sources,
-            UsageAssembler assembler) {
+            UsageAssembler assembler, TopologyBuilder topology) {
         this.detectors = List.copyOf(detectors);
         this.runtime = Objects.requireNonNull(runtime, "runtime");
         this.indexBuilder = Objects.requireNonNull(indexBuilder, "indexBuilder");
         this.sources = Objects.requireNonNull(sources, "sources");
         this.assembler = Objects.requireNonNull(assembler, "assembler");
+        this.topology = Objects.requireNonNull(topology, "topology");
     }
 
     @Override
@@ -60,7 +64,15 @@ public final class JavaSpringPlugin implements LanguagePlugin {
 
     /** The usages with the library facts and the diagnostics. */
     public AnalysisOutcome analyze(SourceTree tree) {
-        ProjectIndex index = indexBuilder.build(tree);
+        return analyze(tree, indexBuilder.build(tree)).outcome();
+    }
+
+    /** One analysis and the Java files the topology detectors may use (their paths only: no syntax tree is kept). */
+    private record Analysis(AnalysisOutcome outcome, List<ProjectFile> topologyFiles) {
+    }
+
+    private Analysis analyze(SourceTree tree, ProjectIndex index) {
+        List<ProjectFile> topologyFiles = new ArrayList<>();
         KeyFileLinker linker = new KeyFileLinker(index.pem());
         CollectingSink sink = new CollectingSink();
         List<String> failures = new ArrayList<>();
@@ -77,6 +89,9 @@ public final class JavaSpringPlugin implements LanguagePlugin {
                 }
                 parsed++;
                 linker.collect(unit.get());
+                if (unit.get().topologyRelevant() && file.location() != LocationKind.TEST_CODE) {
+                    topologyFiles.add(file);
+                }
             }
             FileContext context = new FileContext(file, unit);
             for (CryptoDetector detector : detectors) {
@@ -87,7 +102,7 @@ public final class JavaSpringPlugin implements LanguagePlugin {
         }
         KeyFileLinker.Linking linking = linker.resolve(sink.observations());
         List<CryptoUsage> usages = assembler.assemble(sink.observations(), linking);
-        return new AnalysisOutcome(usages, sink.libraries(), new Diagnostics(parsed, skipped, failures, sink.unresolved()));
+        return new Analysis(new AnalysisOutcome(usages, sink.libraries(), new Diagnostics(parsed, skipped, failures, sink.unresolved())), topologyFiles);
     }
 
     private static void run(CryptoDetector detector, ProjectIndex index, FileContext context, DetectionSink sink, List<String> failures) {
@@ -104,8 +119,9 @@ public final class JavaSpringPlugin implements LanguagePlugin {
 
     @Override
     public ServiceGraph buildTopology(SourceTree tree) {
-        // TODO(P3.4-1): the topology detectors are written in P3.4; until then the plugin reports no nodes and no edges.
-        return ServiceGraph.EMPTY;
+        ProjectIndex index = indexBuilder.build(tree);
+        Analysis analysis = analyze(tree, index);
+        return topology.build(tree, index, analysis.outcome().usages(), analysis.topologyFiles());
     }
 
     @Override

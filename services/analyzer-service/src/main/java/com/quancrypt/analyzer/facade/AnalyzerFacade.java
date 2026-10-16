@@ -118,7 +118,11 @@ public final class AnalyzerFacade {
         return new TopologyDto(
                 view.nodes().stream().map(n -> new TopologyDto.NodeDto(n.id(), n.name(), n.kind(), evidence(n.evidence()))).toList(),
                 view.edges().stream().map(e -> new TopologyDto.EdgeDto(e.source(), e.target(), e.protocol(), e.tls(), e.mtls(),
-                        evidence(e.evidence()))).toList());
+                        evidence(e.evidence()),
+                        e.findings().stream().map(f -> new TopologyDto.FindingRefDto(f.file(), f.symbol(), f.algorithmFamily(), f.usageContext(),
+                                f.lineStart().orElse(null))).toList(),
+                        e.keyExchange().map(k -> new TopologyDto.KeyExchangeDto(k.groupFamily(), k.groups(), k.inferred(), k.confidence()))
+                                .orElse(null))).toList());
     }
 
     private static List<TopologyDto.EvidenceDto> evidence(List<EvidenceView> views) {

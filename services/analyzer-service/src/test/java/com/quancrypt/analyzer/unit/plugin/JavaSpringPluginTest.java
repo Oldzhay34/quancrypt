@@ -226,8 +226,16 @@ class JavaSpringPluginTest {
     }
 
     @Test
-    void theTopologyIsEmptyUntilP34() {
-        assertThat(plugin.buildTopology(DetectorHarness.tree("pom.xml", POM))).isEqualTo(ServiceGraph.EMPTY);
+    void aProjectWithOneModuleIsOneNodeNamedAfterItsDirectoryAndHasNoEdges() {
+        ServiceGraph graph = plugin.buildTopology(DetectorHarness.tree("pom.xml", POM));
+
+        assertThat(graph.nodes()).extracting(n -> n.id()).containsExactly("project");
+        assertThat(graph.edges()).isEmpty();
+    }
+
+    @Test
+    void aProjectWithoutModulesOrComposeHasAnEmptyTopology() {
+        assertThat(plugin.buildTopology(DetectorHarness.tree("src/main/java/A.java", "class A { }"))).isEqualTo(ServiceGraph.EMPTY);
     }
 
     @Test

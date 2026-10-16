@@ -5,11 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import com.quancrypt.analyzer.domain.model.AlgorithmFamily;
+import com.quancrypt.analyzer.domain.model.GroupFamily;
+import com.quancrypt.analyzer.domain.model.KeyExchange;
 import com.quancrypt.analyzer.domain.model.LocationKind;
 import com.quancrypt.analyzer.domain.model.NodeKind;
 import com.quancrypt.analyzer.domain.model.Priority;
 import com.quancrypt.analyzer.domain.model.ProjectType;
 import com.quancrypt.analyzer.domain.model.Protocol;
+import com.quancrypt.analyzer.domain.model.ServiceEdge;
 import com.quancrypt.analyzer.domain.model.ServiceGraph;
 import com.quancrypt.analyzer.domain.model.ServiceNode;
 import com.quancrypt.analyzer.domain.model.Snippet;
@@ -72,6 +75,12 @@ class CodeListContractTest {
         assertThat((Integer) topology.read("$.properties.edges.maxItems")).isEqualTo(ServiceGraph.MAX_EDGES);
         assertThat((Integer) topology.read("$['$defs'].node.properties.evidence.maxItems")).isEqualTo(ServiceNode.MAX_EVIDENCE);
         assertThat((Integer) topology.read("$['$defs'].edge.properties.evidence.maxItems")).isEqualTo(ServiceNode.MAX_EVIDENCE);
+        // P3.4 (D-208): the finding references and the key exchange of an edge
+        assertThat(list(topology, "$['$defs'].findingRef.properties.algorithm_family.enum")).containsExactlyElementsOf(names(AlgorithmFamily.values()));
+        assertThat(list(topology, "$['$defs'].findingRef.properties.usage_context.enum")).containsExactlyElementsOf(names(UsageContext.values()));
+        assertThat(list(topology, "$['$defs'].keyExchange.properties.group_family.enum")).containsExactlyElementsOf(names(GroupFamily.values()));
+        assertThat((Integer) topology.read("$['$defs'].edge.properties.findings.maxItems")).isEqualTo(ServiceEdge.MAX_FINDINGS);
+        assertThat((Integer) topology.read("$['$defs'].keyExchange.properties.groups.maxItems")).isEqualTo(KeyExchange.MAX_GROUPS);
     }
 
     @Test

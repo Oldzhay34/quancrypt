@@ -18,7 +18,7 @@ public final class DetectionReport {
         GoldenComparison.Result result = run.comparison();
         List<CryptoUsage> usages = run.outcome().usages();
         StringBuilder out = new StringBuilder();
-        out.append("# Tespit değerlendirmesi (P3.2, P3.3)\n\n");
+        out.append("# Tespit değerlendirmesi (P3.2, P3.3, P3.4)\n\n");
         out.append("Bu dosya `./gradlew detectionEval` ile üretilir (analyzer-service). Elle düzenlenmez.\n\n");
         out.append("## 1. QBank altın envanteri\n\n");
         out.append("Karşılaştırma `(file, algorithm_family, usage_context)` üçlüsü üzerindedir (küme eşleşmesi). ");

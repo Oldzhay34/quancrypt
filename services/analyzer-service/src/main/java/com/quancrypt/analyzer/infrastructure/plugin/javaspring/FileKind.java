@@ -10,5 +10,7 @@ public enum FileKind {
     KEYSTORE,
     POM,
     GRADLE,
+    COMPOSE,
+    KUBERNETES,
     OTHER
 }

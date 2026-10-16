@@ -3,7 +3,7 @@ package com.quancrypt.analyzer.api.controller;
 import com.quancrypt.analyzer.api.dto.AnalysisResponse;
 import com.quancrypt.analyzer.facade.AnalyzerFacade;
 import com.quancrypt.analyzer.facade.dto.AnalysisRequestInput;
-import com.quancrypt.analyzer.facade.dto.TopologyDto;
+import com.quancrypt.analyzer.api.dto.TopologyResponse;
 import com.quancrypt.analyzer.facade.dto.TopologyRequestInput;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +27,7 @@ public class AnalysisController {
     }
 
     @PostMapping("/topologies")
-    TopologyDto topology(@RequestBody TopologyRequestInput body) {
-        return analyzer.topology(body);
+    TopologyResponse topology(@RequestBody TopologyRequestInput body) {
+        return TopologyResponse.of(analyzer.topology(body));
     }
 }

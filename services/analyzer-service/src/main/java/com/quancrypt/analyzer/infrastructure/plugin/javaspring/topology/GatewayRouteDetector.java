@@ -21,6 +21,7 @@ final class GatewayRouteDetector implements TopologyDetector {
         for (Module module : context.modules().all()) {
             context.registry().nodeOf(module).ifPresent(node -> {
                 for (ConfigUrls.UrlProperty route : ConfigUrls.routes(module)) {
+                    context.index().tree().checkpoint();
                     RawEdge edge = RawEdge.of(node.id, route.target(), route.protocol(), route.target().secureScheme(),
                             TopologyContext.at(route.property().file(), route.property().line(), LocationKind.CONFIG));
                     sink.edge(edge.withBundles(ConfigUrls.bundlesNear(module, route.property().key())));

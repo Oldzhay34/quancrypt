@@ -37,6 +37,9 @@ public record Target(String host, int port, String scheme) {
         if (!url.matches() || !text.contains(":")) {
             return Optional.empty();
         }
+        if (ambiguousAuthority(text)) {
+            return Optional.empty();
+        }
         String scheme = url.group(1).toLowerCase(Locale.ROOT);
         if (IGNORED_SCHEMES.contains(scheme) || !text.regionMatches(scheme.length(), ":", 0, 1)) {
             return Optional.empty();
@@ -95,6 +98,17 @@ public record Target(String host, int port, String scheme) {
     public boolean local() {
         return host.isEmpty() || host.equals("localhost") || host.equals("127.0.0.1") || host.equals("::1") || host.equals("[::1]")
                 || host.equals("0.0.0.0");
+    }
+
+    /** An '@' both in the authority and after it: where the user information ends is a guess, so the text is no target. */
+    private static boolean ambiguousAuthority(String text) {
+        int start = text.indexOf("://");
+        String rest = start < 0 ? text : text.substring(start + 3);
+        int end = 0;
+        while (end < rest.length() && "/?#".indexOf(rest.charAt(end)) < 0) {
+            end++;
+        }
+        return rest.substring(0, end).indexOf('@') >= 0 && rest.substring(end).indexOf('@') >= 0;
     }
 
     private static String host(String raw) {

@@ -19,6 +19,7 @@ import com.quancrypt.analyzer.infrastructure.plugin.javaspring.ProjectFile;
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.pem.PemFacts;
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.pem.PemRole;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +41,7 @@ final class MqttTopologyDetector implements TopologyDetector, UnitTopologyDetect
     static final String ID = "topology.mqtt";
     private static final Set<String> CLIENT_TYPES = Set.of("MqttClient", "MqttAsyncClient");
     private static final Set<String> TOPIC_CALLS = Set.of("subscribe", "publish");
-    private static final Pattern LISTENER = Pattern.compile("^listener\\s+(\\d{1,5})(?:\\s.*)?$");
+    private static final Pattern LISTENER = Pattern.compile("^(?:listener|port)\\s+(\\d{1,5})(?:\\s.*)?$");
 
     @Override
     public String detectorId() {
@@ -155,6 +156,7 @@ final class MqttTopologyDetector implements TopologyDetector, UnitTopologyDetect
             if (!CLIENT_TYPES.contains(creation.getType().getNameAsString()) || creation.getArguments().isEmpty()) {
                 continue;
             }
+            context.index().tree().checkpoint();
             Optional<Target> target = brokerTarget(unit, module, creation.getArgument(0));
             if (target.isEmpty()) {
                 continue;
@@ -177,12 +179,16 @@ final class MqttTopologyDetector implements TopologyDetector, UnitTopologyDetect
             return Optional.empty();
         }
         String wanted = ConfigUrls.relaxed(name.startsWith("get") && name.length() > 3 ? name.substring(3) : name);
-        for (ConfigUrls.UrlProperty url : ConfigUrls.of(module)) {
-            if (url.protocol() == Protocol.MQTT && ConfigUrls.relaxed(ConfigUrls.lastSegment(url.property().key())).equals(wanted)) {
-                return Optional.of(url.target());
+        Map<String, Target> byName = module.config().cached("mqtt-urls", () -> {
+            Map<String, Target> found = new HashMap<>();
+            for (ConfigUrls.UrlProperty url : ConfigUrls.of(module)) {
+                if (url.protocol() == Protocol.MQTT) {
+                    found.putIfAbsent(ConfigUrls.relaxed(ConfigUrls.lastSegment(url.property().key())), url.target());
+                }
             }
-        }
-        return Optional.empty();
+            return found;
+        });
+        return Optional.ofNullable(byName.get(wanted));
     }
 
     private static void devices(TopologyContext context, TopologySink sink) {

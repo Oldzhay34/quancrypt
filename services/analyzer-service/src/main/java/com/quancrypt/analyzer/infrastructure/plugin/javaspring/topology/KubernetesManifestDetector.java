@@ -75,6 +75,7 @@ final class KubernetesManifestDetector implements TopologyDetector {
             }
         }
         for (ServiceDoc service : services) {
+            context.index().tree().checkpoint();
             Optional<Workload> backing = workloads.stream().filter(w -> !service.selector().isEmpty() && w.labels().entrySet().containsAll(service.selector().entrySet()))
                     .findFirst();
             TNode node;

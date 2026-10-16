@@ -3,9 +3,11 @@ package com.quancrypt.analyzer.infrastructure.plugin.javaspring.topology;
 import com.quancrypt.analyzer.domain.model.Protocol;
 import com.quancrypt.analyzer.infrastructure.plugin.javaspring.config.ConfigProperty;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -23,6 +25,8 @@ final class ConfigUrls {
     private static final Pattern INDEX = Pattern.compile("\\[\\d+]");
     private static final List<String> NOT_CONNECTIONS = List.of("spring.ssl.bundle.", "server.", "management.", "logging.");
     private static final int MAX_URL_LENGTH = 2048;
+    /** Bundles one key can name: a project that configures more is not read as one connection with hundreds of identities. */
+    private static final int MAX_BUNDLES_PER_KEY = 10;
 
     /** A property whose value is a connection URL. */
     record UrlProperty(ConfigProperty property, Target target, Protocol protocol) {
@@ -76,18 +80,25 @@ final class ConfigUrls {
 
     /** The client bundles configured next to a key: bundle references whose key shares at least three leading segments with it. */
     static Set<String> bundlesNear(Module module, String key) {
-        List<BundleReference> references = references(module);
-        Set<String> bundles = new LinkedHashSet<>();
-        if (references.isEmpty()) {
-            return bundles;
-        }
-        String[] segments = INDEX.matcher(key).replaceAll("").split("\\.");
-        for (BundleReference reference : references) {
-            if (sharedSegments(segments, reference.segments()) >= 3) {
-                bundles.add(reference.value());
+        Map<String, Set<String>> byPrefix = module.config().cached("bundle-prefixes", () -> {
+            Map<String, Set<String>> index = new HashMap<>();
+            for (BundleReference reference : references(module)) {
+                if (reference.segments().length >= 3) {
+                    Set<String> values = index.computeIfAbsent(prefix(reference.segments()), k -> new LinkedHashSet<>());
+                    if (values.size() < MAX_BUNDLES_PER_KEY) {
+                        values.add(reference.value());
+                    }
+                }
             }
-        }
-        return bundles;
+            return index;
+        });
+        String[] segments = INDEX.matcher(key).replaceAll("").split("\\.");
+        return segments.length < 3 ? new LinkedHashSet<>() : new LinkedHashSet<>(byPrefix.getOrDefault(prefix(segments), Set.of()));
+    }
+
+    /** The first three segments of a key: two keys share a bundle when these are equal. */
+    private static String prefix(String[] segments) {
+        return segments[0] + "." + segments[1] + "." + segments[2];
     }
 
     /** Every client bundle name the configuration references. */
@@ -123,13 +134,5 @@ final class ConfigUrls {
         String last = key.substring(key.lastIndexOf('.') + 1);
         int bracket = last.indexOf('[');
         return bracket < 0 ? last : last.substring(0, bracket);
-    }
-
-    private static int sharedSegments(String[] left, String[] right) {
-        int shared = 0;
-        while (shared < Math.min(left.length, right.length) && left[shared].equals(right[shared])) {
-            shared++;
-        }
-        return shared;
     }
 }

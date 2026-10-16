@@ -46,8 +46,9 @@ final class TNode {
         if (listeners.isEmpty()) {
             return listener;
         }
-        if (port > 0 && listeners.containsKey(port)) {
-            return listeners.get(port);
+        if (port > 0) {
+            // a port no listener of the configuration has claims nothing: no TLS is assumed for it
+            return listeners.getOrDefault(port, Listener.NONE);
         }
         if (listeners.size() == 1) {
             return listeners.values().iterator().next();

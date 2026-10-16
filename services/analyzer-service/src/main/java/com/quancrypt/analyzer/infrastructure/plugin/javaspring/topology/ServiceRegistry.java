@@ -87,7 +87,7 @@ final class ServiceRegistry {
      * the project that happens to be called {@code auth}.
      */
     private static Optional<String> internalName(String host) {
-        boolean internal = host.endsWith(".svc") || host.contains(".svc.") || host.endsWith(".local");
+        boolean internal = host.endsWith(".svc") || host.endsWith(".local");
         int dot = host.indexOf('.');
         return internal && dot > 0 ? Optional.of(host.substring(0, dot)) : Optional.empty();
     }

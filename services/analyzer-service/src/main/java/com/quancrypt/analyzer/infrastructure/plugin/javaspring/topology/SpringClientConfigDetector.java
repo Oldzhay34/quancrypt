@@ -22,6 +22,7 @@ final class SpringClientConfigDetector implements TopologyDetector {
         for (Module module : context.modules().all()) {
             context.registry().nodeOf(module).ifPresent(node -> {
                 for (ConfigUrls.UrlProperty url : ConfigUrls.of(module)) {
+                    context.index().tree().checkpoint();
                     RawEdge edge = RawEdge.of(node.id, url.target(), url.protocol(), url.target().secureScheme(),
                             TopologyContext.at(url.property().file(), url.property().line(), LocationKind.CONFIG));
                     sink.edge(edge.withBundles(ConfigUrls.bundlesNear(module, url.property().key())));

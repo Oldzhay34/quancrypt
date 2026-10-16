@@ -32,7 +32,13 @@ public final class ModuleConfig {
     /** A value worked out from the properties once and kept (the properties never change). */
     @SuppressWarnings("unchecked")
     <T> T cached(String name, Supplier<T> compute) {
-        return (T) cache.computeIfAbsent(name, k -> compute.get());
+        // not computeIfAbsent: a computation may ask for another cached value, which a HashMap refuses while it computes
+        Object value = cache.get(name);
+        if (value == null) {
+            value = compute.get();
+            cache.put(name, value);
+        }
+        return (T) value;
     }
 
     public List<ConfigProperty> all() {

@@ -96,6 +96,26 @@ services:
     mem_limit: 2g
     stop_grace_period: 40s
 
+  agent-service:
+    profiles: [app]
+    build:
+      context: ./services/agent-service
+    image: agent-service:1.0.0
+    environment:
+      # Ollama runs on the host (D-51). The host value in .env (127.0.0.1) is not valid inside a container, so the address is
+      # fixed here (D-219). It is the only peer this service talks to; there is no database yet (P4.2).
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    extra_hosts:
+      # Only this service reaches the host (docker-local, section 2).
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8083:8083"
+    networks:
+      - quancrypt
+    stop_grace_period: 40s
+
   qbank-account-service:
     profiles: [demo]
     build:

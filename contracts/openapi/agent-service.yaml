@@ -1,0 +1,754 @@
+openapi: 3.1.0
+info:
+  title: Quancrypt agent-service API
+  version: 1.0.0-draft
+  description: 'TASLAK (P4.1). agent-service sohbet oturumlarını, ilk taramayı ve netleştirme sorularını sunar; yanıtlar SSE ile akar
+    (D-216). Uç adları ve olay türleri P4.1 promptundan gelir; istek ve yanıt alanları taslaktır ve ilgili fazlarda (P4.5) kesinleşir,
+    kesinleşmeden önce kullanıcı onayı gerekir. Alan adları snake_case''tir. Kimlik doğrulama: UI''ın URL parçasından okuyup her isteğe
+    `Authorization: Bearer` olarak eklediği oturum token''ı (guardrails-security bölüm 6). Hatalar RFC 9457 `application/problem+json`.
+    Sağlık uçları (`/health/liveness`, `/health/readiness`) kimliksizdir ve bu kontratta yer almaz.'
+servers:
+- url: http://127.0.0.1:8083
+  description: Yerel geliştirme (docs/ports.md)
+tags:
+- name: Oturum
+- name: Mesaj
+- name: Tarama
+- name: Netleştirme
+security:
+- bearerAuth: []
+paths:
+  /api/v1/sessions:
+    post:
+      operationId: CreateSession
+      summary: CreateSession
+      tags:
+      - Oturum
+      description: Bir proje için yeni sohbet oturumu açar. `Idempotency-Key` aynı anahtarla tekrarı aynı oturumla yanıtlar.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Oturum açıldı.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions/{id}:
+    delete:
+      operationId: DeleteSession
+      summary: DeleteSession
+      tags:
+      - Oturum
+      description: Oturumu ve sohbet geçmişini siler. Süren bir yanıt varsa önce durdurulur.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Silindi.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions/{id}/messages:
+    get:
+      operationId: ListMessages
+      summary: ListMessages
+      tags:
+      - Mesaj
+      description: Oturumun mesajlarını, en eskiden en yeniye, sayfalı döner.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Mesaj sayfası.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: SendMessage
+      summary: SendMessage
+      tags:
+      - Mesaj
+      description: 'Kullanıcı mesajını gönderir ve yanıtı SSE olarak akıtır. Akış bir akış hattıdır: `Idempotency-Key` kabul etmez.
+        Aynı oturumda bir yanıt sürerken ikinci mesaj 409 `session-busy` alır. Kapsam dışı istekte `refusal` olayı sabit ret metniyle
+        gelir (crypto-domain). Yanıt başladıktan sonraki hatalar `error` olayıyla bildirilir (HTTP durumu artık değişmez).'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: 'SSE akışı. Her olay `event: <tür>` ve `data: <JSON>` satırlarından oluşur. Olay türleri ve veri şemaları
+            `x-sse-events` içindedir; her akış tam bir `done`, `refusal` veya `error` olayıyla biter.'
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE metin akışı.
+              x-sse-events:
+                token:
+                  $ref: '#/components/schemas/TokenEvent'
+                evidence:
+                  $ref: '#/components/schemas/EvidenceEvent'
+                clarification_required:
+                  $ref: '#/components/schemas/ClarificationRequiredEvent'
+                refusal:
+                  $ref: '#/components/schemas/RefusalEvent'
+                done:
+                  $ref: '#/components/schemas/DoneEvent'
+                error:
+                  $ref: '#/components/schemas/ErrorEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SessionBusy'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions/{id}/initial-scan:
+    post:
+      operationId: StartInitialScan
+      summary: StartInitialScan
+      tags:
+      - Tarama
+      description: 'İlk taramayı başlatır (keşif, sonra topoloji) ve ilerlemeyi ile özet kartını SSE olarak akıtır; olay türleri
+        mesaj akışıyla aynıdır. Çalışan bir tarama varsa 409 `session-busy`. `root` analyzer-service kökü kuralına uyar.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitialScanRequest'
+      responses:
+        '200':
+          description: SSE akışı (mesaj akışıyla aynı olay türleri).
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE metin akışı.
+              x-sse-events:
+                token:
+                  $ref: '#/components/schemas/TokenEvent'
+                evidence:
+                  $ref: '#/components/schemas/EvidenceEvent'
+                clarification_required:
+                  $ref: '#/components/schemas/ClarificationRequiredEvent'
+                refusal:
+                  $ref: '#/components/schemas/RefusalEvent'
+                done:
+                  $ref: '#/components/schemas/DoneEvent'
+                error:
+                  $ref: '#/components/schemas/ErrorEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/SessionBusy'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions/{id}/clarifications:
+    get:
+      operationId: ListClarifications
+      summary: ListClarifications
+      tags:
+      - Netleştirme
+      description: Planlama agent'ının sorduğu netleştirme sorularını ve verilmiş yanıtları döner.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Sorular.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: AnswerClarifications
+      summary: AnswerClarifications
+      tags:
+      - Netleştirme
+      description: Netleştirme yanıtlarını kaydeder (core-service proje profiline yazılır). `Idempotency-Key` tekrarı aynı sonuçla yanıtlar.
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerClarificationsRequest'
+      responses:
+        '200':
+          description: Kaydedilen yanıtlarla güncel sorular.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClarificationList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/IdempotencyConflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions/{id}/stop:
+    post:
+      operationId: StopSession
+      summary: StopSession
+      tags:
+      - Oturum
+      description: 'Oturumda süren yanıtı veya taramayı durdurur. Süren iş yoksa da 204 döner (idempotent). Akış kısmi sonucun ardından
+        `error` olayıyla (`code: stopped`) kapanır.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Durdurma isteği alındı.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Oturum token'ı (`QUANCRYPT_SESSION_TOKEN`; CLI her `init`'te üretir). Eksik veya yanlışsa 401.
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: İzleme kimliği; yoksa servis üretir ve yanıtta döner.
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9._-]{1,128}$
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Komutun tekrarını aynı sonuçla yanıtlar.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    SessionId:
+      name: id
+      in: path
+      required: true
+      description: Oturum kimliği.
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  headers:
+    TraceId:
+      description: İzleme kimliği.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 'İstek geçersiz (`type`: `validation-failed`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: 'Token eksik veya geçersiz (`type`: `unauthorized`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: 'Oturum yok veya kimlik biçimi geçersiz (`type`: `not-found`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    IdempotencyConflict:
+      description: 'Aynı `Idempotency-Key` farklı bir istekle kullanıldı (`type`: `idempotency-conflict`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    SessionBusy:
+      description: 'Oturumda bir yanıt veya tarama sürüyor (`type`: `session-busy`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UpstreamUnavailable:
+      description: 'core-service veya analyzer-service erişilemiyor ya da devre kesici açık (`type`: `upstream-unavailable`).'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: 'Beklenmeyen hata (`type`: `internal-error`). Ayrıntı istemciye verilmez.'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
+        validation-failed, unauthorized, not-found, idempotency-conflict, session-busy, upstream-unavailable, internal-error).'
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      required:
+      - type
+      - title
+      - status
+      additionalProperties: true
+    Language:
+      type: string
+      enum:
+      - tr
+      - en
+    Root:
+      type: string
+      description: 'Analiz kökü; analyzer-service kuralı: yalnızca `/workspace` veya `/corpus` ya da bunların altındaki bir dizin.'
+      maxLength: 1024
+      pattern: '^/(workspace|corpus)(/(?!\.\.?(/|$))[^/\u0000-\u001f\u007f-\u009f­؜᠎​-‏ -‮⁠-⁯﻿￹-￻\\]+)*$'
+    CreateSessionRequest:
+      type: object
+      properties:
+        project_id:
+          type: string
+          format: uuid
+          description: core-service proje kimliği.
+        language:
+          $ref: '#/components/schemas/Language'
+      required:
+      - project_id
+      additionalProperties: false
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - project_id
+      - language
+      - created_at
+      additionalProperties: false
+    SendMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          description: Kullanıcı mesajı. Üst uzunluk sınırı kapsam bekçisinin yapılandırmasıdır (P4.4).
+      required:
+      - content
+      additionalProperties: false
+    InitialScanRequest:
+      type: object
+      properties:
+        root:
+          $ref: '#/components/schemas/Root'
+      required:
+      - root
+      additionalProperties: false
+    Evidence:
+      type: object
+      description: Yanıttaki bir iddianın dayanağı (agent-service-layout bölüm 4).
+      properties:
+        kind:
+          type: string
+          enum:
+          - code_location
+          - tool_call
+          - knowledge_base
+        reference:
+          type: string
+          maxLength: 1024
+          description: '`dosya:satır`, araç çağrısı kimliği veya bilgi tabanı kaynağı.'
+        source_version:
+          type:
+          - string
+          - 'null'
+          maxLength: 64
+          description: Bilgi tabanı kaynağının sürüm etiketi; diğer türlerde null.
+      required:
+      - kind
+      - reference
+      additionalProperties: false
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+          - user
+          - assistant
+        content:
+          type: string
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - role
+      - content
+      - created_at
+      additionalProperties: false
+    MessagePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - total
+      additionalProperties: false
+    LocalizedText:
+      type: object
+      properties:
+        tr:
+          type: string
+        en:
+          type: string
+      required:
+      - tr
+      - en
+      additionalProperties: false
+    ClarificationQuestionCode:
+      type: string
+      description: core-service `ClarificationAnswer.questionCode` ile aynı kodlar.
+      enum:
+      - TLS_TERMINATION
+      - JDK_UPGRADE_POSSIBLE
+      - HYBRID_INCAPABLE_PARTNERS
+      - COMPLIANCE_REQUIREMENT
+      - DEVICE_HARDWARE_OPENSSL
+    ClarificationOption:
+      type: object
+      properties:
+        option_code:
+          type: string
+          maxLength: 32
+        text:
+          $ref: '#/components/schemas/LocalizedText'
+      required:
+      - option_code
+      - text
+      additionalProperties: false
+    ClarificationQuestion:
+      type: object
+      properties:
+        question_code:
+          $ref: '#/components/schemas/ClarificationQuestionCode'
+        text:
+          $ref: '#/components/schemas/LocalizedText'
+        options:
+          type: array
+          description: Boşsa soru serbest metinlidir.
+          items:
+            $ref: '#/components/schemas/ClarificationOption'
+        answer:
+          oneOf:
+          - $ref: '#/components/schemas/ClarificationAnswer'
+          - type: 'null'
+      required:
+      - question_code
+      - text
+      - options
+      - answer
+      additionalProperties: false
+    ClarificationAnswer:
+      type: object
+      properties:
+        question_code:
+          $ref: '#/components/schemas/ClarificationQuestionCode'
+        option_code:
+          type:
+          - string
+          - 'null'
+          maxLength: 32
+          description: Soru serbest metinliyse null.
+        free_text:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+      required:
+      - question_code
+      additionalProperties: false
+    ClarificationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClarificationQuestion'
+      required:
+      - items
+      additionalProperties: false
+    AnswerClarificationsRequest:
+      type: object
+      properties:
+        answers:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/ClarificationAnswer'
+      required:
+      - answers
+      additionalProperties: false
+    TokenUsage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+          minimum: 0
+        completion_tokens:
+          type: integer
+          minimum: 0
+      required:
+      - prompt_tokens
+      - completion_tokens
+      additionalProperties: false
+    TokenEvent:
+      type: object
+      description: '`event: token`. Yanıt metninin bir parçası.'
+      properties:
+        text:
+          type: string
+      required:
+      - text
+      additionalProperties: false
+    EvidenceEvent:
+      type: object
+      description: '`event: evidence`. Az önce akan iddianın dayanağı.'
+      properties:
+        evidence:
+          $ref: '#/components/schemas/Evidence'
+      required:
+      - evidence
+      additionalProperties: false
+    ClarificationRequiredEvent:
+      type: object
+      description: '`event: clarification_required`. Plan için eksik yanıtlar; akış bu olayla `done` olayı arasında devam eder.'
+      properties:
+        questions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ClarificationQuestion'
+      required:
+      - questions
+      additionalProperties: false
+    RefusalEvent:
+      type: object
+      description: '`event: refusal`. Kapsam dışı istek; `message` sabit ret metnidir (REFUSAL_TR veya REFUSAL_EN). Akışın son olayıdır.'
+      properties:
+        message:
+          type: string
+        language:
+          $ref: '#/components/schemas/Language'
+      required:
+      - message
+      - language
+      additionalProperties: false
+    DoneEvent:
+      type: object
+      description: '`event: done`. Akışın başarıyla bittiğini bildirir; `llm_disabled` true ise metin dil modeli olmadan üretilmiştir.'
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        usage:
+          $ref: '#/components/schemas/TokenUsage'
+        llm_disabled:
+          type: boolean
+      required:
+      - message_id
+      - usage
+      - llm_disabled
+      additionalProperties: false
+    ErrorEvent:
+      type: object
+      description: '`event: error`. Akışın hatayla veya durdurmayla bittiğini bildirir (`stopped`: kullanıcı durdurdu; `budget_exceeded`:
+        adım, token veya süre bütçesi aşıldı; `llm_unavailable`; `internal_error`).'
+      properties:
+        code:
+          type: string
+          enum:
+          - stopped
+          - budget_exceeded
+          - llm_unavailable
+          - internal_error
+        message:
+          type: string
+      required:
+      - code
+      - message
+      additionalProperties: false

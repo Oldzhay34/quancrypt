@@ -1,0 +1,32 @@
+# Model settings (P4.1). Models come from docs/VERSIONS.md (P0.4, D-68); context and output limits from D-217.
+# `${NAME}` and `${NAME:-default}` are expanded from the environment; an unresolved name stops the service (fail-fast).
+llm:
+  # ollama: local Ollama; null: no language model (NFR-05, envanter ve plan üretilir, açıklama "LLM kapalı" notu taşır).
+  provider: ${LLM_PROVIDER:-ollama}
+
+ollama:
+  # Phase 1 is local only: the host must be localhost, 127.0.0.1, ::1, host.docker.internal or ollama (settings.py).
+  base_url: ${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+  chat_model: gemma3:4b
+  embedding_model: embeddinggemma:latest
+  embedding_dimensions: 768
+  temperature: 0.2
+  num_ctx: 8192
+  num_predict: 1024
+  connect_timeout_s: 3
+  timeout_s: 120
+  retry:
+    max_attempts: 3
+    wait_initial_s: 0.5
+    wait_max_s: 4
+  circuit_breaker:
+    fail_max: 5
+    reset_timeout_s: 30
+  # Readiness probe (GET /api/tags): short timeout, the answer is cached briefly so frequent probes do not hit Ollama.
+  health_timeout_s: 2
+  health_cache_s: 5
+
+# Local ONNX models (Model A: risk, Model B: scope). Not trained yet; set by P7.
+onnx:
+  risk_model_path: null
+  scope_model_path: null

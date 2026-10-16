@@ -1,0 +1,103 @@
+"""The tree of services/agent-service matches the binding tree of the agent-service-layout skill (D-04, D-221).
+
+Files that do not exist yet are written by their own phases; this test only forbids files and folders that the skill
+does not list
+(for example the picture's `web_search.py`, `code_executor.py` and `app/ui.py`).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+ALLOWED_SRC_MODULES: dict[str, set[str]] = {
+    "src": set(),
+    "src/agents": {"base_agent", "supervisor_agent", "discovery_agent", "topology_agent", "planner_agent"},
+    "src/tools": {
+        "base_tool",
+        "registry",
+        "api_tool",
+        "analyzer_tool",
+        "core_tool",
+        "kb_search_tool",
+        "risk_model_tool",
+        "decorators",
+    },
+    "src/tools/contracts": set(),
+    "src/memory": {"short_term", "long_term", "memory_store"},
+    "src/workflows": {"agent_graph", "orchestrator", "task_router"},
+    "src/prompts": {"system_prompts", "templates"},
+    "src/evaluation": {"eval_agents", "metrics", "test_cases"},
+    "src/guardrails": {"chain", "rule_filter", "scope_classifier", "llm_self_check", "output_checker", "redaction"},
+    "src/llm": {"provider", "ollama_provider", "null_provider"},
+    "src/app": {"main", "api", "outbox_relay", "settings", "logging_setup", "container"},
+}
+
+ALLOWED_TOP_LEVEL = {
+    "config",
+    "data",
+    "src",
+    "scripts",
+    "docs",
+    "migrations",
+    "tests",
+    "requirements.in",
+    "requirements.txt",
+    "requirements-dev.txt",
+    "Makefile",
+    "pyproject.toml",
+    "docker-compose.yml",
+    "Dockerfile",
+    ".dockerignore",
+    ".gitignore",
+    # Local, ignored artifacts.
+    ".venv",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".import_linter_cache",
+    ".coverage",
+    "__pycache__",
+}
+
+ALLOWED_SCRIPTS = {"run_agent.sh", "build_index.py", "evaluate.py", "select_model.py"}
+ALLOWED_DATA_DIRS = {"raw", "processed", "vector_db", "examples"}
+ALLOWED_CONFIG_FILES = {"agent_config.yaml", "model_config.yaml", "logging_config.yaml"}
+FORBIDDEN_FROM_THE_PICTURE = {"web_search.py", "code_executor.py", "ui.py"}
+
+
+def _python_files(directory: Path) -> set[str]:
+    return {p.stem for p in directory.glob("*.py") if p.name != "__init__.py"}
+
+
+def test_every_source_package_exists_with_an_init_file_and_holds_only_listed_modules() -> None:
+    for relative, allowed in ALLOWED_SRC_MODULES.items():
+        package = ROOT / relative
+        assert (package / "__init__.py").is_file(), f"{relative}/__init__.py is missing"
+        extra = _python_files(package) - allowed
+        assert not extra, f"{relative} holds modules the skill does not list: {sorted(extra)}"
+
+
+def test_source_has_no_unlisted_folder() -> None:
+    folders = {
+        p.relative_to(ROOT).as_posix() for p in (ROOT / "src").rglob("*") if p.is_dir() and p.name != "__pycache__"
+    }
+    assert folders <= set(ALLOWED_SRC_MODULES), sorted(folders - set(ALLOWED_SRC_MODULES))
+
+
+def test_the_picture_files_that_must_not_exist_are_absent() -> None:
+    found = {p.name for p in (ROOT / "src").rglob("*.py")} & FORBIDDEN_FROM_THE_PICTURE
+    assert not found, sorted(found)
+
+
+def test_top_level_holds_only_listed_entries() -> None:
+    extra = {p.name for p in ROOT.iterdir()} - ALLOWED_TOP_LEVEL
+    assert not extra, sorted(extra)
+
+
+def test_scripts_data_and_config_hold_only_listed_entries() -> None:
+    assert {p.name for p in (ROOT / "scripts").iterdir() if p.name != "__pycache__"} <= ALLOWED_SCRIPTS
+    # Subset, not equality: empty folders are not tracked by git, so a clean clone lacks some of them (D-220g).
+    assert {p.name for p in (ROOT / "data").iterdir()} <= ALLOWED_DATA_DIRS
+    assert {p.name for p in (ROOT / "config").iterdir()} == ALLOWED_CONFIG_FILES

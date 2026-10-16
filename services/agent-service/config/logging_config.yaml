@@ -1,0 +1,4 @@
+# JSON logs on stdout (hexagonal-service section 6). Fields: timestamp, level, service, traceId, message.
+level: ${LOG_LEVEL:-INFO}
+format: json
+service: agent-service

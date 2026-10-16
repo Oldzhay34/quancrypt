@@ -1,0 +1,151 @@
+# Tool settings only (D-28, agent-service-layout): dependencies live in requirements.in / requirements.txt.
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "ollama: needs the local Ollama server; it runs in `make verify` and fails (never skips) when Ollama is unreachable",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["."]
+
+[tool.ruff.format]
+# scripts/select_model.py is the P0.4 tool, kept as delivered.
+exclude = ["scripts/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks; tests use fixed local addresses and a fake secret-looking token on purpose.
+"tests/**" = ["S101", "S105", "S106", "S108"]
+# The model selection script (P0.4) is a standalone tool that calls the local Ollama API and prints reports.
+"scripts/**" = ["S101", "S310", "E501", "B905", "SIM105", "UP037"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+explicit_package_bases = true
+mypy_path = "."
+
+[tool.importlinter]
+root_package = "src"
+
+# Rules of agent-service-layout section 3. Most rules forbid a whole package and list the allowed edges in `ignore_imports`, so a module
+# a later phase adds is covered without touching the contract; unmatched ignores are silent for the same reason. Known gaps are
+# listed in docs/ILERIDE_KARSILASILACAKLAR.md (Faz 4 / P4.1): tools.registry importing a concrete tool, and LangGraph (D-11).
+
+[[tool.importlinter.contracts]]
+name = "llm and prompts import no other src module"
+type = "forbidden"
+source_modules = ["src.llm", "src.prompts"]
+forbidden_modules = [
+    "src.agents", "src.app", "src.evaluation", "src.guardrails", "src.memory", "src.tools", "src.workflows",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "llm does not import prompts"
+type = "forbidden"
+source_modules = ["src.llm"]
+forbidden_modules = ["src.prompts"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "prompts do not import llm"
+type = "forbidden"
+source_modules = ["src.prompts"]
+forbidden_modules = ["src.llm"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "memory does not import tools, agents, workflows, app, guardrails or evaluation"
+type = "forbidden"
+source_modules = ["src.memory"]
+forbidden_modules = ["src.tools", "src.agents", "src.workflows", "src.app", "src.guardrails", "src.evaluation"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "tools import only memory protocols and guardrails.redaction"
+type = "forbidden"
+source_modules = ["src.tools"]
+forbidden_modules = [
+    "src.agents", "src.workflows", "src.app", "src.evaluation", "src.llm", "src.prompts", "src.guardrails", "src.memory.memory_store",
+]
+ignore_imports = ["src.tools.** -> src.guardrails.redaction"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "guardrails import only llm.provider and prompts"
+type = "forbidden"
+source_modules = ["src.guardrails"]
+forbidden_modules = ["src.agents", "src.memory", "src.tools", "src.workflows", "src.app", "src.evaluation", "src.llm"]
+ignore_imports = ["src.guardrails.** -> src.llm.provider"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "agents import only tools.base_tool, tools.registry, llm.provider, memory protocols and prompts"
+type = "forbidden"
+source_modules = ["src.agents"]
+forbidden_modules = ["src.tools", "src.llm", "src.memory", "src.guardrails", "src.workflows", "src.app", "src.evaluation"]
+ignore_imports = [
+    "src.agents.** -> src.tools.base_tool",
+    "src.agents.** -> src.tools.registry",
+    "src.agents.** -> src.llm.provider",
+    "src.agents.** -> src.memory.short_term",
+    "src.agents.** -> src.memory.long_term",
+]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "workflows import agents, guardrails and protocols, never app, evaluation or concrete adapters"
+type = "forbidden"
+source_modules = ["src.workflows"]
+forbidden_modules = ["src.app", "src.evaluation", "src.tools", "src.llm", "src.memory"]
+ignore_imports = [
+    "src.workflows.** -> src.tools.base_tool",
+    "src.workflows.** -> src.tools.registry",
+    "src.workflows.** -> src.llm.provider",
+    "src.workflows.** -> src.memory.short_term",
+    "src.workflows.** -> src.memory.long_term",
+]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "concrete adapters are built only in the container"
+type = "forbidden"
+# `src.tools` and `src.memory` are not sources: an adapter may build on another module of its own package.
+source_modules = ["src.agents", "src.workflows", "src.guardrails", "src.prompts", "src.evaluation", "src.app"]
+forbidden_modules = ["src.llm.ollama_provider", "src.llm.null_provider", "src.memory.memory_store"]
+ignore_imports = [
+    "src.app.container -> src.llm.ollama_provider",
+    "src.app.container -> src.llm.null_provider",
+    "src.app.container -> src.memory.memory_store",
+]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "only the container builds tools"
+type = "forbidden"
+# The tool adapters (`*_tool.py`) are built in the container; the other app modules do not touch `src.tools` at all.
+source_modules = ["src.app"]
+forbidden_modules = ["src.tools"]
+ignore_imports = ["src.app.container -> src.tools.**"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "evaluation is imported only by scripts and tests"
+type = "forbidden"
+source_modules = ["src.agents", "src.app", "src.guardrails", "src.llm", "src.memory", "src.prompts", "src.tools", "src.workflows"]
+forbidden_modules = ["src.evaluation"]
+allow_indirect_imports = true

@@ -1,0 +1,13 @@
+# Only for developing this service on its own; the real stack is the root docker-compose.yml (profile `app`).
+# Ollama runs on the host (D-51); the container reaches it through host.docker.internal (D-219).
+services:
+  agent-service:
+    build: .
+    image: agent-service:1.0.0
+    environment:
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8083:8083"
+    stop_grace_period: 40s

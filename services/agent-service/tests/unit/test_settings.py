@@ -38,12 +38,18 @@ def test_the_shipped_configuration_is_valid(config_dir: Path) -> None:
     assert settings.models.ollama.num_ctx == 8192
     assert settings.models.ollama.num_predict == 1024
     assert settings.models.onnx.risk_model_path is None
-    assert {name: agent.budget.max_steps for name, agent in settings.agents.agents.items()} == {
-        "supervisor": 6,
-        "discovery": 8,
-        "topology": 8,
-        "planner": 10,
+    # Budgets (D-248): step, token and time per agent.
+    assert {
+        name: (agent.budget.max_steps, agent.budget.max_tokens, agent.budget.timeout_s)
+        for name, agent in settings.agents.agents.items()
+    } == {
+        "supervisor": (6, 2048, 120),
+        "discovery": (40, 8192, 420),
+        "topology": (8, 0, 360),
+        "planner": (40, 16384, 300),
     }
+    assert settings.agents.discovery.uncertain_below == 0.6  # D-248a
+    assert settings.agents.discovery.llm_confidence == 0.5  # D-248g
     # The approved allow-lists (D-238a), exactly and in order.
     assert {name: agent.tools for name, agent in settings.agents.agents.items()} == {
         "supervisor": (),

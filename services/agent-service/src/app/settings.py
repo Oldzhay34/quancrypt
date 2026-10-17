@@ -143,6 +143,15 @@ class OutputCheckSettings(_Strict):
     on_mismatch: Literal["strip", "flag"]
 
 
+class DiscoverySettings(_Strict):
+    """Discovery's uncertain-finding classification (P4.5, D-248)."""
+
+    # A finding is uncertain when its family is UNKNOWN or its confidence is below this.
+    uncertain_below: float = Field(gt=0, le=1)
+    # The confidence an LLM classification is recorded with (a chosen constant, not a measurement).
+    llm_confidence: float = Field(gt=0, le=1)
+
+
 class HistorySettings(_Strict):
     """Short-term memory: the last N messages, then trimmed to a token budget (D-231c)."""
 
@@ -255,6 +264,7 @@ class AgentsConfig(_Strict):
     agents: dict[str, AgentSettings]
     guardrails: GuardrailsSettings
     output_check: OutputCheckSettings
+    discovery: DiscoverySettings
     memory: MemorySettings
     services: ServicesSettings
 

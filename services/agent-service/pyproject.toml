@@ -5,6 +5,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
     "ollama: needs the local Ollama server; it runs in `make verify` and fails (never skips) when Ollama is unreachable",
+    "postgres: needs Docker and the local pgvector image; it runs in `make verify` and fails (never skips) without them",
 ]
 
 [tool.ruff]
@@ -14,26 +15,32 @@ src = ["."]
 
 [tool.ruff.format]
 # scripts/select_model.py is the P0.4 tool, kept as delivered.
-exclude = ["scripts/**"]
+exclude = ["scripts/select_model.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
 
 [tool.ruff.lint.per-file-ignores]
-# assert is how pytest checks; tests use fixed local addresses and a fake secret-looking token on purpose.
-"tests/**" = ["S101", "S105", "S106", "S108"]
+# assert is how pytest checks; tests use fixed local addresses and a fake secret-looking token on purpose; the PostgreSQL tests
+# run the docker CLI and build SQL strings for DDL checks (no user input).
+"tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607", "S608"]
+# Generated SQL strings (the schema) are long on purpose.
+"migrations/**" = ["E501", "S608"]
+# Parameters are always bound (`text()` with :name); only constant fragments are concatenated (version filter, VALUES list).
+"src/memory/memory_store.py" = ["S608"]
 # The model selection script (P0.4) is a standalone tool that calls the local Ollama API and prints reports.
-"scripts/**" = ["S101", "S310", "E501", "B905", "SIM105", "UP037"]
+"scripts/select_model.py" = ["S101", "S310", "E501", "B905", "SIM105", "UP037"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["src", "tests"]
+files = ["src", "tests", "scripts/build_index.py"]
 explicit_package_bases = true
 mypy_path = "."
 
 [tool.importlinter]
 root_package = "src"
+include_external_packages = true
 
 # Rules of agent-service-layout section 3. Most rules forbid a whole package and list the allowed edges in `ignore_imports`, so a module
 # a later phase adds is covered without touching the contract; unmatched ignores are silent for the same reason. Known gaps are
@@ -148,4 +155,12 @@ name = "evaluation is imported only by scripts and tests"
 type = "forbidden"
 source_modules = ["src.agents", "src.app", "src.guardrails", "src.llm", "src.memory", "src.prompts", "src.tools", "src.workflows"]
 forbidden_modules = ["src.evaluation"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "memory ports stay free of the persistence stack"
+type = "forbidden"
+# The two port files are what agents and workflows see; SQL, drivers and migrations belong to memory_store only.
+source_modules = ["src.memory.short_term", "src.memory.long_term"]
+forbidden_modules = ["src.memory.memory_store", "sqlalchemy", "alembic", "psycopg"]
 allow_indirect_imports = true

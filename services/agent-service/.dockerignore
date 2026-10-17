@@ -12,7 +12,6 @@
 tests
 docs
 scripts
-migrations
 data
 Makefile
 docker-compose.yml

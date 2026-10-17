@@ -10,7 +10,7 @@ PORT ?= 8083
 # Tools come from the pinned requirements (D-28); nothing is installed into the system Python.
 RUN := $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-dev.txt
 
-.PHONY: help compile verify run image
+.PHONY: help compile verify run image index index-force
 
 help: ## Hedefleri listeler
 	@echo "agent-service Makefile"
@@ -33,3 +33,11 @@ run: ## Servisi yerelde çalıştırır (127.0.0.1:$(PORT); Ollama adresi OLLAMA
 
 image: ## Docker imajını üretir (yapılandırma ve kod imaja girer; sır girmez)
 	docker build -t $(IMAGE) .
+
+index: ## Bilgi tabanını indeksler (data/raw/*.md, yalnız status: approved; idempotent). Ortamda AGENT_DB_* parolaları ve çalışan Ollama gerekir
+	PYTHONPATH=. $(UV) run --python $(PYTHON) --no-project --with-requirements requirements.txt \
+		python scripts/build_index.py
+
+index-force: ## Tüm onaylı notları yeniden gömer (embedding modeli veya boyutu değiştiyse); indexed_at güncellenir, idempotent değildir
+	PYTHONPATH=. $(UV) run --python $(PYTHON) --no-project --with-requirements requirements.txt \
+		python scripts/build_index.py --force

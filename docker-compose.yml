@@ -103,8 +103,14 @@ services:
     image: agent-service:1.0.0
     environment:
       # Ollama runs on the host (D-51). The host value in .env (127.0.0.1) is not valid inside a container, so the address is
-      # fixed here (D-219). It is the only peer this service talks to; there is no database yet (P4.2).
+      # fixed here (D-219). Its peers are Ollama on the host and agent_db in the postgres service (P4.2); the database
+      # address carries no password, the passwords come from their own variables. No :? here, so that make up without the app
+      # profile keeps working; the service itself refuses to start without a real password (settings, fail-fast).
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      AGENT_DB_URL: postgresql+psycopg://agent_db_app@postgres:5432/agent_db
+      AGENT_DB_MIGRATOR_URL: postgresql+psycopg://agent_db_migrator@postgres:5432/agent_db
+      AGENT_DB_APP_PASSWORD: ${AGENT_DB_APP_PASSWORD:-}
+      AGENT_DB_MIGRATOR_PASSWORD: ${AGENT_DB_MIGRATOR_PASSWORD:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     extra_hosts:
@@ -114,6 +120,9 @@ services:
       - "127.0.0.1:8083:8083"
     networks:
       - quancrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
     stop_grace_period: 40s
 
   qbank-account-service:

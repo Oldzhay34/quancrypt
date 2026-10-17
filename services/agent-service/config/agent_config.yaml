@@ -32,3 +32,24 @@ guardrails: {}
 # What the output checker does with a claim it cannot match to a tool output (strip | flag).
 output_check:
   on_mismatch: flag
+
+# Memory (P4.2). history: short-term window. chars_per_token is an ESTIMATE (D-231c), not a measurement.
+# knowledge_base: chunking for scripts/build_index.py; changing it re-indexes every note (build_index compares it).
+# database: agent_db (D-09). Passwords come from the environment only; a missing one stops the service (fail-fast).
+memory:
+  history:
+    max_messages: 12
+    token_budget: 3000
+    chars_per_token: 4
+  knowledge_base:
+    chunk_chars: 1200
+    chunk_overlap: 150
+    top_k: 5
+    embed_batch: 16
+  database:
+    url: ${AGENT_DB_URL:-postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db}
+    migrator_url: ${AGENT_DB_MIGRATOR_URL:-postgresql+psycopg://agent_db_migrator@127.0.0.1:5432/agent_db}
+    app_password: ${AGENT_DB_APP_PASSWORD}
+    migrator_password: ${AGENT_DB_MIGRATOR_PASSWORD}
+    pool_size: 5
+    connect_timeout_s: 5

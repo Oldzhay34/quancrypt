@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DynamicTest;
@@ -25,6 +26,12 @@ class EventSchemaContractTest {
 
     private static final Path EVENTS = Path.of(System.getProperty("quancrypt.contracts.dir"), "schemas", "events");
     private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    /**
+     * Events produced by agent-service (D-232): their schemas live in the shared catalog (D-17) but core never emits them,
+     * so there is no core sample to validate; the test asserts that core really does not produce them.
+     */
+    private static final Set<String> AGENT_PRODUCED = Set.of("scope_decision");
 
     @TestFactory
     Stream<DynamicTest> everyPayloadMatchesItsSchema() {
@@ -46,7 +53,13 @@ class EventSchemaContractTest {
         List<String> sampled = SampleEvents.all().stream().map(e -> e.type().code()).distinct().toList();
         try (Stream<Path> files = Files.list(EVENTS)) {
             return files.map(p -> EVENTS.relativize(p).toString().replace(".json", ""))
-                    .map(type -> DynamicTest.dynamicTest(type, () -> assertThat(sampled).contains(type)))
+                    .map(type -> DynamicTest.dynamicTest(type, () -> {
+                        if (AGENT_PRODUCED.contains(type)) {
+                            assertThat(sampled).doesNotContain(type);
+                        } else {
+                            assertThat(sampled).contains(type);
+                        }
+                    }))
                     .toList().stream();
         }
     }

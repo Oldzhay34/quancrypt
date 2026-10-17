@@ -1,6 +1,6 @@
 # Runtime dependencies (D-28: compiled to requirements.txt with `uv pip compile --python-version 3.12`).
-# Versions come from docs/VERSIONS.md. P4.1 needs only the web layer, the configuration loader and the Ollama client;
-# the database, LangGraph and ONNX libraries are added by the phases that use them.
+# Versions come from docs/VERSIONS.md. P4.1: the web layer, the configuration loader and the Ollama client; P4.2 (D-231):
+# the database layer (SQLAlchemy Core, Alembic, psycopg 3). LangGraph and ONNX libraries come with the phases that use them.
 fastapi==0.142.2
 uvicorn==0.54.0
 pydantic-settings==2.16.0
@@ -8,3 +8,6 @@ PyYAML==6.0.3
 httpx==0.28.1
 tenacity==9.1.4
 pybreaker==1.4.1
+SQLAlchemy==2.0.54
+alembic==1.20.0
+psycopg[binary]==3.3.6

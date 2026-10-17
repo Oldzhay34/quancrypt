@@ -9,10 +9,11 @@ FROM python:3.12.15-slim
 WORKDIR /app
 COPY --from=build /opt/deps /opt/deps
 COPY config /app/config
+COPY migrations /app/migrations
 COPY src /app/src
 
 # Configuration comes from the environment only (see config/*.yaml for the ${NAME} placeholders). The image holds no secret,
-# no .env and no test data.
+# no .env and no test data. The migrations are in the image: the service applies them at startup (agent_db migrator role).
 ENV PYTHONPATH=/app:/opt/deps \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

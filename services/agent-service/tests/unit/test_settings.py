@@ -172,3 +172,89 @@ def test_a_rejected_secret_never_reaches_the_traceback(config_dir: Path, monkeyp
     printed = "".join(traceback.format_exception(raised.value))
     assert "S3cretPass" not in printed
     assert raised.value.__cause__ is None
+
+
+GOOD_APP_URL = "postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db?host=db.example.com",
+        "postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db?dbname=core_db",
+        "postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db?password=sneaky-password",
+        "postgresql+psycopg://agent_db_app@127.0.0.1:5432/agent_db?sslmode=disable",
+        "postgresql+psycopg://agent_db_app:inline-password@127.0.0.1:5432/agent_db",
+        "postgresql+psycopg://agent_db_app@db.example.com:5432/agent_db",
+        "postgresql+psycopg://agent_db_app@127.0.0.1:5432/core_db",
+        "postgresql+psycopg://core_db_app@127.0.0.1:5432/agent_db",
+        "postgresql://agent_db_app@127.0.0.1:5432/agent_db",
+        "not a url",
+    ],
+)
+def test_the_application_database_url_must_be_a_plain_local_agent_db_address(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("AGENT_DB_URL", url)
+
+    with pytest.raises(ConfigError) as raised:
+        load_settings()
+
+    printed = str(raised.value)
+    assert "sneaky-password" not in printed and "inline-password" not in printed
+
+
+def test_the_migrator_url_must_connect_as_the_migrator_role(config_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_DB_MIGRATOR_URL", GOOD_APP_URL)
+
+    with pytest.raises(ConfigError, match="migrator"):
+        load_settings()
+
+
+@pytest.mark.parametrize("password", ["short", "CHANGE_ME-and-more-characters", ""])
+@pytest.mark.parametrize("variable", ["AGENT_DB_APP_PASSWORD", "AGENT_DB_MIGRATOR_PASSWORD"])
+def test_a_placeholder_or_short_database_password_stops_the_service(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, variable: str, password: str
+) -> None:
+    monkeypatch.setenv(variable, password)
+
+    with pytest.raises(ConfigError) as raised:
+        load_settings()
+
+    assert password not in str(raised.value) or password == ""
+
+
+@pytest.mark.parametrize("host", ["localhost", "127.0.0.1", "postgres"])
+def test_local_database_hosts_are_accepted(config_dir: Path, monkeypatch: pytest.MonkeyPatch, host: str) -> None:
+    monkeypatch.setenv("AGENT_DB_URL", f"postgresql+psycopg://agent_db_app@{host}:5432/agent_db")
+
+    assert load_settings().agents.memory.database.url.endswith("/agent_db")
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "reason"),
+    [
+        ("max_messages: 12", "max_messages: 0", "max_messages"),
+        ("token_budget: 3000", "token_budget: 0", "token_budget"),
+        ("chars_per_token: 4", "chars_per_token: 0", "chars_per_token"),
+        ("chunk_chars: 1200", "chunk_chars: 0", "chunk_chars"),
+        ("chunk_overlap: 150", "chunk_overlap: 1200", "chunk_overlap"),
+        ("top_k: 5", "top_k: 0", "top_k"),
+        ("embed_batch: 16", "embed_batch: 0", "embed_batch"),
+    ],
+)
+def test_an_invalid_memory_setting_is_rejected_with_its_key(config_dir: Path, old: str, new: str, reason: str) -> None:
+    _replace(config_dir, "agent_config.yaml", old, new)
+
+    with pytest.raises(ConfigError, match=reason):
+        load_settings()
+
+
+@pytest.mark.parametrize("variable", ["AGENT_DB_APP_PASSWORD", "AGENT_DB_MIGRATOR_PASSWORD"])
+def test_a_missing_database_password_stops_the_service_and_names_only_the_variable(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, variable: str
+) -> None:
+    monkeypatch.delenv(variable)
+
+    with pytest.raises(ConfigError, match=variable):
+        load_settings()

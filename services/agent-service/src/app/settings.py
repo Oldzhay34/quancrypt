@@ -18,9 +18,11 @@ from typing import Any, Literal
 
 import httpx
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 CONFIG_DIR_ENV = "QUANCRYPT_CONFIG_DIR"
 DEFAULT_CONFIG_DIR = "config"
@@ -28,6 +30,12 @@ DEFAULT_CONFIG_DIR = "config"
 # Phase 1 is local (guardrails-security section 1): the model server is on this machine or is the compose service
 # `ollama`.
 LOCAL_OLLAMA_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "host.docker.internal", "ollama"})
+
+# agent_db lives on this machine or is the compose service `postgres` (D-09; phase 1 is local).
+LOCAL_DB_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "postgres"})
+AGENT_DB_NAME = "agent_db"
+AGENT_DB_APP_ROLE = "agent_db_app"
+AGENT_DB_MIGRATOR_ROLE = "agent_db_migrator"
 
 AGENT_NAMES = ("supervisor", "discovery", "topology", "planner")
 
@@ -73,10 +81,87 @@ class OutputCheckSettings(_Strict):
     on_mismatch: Literal["strip", "flag"]
 
 
+class HistorySettings(_Strict):
+    """Short-term memory: the last N messages, then trimmed to a token budget (D-231c)."""
+
+    max_messages: int = Field(ge=1, le=200)
+    token_budget: int = Field(ge=100, le=100_000)
+    # An ESTIMATE, not a measurement: Ollama reports the token count of a whole request, not of one message. The real
+    # ratio
+    # differs by language and model (unsourced assumption, D-231c).
+    chars_per_token: float = Field(gt=0, le=16)
+
+
+class KnowledgeBaseSettings(_Strict):
+    """Chunking of `data/raw` notes and default search size. The embedding model reads at most 2048 tokens (D-217)."""
+
+    chunk_chars: int = Field(ge=200, le=8000)
+    chunk_overlap: int = Field(ge=0)
+    top_k: int = Field(ge=1, le=50)
+    embed_batch: int = Field(ge=1, le=256)
+
+    @model_validator(mode="after")
+    def _overlap_below_chunk(self) -> KnowledgeBaseSettings:
+        if self.chunk_overlap >= self.chunk_chars:
+            raise ValueError("chunk_overlap must be smaller than chunk_chars")
+        return self
+
+
+class DatabaseSettings(_Strict):
+    """agent_db connection (D-09). The application role does DML only; migrations run as the migrator role."""
+
+    url: str
+    migrator_url: str
+    app_password: SecretStr
+    migrator_password: SecretStr
+    pool_size: int = Field(ge=1, le=50)
+    connect_timeout_s: int = Field(ge=1, le=60)
+
+    @field_validator("url", "migrator_url")
+    @classmethod
+    def _agent_db_url(cls, value: str) -> str:
+        try:
+            url = make_url(value)
+        except ArgumentError as exc:
+            raise ValueError("the database URL is not valid") from exc
+        if url.drivername != "postgresql+psycopg":
+            raise ValueError("the database URL must use the driver postgresql+psycopg")
+        if url.password is not None:
+            raise ValueError("the database URL must not carry a password (it comes from its own setting)")
+        if url.host not in LOCAL_DB_HOSTS:
+            raise ValueError(
+                f"the database host must be one of: {', '.join(sorted(LOCAL_DB_HOSTS))} (phase 1 is local)"
+            )
+        if url.database != AGENT_DB_NAME:
+            raise ValueError(f"the database must be {AGENT_DB_NAME} (a service uses only its own database, D-09)")
+        if url.query:
+            # The driver applies query options on top of the checked fields (host, dbname, user, password).
+            raise ValueError("the database URL must not carry query options")
+        return value
+
+    @model_validator(mode="after")
+    def _roles(self) -> DatabaseSettings:
+        if make_url(self.url).username != AGENT_DB_APP_ROLE:
+            raise ValueError(f"url must connect as {AGENT_DB_APP_ROLE}")
+        if make_url(self.migrator_url).username != AGENT_DB_MIGRATOR_ROLE:
+            raise ValueError(f"migrator_url must connect as {AGENT_DB_MIGRATOR_ROLE}")
+        for secret in (self.app_password, self.migrator_password):
+            if len(secret.get_secret_value()) < 8 or "CHANGE_ME" in secret.get_secret_value():
+                raise ValueError("database passwords must be real values (at least 8 characters, no CHANGE_ME)")
+        return self
+
+
+class MemorySettings(_Strict):
+    history: HistorySettings
+    knowledge_base: KnowledgeBaseSettings
+    database: DatabaseSettings
+
+
 class AgentsConfig(_Strict):
     agents: dict[str, AgentSettings]
     guardrails: GuardrailsSettings
     output_check: OutputCheckSettings
+    memory: MemorySettings
 
     @model_validator(mode="after")
     def _known_agents(self) -> AgentsConfig:

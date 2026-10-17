@@ -1,3 +1,5 @@
+alembic==1.20.0
+    # via -r requirements.in
 annotated-doc==0.0.5
     # via fastapi
 annotated-types==0.8.0
@@ -14,6 +16,8 @@ click==8.5.0
     # via uvicorn
 fastapi==0.142.2
     # via -r requirements.in
+greenlet==3.5.6
+    # via sqlalchemy
 h11==0.16.0
     # via
     #   httpcore
@@ -26,8 +30,16 @@ idna==3.20
     # via
     #   anyio
     #   httpx
+mako==1.4.3
+    # via alembic
+markupsafe==3.0.4
+    # via mako
 opentelemetry-api==1.45.1
     # via fastapi
+psycopg==3.3.6
+    # via -r requirements.in
+psycopg-binary==3.3.6
+    # via psycopg
 pybreaker==1.4.1
     # via -r requirements.in
 pydantic==2.14.1
@@ -42,18 +54,25 @@ python-dotenv==1.2.4
     # via pydantic-settings
 pyyaml==6.0.3
     # via -r requirements.in
+sqlalchemy==2.0.54
+    # via
+    #   -r requirements.in
+    #   alembic
 starlette==1.8.0
     # via fastapi
 tenacity==9.1.4
     # via -r requirements.in
 typing-extensions==4.16.0
     # via
+    #   alembic
     #   anyio
     #   fastapi
     #   opentelemetry-api
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   pydantic-settings
+    #   sqlalchemy
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4

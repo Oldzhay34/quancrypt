@@ -11,26 +11,32 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 
 from src.app.api import build_health_router
-from src.app.container import build_container
+from src.app.container import Container, build_container
 from src.app.logging_setup import configure_logging, trace_id_var
 from src.app.settings import AppSettings, load_settings
 
 _LOG = logging.getLogger("src.app")
-_TRACE_ID = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+# Only a 32-digit hexadecimal id is accepted from a client (it is stored in the audit trail, so free text must not
+# get in); any other value is replaced by a generated one (D-232c).
+_TRACE_ID = re.compile(r"^[0-9a-f]{32}$")
 _QUIET_PATHS = ("/health/liveness", "/health/readiness")
 
 
-def create_app(settings: AppSettings | None = None) -> FastAPI:
+def create_app(settings: AppSettings | None = None, container: Container | None = None) -> FastAPI:
     settings = settings or load_settings()
     configure_logging(settings.logging)
-    container = build_container(settings)
+    container = container or build_container(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        _LOG.info("agent-service started (llm provider: %s)", settings.models.llm.provider)
-        yield
-        container.close()
-        _LOG.info("agent-service stopped")
+        # Migrations first: a failed migration raises here and the service does not start.
+        try:
+            container.startup()
+            _LOG.info("agent-service started (llm provider: %s)", settings.models.llm.provider)
+            yield
+        finally:
+            container.close()
+            _LOG.info("agent-service stopped")
 
     # No interactive docs or schema endpoint: the contract is contracts/openapi/agent-service.yaml.
     app = FastAPI(
@@ -45,9 +51,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         telemetry={"auto_configure": False, "tracing": False, "metrics": False, "logs": False},
     )
     app.state.container = container
-    # TODO(P4.1-2): readiness has no dependency check yet; P4.2 adds the database to `checks`
-    # (readiness falls only when the database is down).
-    app.include_router(build_health_router(container.llm_health, checks=()))
+    app.include_router(build_health_router(container.llm_health, checks=container.readiness_checks))
 
     @app.middleware("http")
     async def trace_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

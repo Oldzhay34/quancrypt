@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/scope_decision.json",
+  "title": "scope_decision",
+  "description": "agent-service bir kullanıcı isteğinin kapsam kararını kaydetti (RecordScopeDecision). fact_scope_decision için kullanılır. Yalnızca projenin WAREHOUSE_ANALYTICS onayı geçerliyse yazılır (D-21, D-228); onay core-service'ten karar anında okunur. Zarf alanları her olay dosyasında satır içi tekrarlanır (ortak dosya yoktur). Yük yalnızca kodlu alanlar ve sayılardır (alanlar arası kurallar `allOf` içinde: güven yalnız SCOPE_CLASSIFIER'da sayıdır, FAIL_CLOSED yalnız DENY'dir; veritabanı CHECK'leriyle aynı); istek metni, oturum veya mesaj kimliği, niyet etiketi ve model adı içermez (D-20, D-226).",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "scope_decision"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Proje kimliğinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT). core-service'in Project yanıtından gelir; agent-service tuzu bilmez."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "ALLOW",
+            "DENY"
+          ],
+          "description": "Zincirin nihai kararı. Zincir fail-closed çalışır: son halkadan sonra hâlâ belirsiz olan istek DENY'dir."
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Kararı veren halkanın güven skoru. Yalnızca SCOPE_CLASSIFIER (2. halka) skor üretir ve bu durumda sayıdır; RULE_FILTER, LLM_SELF_CHECK (yalnız IN_SCOPE veya OUT_OF_SCOPE yanıtı verir) ve FAIL_CLOSED için null'dır. Değer saklanan (yuvarlanmış) değerdir."
+        },
+        "deciding_ring": {
+          "type": "string",
+          "enum": [
+            "RULE_FILTER",
+            "SCOPE_CLASSIFIER",
+            "LLM_SELF_CHECK",
+            "FAIL_CLOSED"
+          ],
+          "description": "Kararı veren halka. FAIL_CLOSED (hiçbir halka karar vermedi) yalnızca DENY ile birlikte gelir."
+        },
+        "latency_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zincirin toplam karar süresi, milisaniye."
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "tr",
+            "en"
+          ],
+          "description": "İsteğin dili (ret metninin dilini belirler)."
+        }
+      },
+      "required": [
+        "decision",
+        "confidence",
+        "deciding_ring",
+        "latency_ms",
+        "language"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "deciding_ring": {
+                "const": "SCOPE_CLASSIFIER"
+              }
+            },
+            "required": [
+              "deciding_ring"
+            ]
+          },
+          "then": {
+            "properties": {
+              "confidence": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deciding_ring": {
+                "enum": [
+                  "RULE_FILTER",
+                  "LLM_SELF_CHECK",
+                  "FAIL_CLOSED"
+                ]
+              }
+            },
+            "required": [
+              "deciding_ring"
+            ]
+          },
+          "then": {
+            "properties": {
+              "confidence": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deciding_ring": {
+                "const": "FAIL_CLOSED"
+              }
+            },
+            "required": [
+              "deciding_ring"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "DENY"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false
+}

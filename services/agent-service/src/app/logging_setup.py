@@ -1,8 +1,7 @@
 """JSON logging on stdout (hexagonal-service section 6): timestamp, level, service, traceId, message.
 
-The message goes through no redaction here because nothing in P4.1 logs project content; the guardrails phase (P4.4)
-adds the shared
-`Redactor` to this formatter, and until then log calls carry no prompts, answers or request bodies.
+Every message passes the shared `Redactor` (contracts/redaction-rules.yaml) before it is written (guardrails-security
+section 5, D-242f). Log calls still carry no prompts, answers or request bodies; the redaction is the safety net.
 """
 
 from __future__ import annotations
@@ -14,14 +13,16 @@ from contextvars import ContextVar
 from datetime import UTC, datetime
 
 from src.app.settings import LoggingSettings
+from src.guardrails.redaction import Redactor
 
 trace_id_var: ContextVar[str] = ContextVar("trace_id", default="-")
 
 
 class JsonFormatter(logging.Formatter):
-    def __init__(self, service: str) -> None:
+    def __init__(self, service: str, redactor: Redactor) -> None:
         super().__init__()
         self._service = service
+        self._redactor = redactor
 
     def format(self, record: logging.LogRecord) -> str:
         entry = {
@@ -29,8 +30,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "service": self._service,
             "traceId": trace_id_var.get(),
-            # TODO(P4.1-1): pass the message through the shared Redactor (P4.4); until then no call site logs content.
-            "message": record.getMessage(),
+            "message": self._redactor.redact(record.getMessage()),
         }
         if record.exc_info:
             # The class name only: a traceback can carry request data.
@@ -38,9 +38,9 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
-def configure_logging(settings: LoggingSettings) -> None:
+def configure_logging(settings: LoggingSettings, redactor: Redactor) -> None:
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter(settings.service))
+    handler.setFormatter(JsonFormatter(settings.service, redactor))
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(settings.level)

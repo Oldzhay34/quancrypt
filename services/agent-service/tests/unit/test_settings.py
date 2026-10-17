@@ -72,6 +72,9 @@ def test_the_shipped_configuration_is_valid(config_dir: Path) -> None:
     assert settings.agents.services.core.base_url == "http://127.0.0.1:8081"
     assert settings.agents.services.analyzer.base_url == "http://127.0.0.1:8082"
     assert settings.agents.output_check.on_mismatch == "flag"
+    assert settings.agents.guardrails.rings == ("rule_filter", "scope_classifier", "llm_self_check")
+    assert settings.agents.guardrails.topic_threshold == 0.40  # D-246
+    assert settings.agents.guardrails.max_request_chars == 4000  # D-242a
     assert settings.logging.format == "json"
 
 
@@ -107,7 +110,23 @@ def test_a_placeholder_without_value_or_default_stops_the_load_and_names_only_th
         ("model_config.yaml", "temperature: 0.2", "temperature: 5", "temperature"),
         ("model_config.yaml", "  chat_model: gemma3:4b", "  chat_model: gemma3:4b\n  surprise: 1", "surprise"),
         ("agent_config.yaml", "on_mismatch: flag", "on_mismatch: ignore", "on_mismatch"),
-        ("agent_config.yaml", "guardrails: {}", "guardrails: {max_length: 4000}", "max_length"),
+        ("agent_config.yaml", "max_request_chars: 4000", "max_request_chars: 50", "max_request_chars"),
+        (
+            "agent_config.yaml",
+            "rings: [rule_filter, scope_classifier, llm_self_check]",
+            "rings: [rule_filter, oracle]",
+            "rings",
+        ),
+        (
+            "agent_config.yaml",
+            "rings: [rule_filter, scope_classifier, llm_self_check]",
+            "rings: [rule_filter, rule_filter]",
+            "rings",
+        ),
+        ("agent_config.yaml", "rings: [rule_filter, scope_classifier, llm_self_check]", "rings: []", "rings"),
+        ("agent_config.yaml", "topic_threshold: 0.40", "topic_threshold: 1.5", "topic_threshold"),
+        ("agent_config.yaml", "self_check_max_tokens: 8", "self_check_max_tokens: 8\n  surprise: 1", "surprise"),
+        ("agent_config.yaml", "      - jailbreak\n", '      - ""\n', "jailbreak_phrases"),
         ("agent_config.yaml", "max_steps: 6", "max_steps: 0", "max_steps"),
         ("agent_config.yaml", "  planner:", "  planer:", "agents"),
         (

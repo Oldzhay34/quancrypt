@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 
 from src.app.api import build_health_router
-from src.app.container import Container, build_container
+from src.app.container import Container, build_container, build_redactor
 from src.app.logging_setup import configure_logging, trace_id_var
 from src.app.settings import AppSettings, load_settings
 
@@ -24,7 +24,7 @@ _QUIET_PATHS = ("/health/liveness", "/health/readiness")
 
 def create_app(settings: AppSettings | None = None, container: Container | None = None) -> FastAPI:
     settings = settings or load_settings()
-    configure_logging(settings.logging)
+    configure_logging(settings.logging, build_redactor(settings))
     container = container or build_container(settings)
 
     @asynccontextmanager

@@ -1,8 +1,7 @@
 """Composition root: the only place where concrete classes are built (agent-service-layout section 3).
 
-P4.1 built the LLM side; P4.2 added the database and the memory ports; P4.3 adds the tools (registry, allow-lists,
-service
-clients). Later phases add agents and the workflow.
+P4.1 built the LLM side; P4.2 added the database and the memory ports; P4.3 the tools (registry, allow-lists, service
+clients); P4.4 the scope keeper chain and the output checker. Later phases add agents and the workflow.
 """
 
 from __future__ import annotations
@@ -13,8 +12,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.app.api import ReadinessCheck
-from src.app.settings import LOCAL_SERVICE_HOSTS, AppSettings, DatabaseSettings, OllamaSettings, ServiceSettings
+from src.app.settings import (
+    LOCAL_SERVICE_HOSTS,
+    AppSettings,
+    DatabaseSettings,
+    GuardrailsSettings,
+    OllamaSettings,
+    ServiceSettings,
+)
+from src.guardrails.chain import GuardChain, GuardRing
+from src.guardrails.llm_self_check import LLMSelfCheck
+from src.guardrails.output_checker import OutputChecker
 from src.guardrails.redaction import Redactor
+from src.guardrails.rule_filter import RuleFilter, RuleFilterConfig
+from src.guardrails.scope_classifier import EmbeddingTopicGate
 from src.llm.null_provider import NullProvider
 from src.llm.ollama_provider import OllamaProvider, OllamaProviderConfig
 from src.llm.provider import EmbeddingProvider, LLMHealth, LLMProvider
@@ -63,6 +74,8 @@ class Container:
     redactor: Redactor
     tools: ToolRegistry  # agents get `tools.scoped(name)` (P4.5); the allow-lists come from agent_config.yaml
     consent_reader: ConsentReader  # the workflow layer reads the warehouse consent through it (P4.6), no agent does
+    guard_chain: GuardChain  # every request passes it first (P4.4); the workflow records the decision (P4.6)
+    output_checker: OutputChecker  # every answer passes it before the user sees it (P4.4)
     # Readiness falls only when one of these fails (the LLM never decides readiness, NFR-05).
     readiness_checks: Sequence[ReadinessCheck]
     # Runs once at startup (lifespan): the migrations. A failure stops the service (acid-3nf-database section 4).
@@ -103,13 +116,14 @@ def build_container(settings: AppSettings) -> Container:
     )
     services = settings.agents.services
     contracts_dir = Path(services.contracts_dir)
-    redactor = Redactor.from_file(contracts_dir / "redaction-rules.yaml")
+    redactor = build_redactor(settings)
     schemas = SchemaStore(contracts_dir)
     token = services.internal_token.get_secret_value()
     core_client = InternalHttpClient(_endpoint("core-service", services.core, token))
     analyzer_client = InternalHttpClient(_endpoint("analyzer-service", services.analyzer, token))
     closers.extend([core_client.close, analyzer_client.close])
     service_tools: list[EndpointTool] = [*core_tools(core_client, schemas), *analyzer_tools(analyzer_client, schemas)]
+    rule_filter = _rule_filter(settings.agents.guardrails)
     registry = ToolRegistry(
         [*service_tools, KbSearchTool(knowledge, schemas), ScoreFindingsTool(RuleBaselineRiskModel(), schemas)],
         {name: agent.tools for name, agent in settings.agents.agents.items()},
@@ -131,10 +145,45 @@ def build_container(settings: AppSettings) -> Container:
         redactor=redactor,
         tools=registry,
         consent_reader=CoreConsentReader(registry.call),
+        guard_chain=GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, embeddings)),
+        output_checker=OutputChecker(rule_filter, redactor, settings.agents.output_check.on_mismatch),
         readiness_checks=(DatabaseReadiness(database),),
         startup=database.migrate,
         _closers=closers,
     )
+
+
+def build_redactor(settings: AppSettings) -> Redactor:
+    """The shared redactor (contracts/redaction-rules.yaml); the logging setup gets one before the container exists."""
+    return Redactor.from_file(Path(settings.agents.services.contracts_dir) / "redaction-rules.yaml")
+
+
+def _rule_filter(guardrails: GuardrailsSettings) -> RuleFilter:
+    return RuleFilter(
+        RuleFilterConfig(
+            max_request_chars=guardrails.max_request_chars,
+            jailbreak_phrases={"tr": guardrails.jailbreak_phrases.tr, "en": guardrails.jailbreak_phrases.en},
+            out_of_scope_keywords={
+                "tr": guardrails.out_of_scope_keywords.tr,
+                "en": guardrails.out_of_scope_keywords.en,
+            },
+            in_scope_keywords={"tr": guardrails.in_scope_keywords.tr, "en": guardrails.in_scope_keywords.en},
+        )
+    )
+
+
+def _rings(
+    guardrails: GuardrailsSettings, rule_filter: RuleFilter, llm: LLMProvider, embeddings: EmbeddingProvider
+) -> list[GuardRing]:
+    """The rings in configuration order (OCP: a new ring is a factory here and a name in the settings' ring list;
+    P7.5 swaps the interim topic gate for the ONNX scope classifier, D-246)."""
+    anchors = (*guardrails.topic_anchors.tr, *guardrails.topic_anchors.en)
+    factories: dict[str, Callable[[], GuardRing]] = {
+        "rule_filter": lambda: rule_filter,
+        "scope_classifier": lambda: EmbeddingTopicGate(embeddings, anchors, guardrails.topic_threshold),
+        "llm_self_check": lambda: LLMSelfCheck(llm, guardrails.self_check_max_tokens),
+    }
+    return [factories[name]() for name in guardrails.rings]
 
 
 def _database_config(config: DatabaseSettings) -> DatabaseConfig:

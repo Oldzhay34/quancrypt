@@ -97,8 +97,46 @@ class AgentSettings(_Strict):
         return tools
 
 
+class LanguageWords(_Strict):
+    """Phrase lists per language; both languages apply to every request (a request may mix them)."""
+
+    tr: tuple[str, ...] = Field(min_length=1, max_length=500)
+    en: tuple[str, ...] = Field(min_length=1, max_length=500)
+
+    @field_validator("tr", "en")
+    @classmethod
+    def _plain_phrases(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        for phrase in value:
+            if not phrase.strip() or len(phrase) > 100 or not phrase.isprintable():
+                raise ValueError("a phrase is 1 to 100 characters on one line")
+        return value
+
+
+class LanguageDetection(_Strict):
+    tr_words: tuple[str, ...] = Field(min_length=1, max_length=500)
+    en_words: tuple[str, ...] = Field(min_length=1, max_length=500)
+
+
 class GuardrailsSettings(_Strict):
-    """Filled by P4.4; any key is rejected until then."""
+    """The scope keeper (P4.4, D-242): ring order, the rule filter's lists and the language rule."""
+
+    rings: tuple[Literal["rule_filter", "scope_classifier", "llm_self_check"], ...] = Field(min_length=1)
+    max_request_chars: int = Field(ge=100, le=100_000)
+    self_check_max_tokens: int = Field(ge=1, le=64)
+    # Interim ring 2 (D-246): in-scope anchor sentences and the cosine similarity a request must reach to pass.
+    topic_anchors: LanguageWords
+    topic_threshold: float = Field(ge=0, le=1)
+    jailbreak_phrases: LanguageWords
+    out_of_scope_keywords: LanguageWords
+    in_scope_keywords: LanguageWords
+    language: LanguageDetection
+
+    @field_validator("rings")
+    @classmethod
+    def _distinct(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(set(value)) != len(value):
+            raise ValueError("a ring is listed twice")
+        return value
 
 
 class OutputCheckSettings(_Strict):

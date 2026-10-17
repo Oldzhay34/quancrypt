@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_consents",
+  "description": "core-service GetConsents (GET /api/v1/projects/{projectId}/consents). Workflow layer only (ConsentReader).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/ConsentList"
+    }
+  }
+}

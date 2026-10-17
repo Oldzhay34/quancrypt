@@ -99,7 +99,10 @@ services:
   agent-service:
     profiles: [app]
     build:
-      context: ./services/agent-service
+      # The build context is the repository root (the tool contracts and the redaction rules are copied from contracts/);
+      # services/agent-service/Dockerfile.dockerignore lets in only what the image needs.
+      context: .
+      dockerfile: services/agent-service/Dockerfile
     image: agent-service:1.0.0
     environment:
       # Ollama runs on the host (D-51). The host value in .env (127.0.0.1) is not valid inside a container, so the address is
@@ -113,6 +116,10 @@ services:
       AGENT_DB_MIGRATOR_PASSWORD: ${AGENT_DB_MIGRATOR_PASSWORD:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # The tools' peers (P4.3): only these compose names; the service refuses a missing or placeholder token.
+      CORE_SERVICE_URL: http://core-service:8081
+      ANALYZER_SERVICE_URL: http://analyzer-service:8082
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
     extra_hosts:
       # Only this service reaches the host (docker-local, section 2).
       - "host.docker.internal:host-gateway"

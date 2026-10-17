@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "list_findings",
+  "description": "core-service ListFindings (GET /api/v1/scans/{scanId}/findings), paged.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "page": {
+          "$ref": "../../openapi/core-service.yaml#/components/parameters/Page/schema"
+        },
+        "size": {
+          "$ref": "../../openapi/core-service.yaml#/components/parameters/Size/schema"
+        },
+        "priority": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/priority"
+        },
+        "algorithmFamily": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/algorithmFamily"
+        },
+        "usageContext": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/usageContext"
+        },
+        "locationKind": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/locationKind"
+        },
+        "classifiedBy": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/classifiedBy"
+        }
+      },
+      "required": [
+        "scanId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/FindingPage"
+    }
+  }
+}

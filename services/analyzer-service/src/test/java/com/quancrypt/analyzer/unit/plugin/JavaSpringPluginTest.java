@@ -1,6 +1,7 @@
 package com.quancrypt.analyzer.unit.plugin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.quancrypt.analyzer.domain.model.AlgorithmFamily;
 
 import com.quancrypt.analyzer.domain.model.AnalysisRoot;
 import com.quancrypt.analyzer.domain.model.CryptoUsage;
@@ -115,6 +116,32 @@ class JavaSpringPluginTest {
 
         assertThat(outcome.usages()).extracting(u -> u.evidence().file().value() + ":" + u.priority())
                 .containsExactly("src/main/java/Trust.java:P0", "src/main/java/Unknown.java:P2");
+    }
+
+    @Test
+    void tlsAndCertificateUsagesWithAnUnknownAlgorithmTakeThePriorityOfTheirContext() {
+        // No certificate file in the analysed root (a single QBank service, D-203): the key family stays UNKNOWN and the
+        // priority comes from the context column, which is what core-service can plan (D-241).
+        AnalysisOutcome outcome = analyze("pom.xml", POM, "src/main/resources/application.yml", """
+                server:
+                  ssl:
+                    bundle: web
+                    client-auth: need
+                spring:
+                  ssl:
+                    bundle:
+                      pem:
+                        web:
+                          keystore:
+                            certificate: file:/certs/web.crt.pem
+                            private-key: file:/certs/web.key.pem
+                """);
+
+        assertThat(outcome.usages()).isNotEmpty();
+        assertThat(outcome.usages()).allSatisfy(u -> assertThat(u.algorithm().family()).isEqualTo(AlgorithmFamily.UNKNOWN));
+        assertThat(outcome.usages()).extracting(u -> u.usageContext() + ":" + u.priority())
+                .contains("TLS_KEY_EXCHANGE:P1", "MTLS_CLIENT_AUTH:P3", "CERTIFICATE:P3")
+                .noneMatch(entry -> entry.endsWith(":P2"));
     }
 
     @Test

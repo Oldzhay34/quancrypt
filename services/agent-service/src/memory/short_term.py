@@ -331,6 +331,16 @@ class ScopeDecisionLog(Protocol):
         ...
 
 
+class ConsentReader(Protocol):
+    """Reads the project's WAREHOUSE_ANALYTICS consent from core-service before a decision event is written (D-228).
+
+    Implemented over the `get_consents` tool (P4.3); used by the workflow layer (P4.6), never by an agent. Any failure
+    reads as `False` (fail-closed): the event is then not written.
+    """
+
+    def warehouse_consent(self, project_id: UUID, trace_id: str) -> bool: ...
+
+
 class IdempotencyMaintenance(Protocol):
     def purge_idempotency_records(self) -> int:
         """Delete idempotency records older than 24 hours; returns how many (D-136)."""

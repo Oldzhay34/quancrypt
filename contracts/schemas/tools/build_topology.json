@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "build_topology",
+  "description": "analyzer-service BuildTopology (POST /api/v1/topologies): service graph (snake_case).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/TopologyRequest"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../topology.schema.json"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "analyze_crypto",
+  "description": "analyzer-service AnalyzeCrypto (POST /api/v1/analyses): findings, CBOM and statistics (snake_case).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/AnalysisRequest"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/AnalysisResult"
+    }
+  }
+}

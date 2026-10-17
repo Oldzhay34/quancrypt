@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "record_findings",
+  "description": "core-service RecordFindings (POST /api/v1/scans/{scanId}/findings); the call id is the Idempotency-Key.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "body": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/FindingBatch"
+        }
+      },
+      "required": [
+        "scanId",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/FindingBatchResult"
+    }
+  }
+}

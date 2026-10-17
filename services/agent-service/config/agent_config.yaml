@@ -1,4 +1,4 @@
-# Agent definitions (P4.1). `tools` is each agent's allow-list; P4.3 fills it. Budgets follow D-217:
+# Agent definitions (P4.1). `tools` is each agent's allow-list (P4.3, D-238a: the approved table). Budgets follow D-217:
 # discovery and topology run without an LLM (max_tokens 0).
 agents:
   supervisor:
@@ -8,19 +8,29 @@ agents:
       max_tokens: 2048
       timeout_s: 120
   discovery:
-    tools: []
+    tools: [analyze_crypto, get_snippet, start_scan, record_findings, record_scan_artifact, complete_scan]
     budget:
       max_steps: 8
       max_tokens: 0
       timeout_s: 60
   topology:
-    tools: []
+    tools: [build_topology, record_topology, list_findings]
     budget:
       max_steps: 8
       max_tokens: 0
       timeout_s: 60
   planner:
-    tools: []
+    tools:
+      - list_findings
+      - get_topology
+      - get_project_profile
+      - save_clarification_answers
+      - score_findings
+      - create_plan
+      - get_plan
+      - get_plan_report
+      - kb_search
+      - get_snippet
     budget:
       max_steps: 10
       max_tokens: 4096
@@ -53,3 +63,32 @@ memory:
     migrator_password: ${AGENT_DB_MIGRATOR_PASSWORD}
     pool_size: 5
     connect_timeout_s: 5
+
+# Tool peers (P4.3, D-239). Only these two internal services are called, with the internal service token (X-Internal-Token);
+# hosts are limited to this machine and the compose service names. The contracts directory holds the tool schemas
+# (schemas/tools) and the redaction rules. analyzer timeout_s covers the synchronous analysis (D-172: up to 300 s).
+services:
+  contracts_dir: ${QUANCRYPT_CONTRACTS_DIR:-../../contracts}
+  internal_token: ${INTERNAL_SERVICE_TOKEN}
+  core:
+    base_url: ${CORE_SERVICE_URL:-http://127.0.0.1:8081}
+    connect_timeout_s: 3
+    timeout_s: 30
+    retry:
+      max_attempts: 3
+      wait_initial_s: 0.5
+      wait_max_s: 4
+    circuit_breaker:
+      fail_max: 5
+      reset_timeout_s: 30
+  analyzer:
+    base_url: ${ANALYZER_SERVICE_URL:-http://127.0.0.1:8082}
+    connect_timeout_s: 3
+    timeout_s: 310
+    retry:
+      max_attempts: 2
+      wait_initial_s: 1
+      wait_max_s: 4
+    circuit_breaker:
+      fail_max: 3
+      reset_timeout_s: 60

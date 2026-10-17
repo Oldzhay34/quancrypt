@@ -1,6 +1,8 @@
 """Composition root: the only place where concrete classes are built (agent-service-layout section 3).
 
-P4.1 built the LLM side; P4.2 adds the database and the memory ports. Later phases add tools, agents and the workflow.
+P4.1 built the LLM side; P4.2 added the database and the memory ports; P4.3 adds the tools (registry, allow-lists,
+service
+clients). Later phases add agents and the workflow.
 """
 
 from __future__ import annotations
@@ -8,9 +10,11 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from src.app.api import ReadinessCheck
-from src.app.settings import AppSettings, DatabaseSettings, OllamaSettings
+from src.app.settings import LOCAL_SERVICE_HOSTS, AppSettings, DatabaseSettings, OllamaSettings, ServiceSettings
+from src.guardrails.redaction import Redactor
 from src.llm.null_provider import NullProvider
 from src.llm.ollama_provider import OllamaProvider, OllamaProviderConfig
 from src.llm.provider import EmbeddingProvider, LLMHealth, LLMProvider
@@ -28,11 +32,19 @@ from src.memory.memory_store import (
 )
 from src.memory.short_term import (
     AuditLog,
+    ConsentReader,
     ConversationMemory,
     ConversationWindow,
     IdempotencyMaintenance,
     ScopeDecisionLog,
 )
+from src.tools.analyzer_tool import analyzer_tools
+from src.tools.api_tool import EndpointTool, InternalHttpClient, ServiceEndpoint
+from src.tools.base_tool import SchemaStore
+from src.tools.core_tool import CoreConsentReader, core_tools
+from src.tools.kb_search_tool import KbSearchTool
+from src.tools.registry import ToolRegistry
+from src.tools.risk_model_tool import RuleBaselineRiskModel, ScoreFindingsTool
 
 
 @dataclass
@@ -48,6 +60,9 @@ class Container:
     idempotency: IdempotencyMaintenance
     knowledge: KnowledgeBase  # the read face (tools and agents)
     knowledge_index: KnowledgeIndex  # the write face (scripts/build_index.py only)
+    redactor: Redactor
+    tools: ToolRegistry  # agents get `tools.scoped(name)` (P4.5); the allow-lists come from agent_config.yaml
+    consent_reader: ConsentReader  # the workflow layer reads the warehouse consent through it (P4.6), no agent does
     # Readiness falls only when one of these fails (the LLM never decides readiness, NFR-05).
     readiness_checks: Sequence[ReadinessCheck]
     # Runs once at startup (lifespan): the migrations. A failure stops the service (acid-3nf-database section 4).
@@ -86,6 +101,21 @@ def build_container(settings: AppSettings) -> Container:
         settings.models.ollama.embedding_dimensions,
         memory.knowledge_base.top_k,
     )
+    services = settings.agents.services
+    contracts_dir = Path(services.contracts_dir)
+    redactor = Redactor.from_file(contracts_dir / "redaction-rules.yaml")
+    schemas = SchemaStore(contracts_dir)
+    token = services.internal_token.get_secret_value()
+    core_client = InternalHttpClient(_endpoint("core-service", services.core, token))
+    analyzer_client = InternalHttpClient(_endpoint("analyzer-service", services.analyzer, token))
+    closers.extend([core_client.close, analyzer_client.close])
+    service_tools: list[EndpointTool] = [*core_tools(core_client, schemas), *analyzer_tools(analyzer_client, schemas)]
+    registry = ToolRegistry(
+        [*service_tools, KbSearchTool(knowledge, schemas), ScoreFindingsTool(RuleBaselineRiskModel(), schemas)],
+        {name: agent.tools for name, agent in settings.agents.agents.items()},
+        schemas,
+        redactor,
+    )
     return Container(
         settings=settings,
         llm=llm,
@@ -98,6 +128,9 @@ def build_container(settings: AppSettings) -> Container:
         idempotency=PostgresIdempotencyMaintenance(database, utc_now),
         knowledge=knowledge,
         knowledge_index=knowledge,
+        redactor=redactor,
+        tools=registry,
+        consent_reader=CoreConsentReader(registry.call),
         readiness_checks=(DatabaseReadiness(database),),
         startup=database.migrate,
         _closers=closers,
@@ -133,4 +166,20 @@ def _ollama_config(config: OllamaSettings) -> OllamaProviderConfig:
         breaker_reset_timeout_s=float(config.circuit_breaker.reset_timeout_s),
         health_timeout_s=config.health_timeout_s,
         health_cache_s=config.health_cache_s,
+    )
+
+
+def _endpoint(name: str, config: ServiceSettings, token: str) -> ServiceEndpoint:
+    return ServiceEndpoint(
+        name=name,
+        base_url=config.base_url,
+        internal_token=token,
+        allowed_hosts=LOCAL_SERVICE_HOSTS,
+        connect_timeout_s=config.connect_timeout_s,
+        timeout_s=config.timeout_s,
+        retry_max_attempts=config.retry.max_attempts,
+        retry_wait_initial_s=config.retry.wait_initial_s,
+        retry_wait_max_s=config.retry.wait_max_s,
+        breaker_fail_max=config.circuit_breaker.fail_max,
+        breaker_reset_timeout_s=float(config.circuit_breaker.reset_timeout_s),
     )

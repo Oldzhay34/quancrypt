@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "complete_scan",
+  "description": "core-service CompleteScan (POST /api/v1/scans/{scanId}/completion); the call id is the Idempotency-Key.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "body": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/ScanCompletion"
+        }
+      },
+      "required": [
+        "scanId",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/Scan"
+    }
+  }
+}

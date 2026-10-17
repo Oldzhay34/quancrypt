@@ -1,0 +1,17 @@
+# Applies to the build context at the repository root (docker build -f services/agent-service/Dockerfile ... .).
+# Everything is excluded, then only what the image needs is let back in: the tool contracts and the redaction rules are
+# read at runtime (P4.3); no .env, no keys, no tests, no other service.
+*
+!contracts/redaction-rules.yaml
+!contracts/openapi
+!contracts/openapi/**
+!contracts/schemas
+!contracts/schemas/**
+!services/agent-service/requirements.txt
+!services/agent-service/config
+!services/agent-service/config/**
+!services/agent-service/migrations
+!services/agent-service/migrations/**
+!services/agent-service/src
+!services/agent-service/src/**
+**/__pycache__

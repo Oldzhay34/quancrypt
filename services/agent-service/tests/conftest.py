@@ -21,6 +21,7 @@ from tests.support.postgres import PostgresInstance, start_postgres, stop_postgr
 
 os.environ.setdefault("AGENT_DB_APP_PASSWORD", "unit-test-app-password")
 os.environ.setdefault("AGENT_DB_MIGRATOR_PASSWORD", "unit-test-migrator-password")
+os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "unit-test-internal-token-0123456789abcdef")
 
 _ENTITY_TABLES = (
     "project_ref, chat_session, chat_message, message_evidence, agent_run, agent_step, tool_call, scope_decision, "

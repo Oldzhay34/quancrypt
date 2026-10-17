@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "save_clarification_answers",
+  "description": "core-service SaveClarificationAnswers (PUT /api/v1/projects/{projectId}/clarification-answers).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "body": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/ClarificationAnswerSet"
+        }
+      },
+      "required": [
+        "projectId",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/ClarificationAnswerSet"
+    }
+  }
+}

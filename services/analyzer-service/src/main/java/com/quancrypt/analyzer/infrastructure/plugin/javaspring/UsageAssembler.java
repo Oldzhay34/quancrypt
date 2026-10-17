@@ -26,8 +26,15 @@ import java.util.function.UnaryOperator;
  */
 final class UsageAssembler {
 
-    /** The priority of a usage whose algorithm or context is unknown and whose detector named none: medium. */
+    /**
+     * The priority of a usage whose algorithm or context is unknown and whose detector named none (D-241): the context
+     * column of the crypto-domain table where it decides alone (TLS key exchange P1; certificates and TLS or mTLS
+     * authentication P3), medium (P2) otherwise. core-service plans those contexts only at these priorities.
+     */
     static final Priority UNDETERMINED_DEFAULT = Priority.P2;
+
+    private static final Set<UsageContext> IDENTITY_CONTEXTS = Set.of(UsageContext.CERTIFICATE, UsageContext.TLS_SERVER_AUTH,
+            UsageContext.MTLS_CLIENT_AUTH);
 
     private static final Set<AlgorithmFamily> SIZED = Set.of(AlgorithmFamily.RSA, AlgorithmFamily.ECDSA, AlgorithmFamily.DH,
             AlgorithmFamily.DSA, AlgorithmFamily.ECDH);
@@ -103,12 +110,19 @@ final class UsageAssembler {
         if (verdict instanceof PriorityVerdict.Derived derived) {
             priority = derived.priority();
         } else if (verdict instanceof PriorityVerdict.Undetermined) {
-            priority = observation.priorityOverride().orElse(UNDETERMINED_DEFAULT);
+            priority = observation.priorityOverride().orElse(undeterminedDefault(observation.usage()));
         } else {
             return Optional.empty();
         }
         return Optional.of(new CryptoUsage(draft.evidence(), draft.symbol(), draft.algorithm(), draft.usageContext(), priority,
                 draft.library(), draft.confidence(), draft.detectorId()));
+    }
+
+    static Priority undeterminedDefault(UsageContext context) {
+        if (context == UsageContext.TLS_KEY_EXCHANGE) {
+            return Priority.P1;
+        }
+        return IDENTITY_CONTEXTS.contains(context) ? Priority.P3 : UNDETERMINED_DEFAULT;
     }
 
     private static String familyKey(Observation observation) {

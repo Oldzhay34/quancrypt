@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_plan_report",
+  "description": "core-service GetPlanReport (GET /api/v1/scans/{scanId}/plan/report): Markdown, language tr (default) or en.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "language": {
+          "type": "string",
+          "enum": [
+            "tr",
+            "en"
+          ]
+        }
+      },
+      "required": [
+        "scanId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "markdown": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "markdown"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

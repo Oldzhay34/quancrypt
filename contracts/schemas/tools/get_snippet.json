@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_snippet",
+  "description": "analyzer-service GetSnippet (GET /api/v1/snippets): redacted lines around one line of one file.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/Root"
+        },
+        "path": {
+          "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/RelativePath"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "context": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      "required": [
+        "root",
+        "path",
+        "line"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/Snippet"
+    }
+  }
+}

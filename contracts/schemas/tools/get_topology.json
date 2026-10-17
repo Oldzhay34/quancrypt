@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "get_topology",
+  "description": "core-service GetTopology (GET /api/v1/scans/{scanId}/topology).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "scanId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/Topology"
+    }
+  }
+}

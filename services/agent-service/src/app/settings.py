@@ -38,8 +38,32 @@ AGENT_DB_APP_ROLE = "agent_db_app"
 AGENT_DB_MIGRATOR_ROLE = "agent_db_migrator"
 
 AGENT_NAMES = ("supervisor", "discovery", "topology", "planner")
+# The internal services the tools may call (P4.3, D-239): their compose names and this machine.
+LOCAL_SERVICE_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "core-service", "analyzer-service"})
 
 _PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
+
+
+def bare_local_origin(value: str, hosts: frozenset[str]) -> str:
+    """A bare http(s) origin on one of the allowed local hosts (phase 1 is local, guardrails-security section 1).
+
+    The clients (httpx) parse the address the same way, so what is checked here is what is called.
+    """
+    if not value.isascii() or any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        raise ValueError("base_url must be plain ASCII without spaces or control characters")
+    try:
+        url = httpx.URL(value)
+    except httpx.InvalidURL as exc:
+        raise ValueError("base_url is not a valid URL") from exc
+    if url.scheme not in ("http", "https") or not url.host:
+        raise ValueError("base_url must be an http or https URL with a host")
+    if url.userinfo or url.query or url.fragment or url.path not in ("", "/"):
+        raise ValueError("base_url must be a bare origin without credentials, path, query or fragment")
+    if url.port is not None and not 1 <= url.port <= 65535:
+        raise ValueError("base_url port must be between 1 and 65535")
+    if url.host not in hosts:
+        raise ValueError(f"base_url host must be one of: {', '.join(sorted(hosts))} (phase 1 is local)")
+    return str(url).rstrip("/")
 
 
 class ConfigError(Exception):
@@ -157,11 +181,44 @@ class MemorySettings(_Strict):
     database: DatabaseSettings
 
 
+class ServiceSettings(_Strict):
+    """One internal service the tools call (core-service, analyzer-service)."""
+
+    base_url: str
+    connect_timeout_s: float = Field(gt=0, le=60)
+    timeout_s: float = Field(gt=0, le=3600)
+    retry: RetrySettings
+    circuit_breaker: CircuitBreakerSettings
+
+    @field_validator("base_url")
+    @classmethod
+    def _local_service_url(cls, value: str) -> str:
+        return bare_local_origin(value, LOCAL_SERVICE_HOSTS)
+
+
+class ServicesSettings(_Strict):
+    """The tools' peers (P4.3): contracts directory, the internal service token and the two services."""
+
+    contracts_dir: str = Field(min_length=1)
+    internal_token: SecretStr
+    core: ServiceSettings
+    analyzer: ServiceSettings
+
+    @field_validator("internal_token")
+    @classmethod
+    def _real_token(cls, value: SecretStr) -> SecretStr:
+        token = value.get_secret_value()
+        if len(token) < 32 or "CHANGE_ME" in token or not token.isascii() or any(ch.isspace() for ch in token):
+            raise ValueError("internal_token must be a real token (at least 32 characters, no CHANGE_ME, no spaces)")
+        return value
+
+
 class AgentsConfig(_Strict):
     agents: dict[str, AgentSettings]
     guardrails: GuardrailsSettings
     output_check: OutputCheckSettings
     memory: MemorySettings
+    services: ServicesSettings
 
     @model_validator(mode="after")
     def _known_agents(self) -> AgentsConfig:
@@ -212,24 +269,7 @@ class OllamaSettings(_Strict):
     @field_validator("base_url")
     @classmethod
     def _local_http_url(cls, value: str) -> str:
-        # The client (httpx) parses the address the same way, so what is checked here is what is called.
-        if not value.isascii() or any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
-            raise ValueError("base_url must be plain ASCII without spaces or control characters")
-        try:
-            url = httpx.URL(value)
-        except httpx.InvalidURL as exc:
-            raise ValueError("base_url is not a valid URL") from exc
-        if url.scheme not in ("http", "https") or not url.host:
-            raise ValueError("base_url must be an http or https URL with a host")
-        if url.userinfo or url.query or url.fragment or url.path not in ("", "/"):
-            raise ValueError("base_url must be a bare origin without credentials, path, query or fragment")
-        if url.port is not None and not 1 <= url.port <= 65535:
-            raise ValueError("base_url port must be between 1 and 65535")
-        if url.host not in LOCAL_OLLAMA_HOSTS:
-            raise ValueError(
-                f"base_url host must be one of: {', '.join(sorted(LOCAL_OLLAMA_HOSTS))} (phase 1 is local)"
-            )
-        return str(url).rstrip("/")
+        return bare_local_origin(value, LOCAL_OLLAMA_HOSTS)
 
     @model_validator(mode="after")
     def _output_fits_context(self) -> OllamaSettings:

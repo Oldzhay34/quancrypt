@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "record_scan_artifact",
+  "description": "core-service RecordScanArtifact (PUT /api/v1/scans/{scanId}/artifact): the CBOM of analyze_crypto.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "scanId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "body": {
+          "$ref": "../../openapi/analyzer-service.yaml#/components/schemas/Cbom"
+        }
+      },
+      "required": [
+        "scanId",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/ScanArtifact"
+    }
+  }
+}

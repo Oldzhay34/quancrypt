@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "register_project",
+  "description": "core-service RegisterProject (POST /api/v1/projects). Workflow layer only.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "body": {
+          "$ref": "../../openapi/core-service.yaml#/components/schemas/ProjectRegistration"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/Project"
+    }
+  }
+}

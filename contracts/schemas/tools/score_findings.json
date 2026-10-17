@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "score_findings",
+  "description": "Risk scores of findings (rule baseline rule_baseline_v1 until Model A, P7.5). findings as list_findings returns them; topology as get_topology returns it.",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "findings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "priority": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/priority"
+              },
+              "locationKind": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/locationKind"
+              }
+            },
+            "required": [
+              "id",
+              "priority",
+              "locationKind"
+            ]
+          }
+        },
+        "topology": {
+          "oneOf": [
+            {
+              "$ref": "../../openapi/core-service.yaml#/components/schemas/Topology"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "findings"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "findingId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "riskClass": {
+                "type": "string",
+                "enum": [
+                  "CRITICAL",
+                  "HIGH",
+                  "MEDIUM",
+                  "LOW"
+                ]
+              },
+              "riskScore": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "rule": {
+                "type": "string",
+                "pattern": "^[a-z0-9_]{1,64}$"
+              },
+              "riskFactors": {
+                "type": "array",
+                "maxItems": 10,
+                "items": {
+                  "$ref": "../../openapi/core-service.yaml#/components/schemas/RiskFactor"
+                }
+              }
+            },
+            "required": [
+              "findingId",
+              "riskClass",
+              "riskScore",
+              "rule",
+              "riskFactors"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "model_id",
+        "scores"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

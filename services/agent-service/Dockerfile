@@ -1,16 +1,21 @@
-# Build: dependencies with uv; run: slim Python image (tags from docs/VERSIONS.md).
+# Build: dependencies with uv; run: slim Python image (tags from docs/VERSIONS.md). The build context is the repository root
+# (the contracts are copied from contracts/); Dockerfile.dockerignore lets in only what the image needs.
 FROM python:3.12.15-slim AS build
 WORKDIR /build
 RUN pip install --no-cache-dir uv==0.12.23
-COPY requirements.txt ./
+COPY services/agent-service/requirements.txt ./
 RUN uv pip install --no-cache --target /opt/deps -r requirements.txt
 
 FROM python:3.12.15-slim
 WORKDIR /app
 COPY --from=build /opt/deps /opt/deps
-COPY config /app/config
-COPY migrations /app/migrations
-COPY src /app/src
+COPY services/agent-service/config /app/config
+COPY services/agent-service/migrations /app/migrations
+COPY services/agent-service/src /app/src
+# The tool contracts (JSON Schema and the OpenAPI documents they point into) and the shared redaction rules (P4.3).
+COPY contracts/openapi /app/contracts/openapi
+COPY contracts/schemas /app/contracts/schemas
+COPY contracts/redaction-rules.yaml /app/contracts/redaction-rules.yaml
 
 # Configuration comes from the environment only (see config/*.yaml for the ${NAME} placeholders). The image holds no secret,
 # no .env and no test data. The migrations are in the image: the service applies them at startup (agent_db migrator role).
@@ -18,6 +23,7 @@ ENV PYTHONPATH=/app:/opt/deps \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     QUANCRYPT_CONFIG_DIR=/app/config \
+    QUANCRYPT_CONTRACTS_DIR=/app/contracts \
     UVICORN_HOST=0.0.0.0 \
     UVICORN_PORT=8083
 

@@ -8,6 +8,10 @@ anyio==4.15.1
     # via
     #   httpx
     #   starlette
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
 certifi==2026.7.22
     # via
     #   httpcore
@@ -30,6 +34,10 @@ idna==3.20
     # via
     #   anyio
     #   httpx
+jsonschema==4.26.0
+    # via -r requirements.in
+jsonschema-specifications==2025.9.1
+    # via jsonschema
 mako==1.4.3
     # via alembic
 markupsafe==3.0.4
@@ -54,6 +62,14 @@ python-dotenv==1.2.4
     # via pydantic-settings
 pyyaml==6.0.3
     # via -r requirements.in
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+rpds-py==2026.9.1
+    # via
+    #   jsonschema
+    #   referencing
 sqlalchemy==2.0.54
     # via
     #   -r requirements.in
@@ -72,6 +88,7 @@ typing-extensions==4.16.0
     #   pydantic
     #   pydantic-core
     #   pydantic-settings
+    #   referencing
     #   sqlalchemy
     #   starlette
     #   typing-inspection

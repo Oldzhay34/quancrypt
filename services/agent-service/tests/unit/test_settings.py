@@ -44,7 +44,33 @@ def test_the_shipped_configuration_is_valid(config_dir: Path) -> None:
         "topology": 8,
         "planner": 10,
     }
-    assert all(agent.tools == () for agent in settings.agents.agents.values())
+    # The approved allow-lists (D-238a), exactly and in order.
+    assert {name: agent.tools for name, agent in settings.agents.agents.items()} == {
+        "supervisor": (),
+        "discovery": (
+            "analyze_crypto",
+            "get_snippet",
+            "start_scan",
+            "record_findings",
+            "record_scan_artifact",
+            "complete_scan",
+        ),
+        "topology": ("build_topology", "record_topology", "list_findings"),
+        "planner": (
+            "list_findings",
+            "get_topology",
+            "get_project_profile",
+            "save_clarification_answers",
+            "score_findings",
+            "create_plan",
+            "get_plan",
+            "get_plan_report",
+            "kb_search",
+            "get_snippet",
+        ),
+    }
+    assert settings.agents.services.core.base_url == "http://127.0.0.1:8081"
+    assert settings.agents.services.analyzer.base_url == "http://127.0.0.1:8082"
     assert settings.agents.output_check.on_mismatch == "flag"
     assert settings.logging.format == "json"
 
@@ -258,3 +284,76 @@ def test_a_missing_database_password_stops_the_service_and_names_only_the_variab
 
     with pytest.raises(ConfigError, match=variable):
         load_settings()
+
+
+# ---- services (P4.3) ----
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com:8081",
+        "http://10.0.0.5:8081",
+        "http://user:secret-in-url@core-service:8081",
+        "http://core-service:8081/api",
+        "http://core-service:8081?x=1",
+        "file:///etc/passwd",
+    ],
+)
+@pytest.mark.parametrize("variable", ["CORE_SERVICE_URL", "ANALYZER_SERVICE_URL"])
+def test_a_service_address_must_be_a_bare_local_origin(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, variable: str, url: str
+) -> None:
+    monkeypatch.setenv(variable, url)
+
+    with pytest.raises(ConfigError) as raised:
+        load_settings()
+
+    assert "secret-in-url" not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("variable", "host"), [("CORE_SERVICE_URL", "core-service"), ("ANALYZER_SERVICE_URL", "analyzer-service")]
+)
+def test_the_compose_service_names_are_accepted(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, variable: str, host: str
+) -> None:
+    monkeypatch.setenv(variable, f"http://{host}:8080")
+
+    services = load_settings().agents.services
+    assert f"http://{host}:8080" in (services.core.base_url, services.analyzer.base_url)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "short-token",
+        "CHANGE_ME-CHANGE_ME-CHANGE_ME-CHANGE_ME",
+        "has spaces in the middle of a long token value",
+        "ç" * 40,
+    ],
+)
+def test_a_placeholder_or_short_internal_token_stops_the_service(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, token: str
+) -> None:
+    monkeypatch.setenv("INTERNAL_SERVICE_TOKEN", token)
+
+    with pytest.raises(ConfigError, match="internal_token") as raised:
+        load_settings()
+
+    assert token not in str(raised.value)
+
+
+def test_a_missing_internal_token_stops_the_service_and_names_only_the_variable(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("INTERNAL_SERVICE_TOKEN")
+
+    with pytest.raises(ConfigError, match="INTERNAL_SERVICE_TOKEN"):
+        load_settings()
+
+
+def test_the_internal_token_is_never_printed(config_dir: Path) -> None:
+    settings = load_settings()
+
+    assert settings.agents.services.internal_token.get_secret_value() not in repr(settings)

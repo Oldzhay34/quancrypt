@@ -10,7 +10,7 @@ PORT ?= 8083
 # Tools come from the pinned requirements (D-28); nothing is installed into the system Python.
 RUN := $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-dev.txt
 
-.PHONY: help compile verify run image index index-force gen-contracts integration
+.PHONY: help compile verify run image index index-force gen-contracts integration eval
 
 help: ## Hedefleri listeler
 	@echo "agent-service Makefile"
@@ -52,3 +52,7 @@ gen-contracts: ## contracts/openapi'den src/tools/contracts/ pydantic modellerin
 
 integration: ## Araç entegrasyon testleri: çalışan core-service ve analyzer-service ister (make verify dışında, D-238)
 	$(RUN) pytest -m integration -p no:cacheprovider
+
+eval: ## Değerlendirme (P4.7): çalışan yığın (app ve demo profili, PROJECT_ROOT=reference-system), Ollama ve ortamda AGENT_DB_*, INTERNAL_SERVICE_TOKEN, QUANCRYPT_SESSION_TOKEN gerekir; core-service'te yeni bir değerlendirme projesi açar; docs/eval_report.md ve docs/eval_results.jsonl yazar, bir hedef tutmaz veya ölçülemezse 3 ile biter
+	PYTHONPATH=. $(UV) run --python $(PYTHON) --no-project --with-requirements requirements.txt \
+		python scripts/evaluate.py

@@ -37,7 +37,7 @@ select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
 [tool.mypy]
 strict = true
 python_version = "3.12"
-files = ["src", "tests", "scripts/build_index.py"]
+files = ["src", "tests", "scripts/build_index.py", "scripts/evaluate.py"]
 explicit_package_bases = true
 mypy_path = "."
 

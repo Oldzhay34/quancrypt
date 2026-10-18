@@ -12,8 +12,9 @@ import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
-from src.agents.base_agent import Budget
+from src.agents.base_agent import Budget, Toolbox
 from src.agents.discovery_agent import DiscoveryAgent
 from src.agents.planner_agent import PlannerAgent
 from src.agents.supervisor_agent import SupervisorAgent
@@ -79,6 +80,19 @@ from src.workflows.agent_graph import LangGraphWorkflows
 from src.workflows.orchestrator import AgentSet, Orchestrator
 
 
+class AgentBuilder(Protocol):
+    """Fresh agents for one request. The orchestrator passes only the model; the evaluation (P4.7, D-268) also wraps the
+    agents' toolboxes (`toolbox(agent name)`) and the supervisor's knowledge base, so it measures the agents exactly
+    as the service builds them."""
+
+    def __call__(
+        self,
+        llm: LLMProvider,
+        toolbox: Callable[[str], Toolbox] | None = None,
+        knowledge: KnowledgeBase | None = None,
+    ) -> AgentSet: ...
+
+
 @dataclass
 class Container:
     settings: AppSettings
@@ -103,6 +117,7 @@ class Container:
     startup: Callable[[], None]
     checkpoints: CheckpointStore
     orchestrator: Orchestrator  # the HTTP layer's only entry to sessions, messages and scans (P4.6)
+    agents: AgentBuilder  # the orchestrator's agent factory, open to the evaluation runner (D-268)
     # Background tasks started in the lifespan: the housekeeping task always, the outbox relay when enabled (D-252g).
     background: Sequence[PeriodicTask]
     # Called once at shutdown, in reverse order of registration.
@@ -169,6 +184,7 @@ def build_container(settings: AppSettings) -> Container:
     consent_reader = CoreConsentReader(registry.call)
     guard_chain = GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, embeddings))
     output_checker = OutputChecker(rule_filter, redactor, settings.agents.output_check.on_mismatch)
+    agents = _agent_factory(settings, registry, knowledge, audit)
     orchestrator = Orchestrator(
         conversation=conversation,
         audit=audit,
@@ -178,7 +194,7 @@ def build_container(settings: AppSettings) -> Container:
         guard=guard_chain,
         output_checker=output_checker,
         llm=llm,
-        agents=_agent_factory(settings, registry, knowledge, audit),
+        agents=agents,
         workflows=LangGraphWorkflows(checkpoints),
         queue_wait_s=settings.agents.session.queue_wait_s,
         clock=utc_now,
@@ -214,6 +230,7 @@ def build_container(settings: AppSettings) -> Container:
         startup=database.migrate,
         checkpoints=checkpoints,
         orchestrator=orchestrator,
+        agents=agents,
         background=background,
         _closers=closers,
     )
@@ -228,29 +245,37 @@ def _disable_remote_tracing() -> None:
 
 def _agent_factory(
     settings: AppSettings, registry: ToolRegistry, knowledge: KnowledgeBase, audit: AuditLog
-) -> Callable[[LLMProvider], AgentSet]:
-    """Fresh agents and toolboxes per request (each run has its own tool-call journal); the model is the request's."""
+) -> AgentBuilder:
+    """Fresh agents and toolboxes per request (each run has its own tool-call journal); the model is the request's.
+    `toolbox` and `knowledge` replace the registry's scoped toolboxes and the knowledge base (the evaluation, D-268)."""
     agents = settings.agents.agents
     discovery_settings = settings.agents.discovery
+    default_knowledge = knowledge
 
     def budget(name: str) -> Budget:
         limits = agents[name].budget
         return Budget(max_steps=limits.max_steps, max_tokens=limits.max_tokens, timeout_s=limits.timeout_s)
 
-    def build(llm: LLMProvider) -> AgentSet:
-        planner = PlannerAgent(registry.scoped("planner"), llm, knowledge, audit, budget("planner"))
+    def build(
+        llm: LLMProvider,
+        toolbox: Callable[[str], Toolbox] | None = None,
+        knowledge: KnowledgeBase | None = None,
+    ) -> AgentSet:
+        box = toolbox or registry.scoped
+        kb = knowledge or default_knowledge
+        planner = PlannerAgent(box("planner"), llm, kb, audit, budget("planner"))
         return AgentSet(
             discovery=DiscoveryAgent(
-                registry.scoped("discovery"),
+                box("discovery"),
                 llm,
                 audit,
                 budget("discovery"),
                 uncertain_below=discovery_settings.uncertain_below,
                 llm_confidence=discovery_settings.llm_confidence,
             ),
-            topology=TopologyAgent(registry.scoped("topology"), audit, budget("topology")),
+            topology=TopologyAgent(box("topology"), audit, budget("topology")),
             planner=planner,
-            answer=SupervisorAgent(llm, knowledge, audit, budget("supervisor"), {"planner": planner}),
+            answer=SupervisorAgent(llm, kb, audit, budget("supervisor"), {"planner": planner}),
         )
 
     return build

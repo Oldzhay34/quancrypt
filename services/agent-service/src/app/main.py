@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 
-from src.app.api import build_health_router
+from src.app.api import build_health_router, install_api
 from src.app.container import Container, build_container, build_redactor
 from src.app.logging_setup import configure_logging, trace_id_var
 from src.app.settings import AppSettings, load_settings
@@ -32,6 +32,7 @@ def create_app(settings: AppSettings | None = None, container: Container | None 
         # Migrations first: a failed migration raises here and the service does not start.
         try:
             container.startup()
+            container.start_background()
             _LOG.info("agent-service started (llm provider: %s)", settings.models.llm.provider)
             yield
         finally:
@@ -41,7 +42,7 @@ def create_app(settings: AppSettings | None = None, container: Container | None 
     # No interactive docs or schema endpoint: the contract is contracts/openapi/agent-service.yaml.
     app = FastAPI(
         title="Quancrypt agent-service",
-        version="1.0.0-draft",
+        version="1.0.0",
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -52,6 +53,14 @@ def create_app(settings: AppSettings | None = None, container: Container | None 
     )
     app.state.container = container
     app.include_router(build_health_router(container.llm_health, checks=container.readiness_checks))
+    session = settings.agents.session
+    install_api(
+        app,
+        container.orchestrator,
+        session.token.get_secret_value(),
+        session.ui_origins,
+        settings.agents.guardrails.max_request_chars,
+    )
 
     @app.middleware("http")
     async def trace_id(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

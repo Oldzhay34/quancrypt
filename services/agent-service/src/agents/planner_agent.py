@@ -14,6 +14,7 @@ the findings, their risk classes from `score_findings` and the topology — it c
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,13 +34,19 @@ from src.agents.base_agent import (
 from src.llm.provider import ChatMessage, LLMError, LLMProvider
 from src.memory.long_term import KnowledgeBase
 from src.memory.short_term import AuditLog
-from src.prompts.system_prompts import PLANNER_EXPLAIN
+from src.prompts.system_prompts import PLANNER_EXPLAIN, neutralize
 from src.prompts.templates import CLARIFICATION_QUESTIONS, no_source_note, off_note, over_budget_note
 from src.tools.base_tool import ToolError, ToolRejectedError, ToolResult
 
 _PAGE_SIZE = 200
-# Steps a plan task keeps before explanations begin: list_findings, get_topology, score_findings, create_plan, get_plan.
-_PLAN_RESERVED = 5
+# An inventory answer cites at most this many code locations (D-252i).
+_MAX_LOCATIONS = 20
+_PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+# Family codes a question may name ("Servisler arasında RSA nerede?"); `ML-KEM` is written with a hyphen in prose.
+_FAMILY_WORD = re.compile(
+    r"\b(RSA|ECDSA|ECDH|EDDSA|DSA|DH|X25519|ML[-_]KEM|ML[-_]DSA|SLH[-_]DSA|AES|TRIPLE_DES|DES|CHACHA20|SHA1|SHA2|SHA3|MD5|HMAC)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -51,6 +58,7 @@ class PlannerState(AgentState):
     plan_items: list[Mapping[str, Any]] = field(default_factory=list)
     explanations: list[dict[str, Any]] = field(default_factory=list)
     runtime: tuple[str | None, str | None] = (None, None)
+    plan_existed: bool = False
 
 
 class PlannerAgent(BaseAgent[PlannerState]):
@@ -95,14 +103,23 @@ class PlannerAgent(BaseAgent[PlannerState]):
     def act(self, context: AgentContext, state: PlannerState) -> None:
         if state.task.kind != "plan" or not state.scores:
             return
-        items = [
-            {"findingId": score["findingId"], "riskScore": score["riskScore"], "riskFactors": score["riskFactors"]}
-            for score in state.scores
-        ]
-        self._call_tool(
-            state, "create_plan", {"scanId": str(state.task.scan_id), "body": {"items": items}}, self._context(context)
-        )
-        state.plan_items = self._get_plan(context, state)
+        existing = self._existing_plan(context, state)
+        if existing is None:
+            # D-252c: no plan yet, so this request creates it; an existing plan is only read (and explained).
+            items = [
+                {"findingId": score["findingId"], "riskScore": score["riskScore"], "riskFactors": score["riskFactors"]}
+                for score in state.scores
+            ]
+            self._call_tool(
+                state,
+                "create_plan",
+                {"scanId": str(state.task.scan_id), "body": {"items": items}},
+                self._context(context),
+            )
+            state.plan_items = self._get_plan(context, state)
+        else:
+            state.plan_existed = True
+            state.plan_items = existing
         self._explain(context, state)
 
     def report(self, context: AgentContext, state: PlannerState) -> AgentResult:
@@ -171,6 +188,14 @@ class PlannerAgent(BaseAgent[PlannerState]):
             )
         except ToolRejectedError as exc:
             if exc.status == 404:  # a scan may have no topology; scoring then runs without it
+                return None
+            raise
+
+    def _existing_plan(self, context: AgentContext, state: PlannerState) -> list[Mapping[str, Any]] | None:
+        try:
+            return self._get_plan(context, state)
+        except ToolRejectedError as exc:
+            if exc.status == 404:  # no plan for this scan yet
                 return None
             raise
 
@@ -282,10 +307,14 @@ class PlannerAgent(BaseAgent[PlannerState]):
             "byRiskClass": classes,
             "explanations": state.explanations,
         }
+        data["planExisted"] = state.plan_existed
+        count = len(state.plan_items)
         if state.task.language == "en":
-            text = f"Plan created: {len(state.plan_items)} items. By risk class: {_fmt(classes)}."
+            head = "Existing plan" if state.plan_existed else "Plan created"
+            text = f"{head}: {count} items. By risk class: {_fmt(classes)}."
         else:
-            text = f"Plan oluşturuldu: {len(state.plan_items)} madde. Risk sınıfına göre: {_fmt(classes)}."
+            head = "Mevcut plan" if state.plan_existed else "Plan oluşturuldu"
+            text = f"{head}: {count} madde. Risk sınıfına göre: {_fmt(classes)}."
         return AgentResult(status="COMPLETED", text=text, data=data, evidence=tuple(state.evidence))
 
     def _inventory_result(self, state: PlannerState) -> AgentResult:
@@ -309,7 +338,32 @@ class PlannerAgent(BaseAgent[PlannerState]):
                 f"{len(state.findings)} bulgu. Algoritma ailesine göre: {_fmt(families)}. "
                 f"Önceliğe göre: {_fmt(priorities)}. Risk sınıfına göre: {_fmt(classes)}."
             )
-        return AgentResult(status="COMPLETED", text=text, data=data)
+        locations = _locations(state.findings, state.topology, state.task.question)
+        if locations:
+            listing = "; ".join(f"{loc['family']} {loc['reference']}" for loc in locations)
+            text += (" Locations: " if state.task.language == "en" else " Konumlar: ") + listing + "."
+        evidence = tuple(Evidence(kind="code_location", reference=loc["reference"]) for loc in locations)
+        data["locations"] = [loc["reference"] for loc in locations]
+        return AgentResult(status="COMPLETED", text=text, data=data, evidence=evidence)
+
+
+def _locations(
+    findings: Sequence[Mapping[str, Any]], topology: Mapping[str, Any] | None, question: str | None
+) -> list[dict[str, str]]:
+    """Code locations for an inventory answer (D-252i): the findings of a family the question names (all when it names
+    none), those on topology links (between services) first and all of them when no link carries one, most urgent
+    first, at most `_MAX_LOCATIONS` (D-257)."""
+    named = {match.upper().replace("-", "_") for match in _FAMILY_WORD.findall(question or "")}
+    on_links = {str(fid) for link in (topology or {}).get("links", []) for fid in link.get("findingIds", [])}
+    wanted = [f for f in findings if not named or f["algorithmFamily"] in named]
+    pool = [f for f in wanted if str(f["id"]) in on_links] or wanted
+    pool.sort(key=lambda f: (_PRIORITY_ORDER.get(str(f["priority"]), 9), str(f["path"]), f.get("lineStart") or 0))
+    result = []
+    for finding in pool[:_MAX_LOCATIONS]:
+        line = finding.get("lineStart")
+        reference = f"{finding['path']}:{line}" if line else str(finding["path"])
+        result.append({"family": str(finding["algorithmFamily"]), "reference": reference[:1024]})
+    return result
 
 
 def _is_answered(answer: Mapping[str, Any]) -> bool:
@@ -324,7 +378,8 @@ def _explain_prompt(
     item: Mapping[str, Any], finding: Mapping[str, Any], hits: Sequence[Mapping[str, Any]], lang: str
 ) -> str:
     sources = "\n".join(
-        f"[{index + 1}] {hit['title']} ({hit['version_tag']}): {hit['text']}" for index, hit in enumerate(hits)
+        f"[{index + 1}] {neutralize(hit['title'])} ({neutralize(hit['version_tag'])}): {neutralize(hit['text'])}"
+        for index, hit in enumerate(hits)
     )
     return (
         f"strategy: {item['strategy']}\n"

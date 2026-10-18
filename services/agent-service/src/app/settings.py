@@ -40,6 +40,8 @@ AGENT_DB_MIGRATOR_ROLE = "agent_db_migrator"
 AGENT_NAMES = ("supervisor", "discovery", "topology", "planner")
 # The internal services the tools may call (P4.3, D-239): their compose names and this machine.
 LOCAL_SERVICE_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "core-service", "analyzer-service"})
+# The outbox relay's only peer (P4.6, D-252g): ingest-api on this machine or its compose name.
+LOCAL_INGEST_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "ingest-api"})
 
 _PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 
@@ -260,6 +262,69 @@ class ServicesSettings(_Strict):
         return value
 
 
+class SessionSettings(_Strict):
+    """The HTTP layer (P4.6): the UI session token, the UI origins for CORS and the busy-session wait (D-252f)."""
+
+    token: SecretStr
+    ui_origins: tuple[str, ...] = Field(min_length=1, max_length=10)
+    queue_wait_s: float = Field(gt=0, le=300)
+
+    @field_validator("token")
+    @classmethod
+    def _real_token(cls, value: SecretStr) -> SecretStr:
+        token = value.get_secret_value()
+        if len(token) < 32 or "CHANGE_ME" in token or not token.isascii() or any(ch.isspace() for ch in token):
+            raise ValueError("token must be a real token (at least 32 characters, no CHANGE_ME, no spaces)")
+        return value
+
+    @field_validator("ui_origins")
+    @classmethod
+    def _local_origins(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        hosts = frozenset({"localhost", "127.0.0.1", "::1"})
+        return tuple(bare_local_origin(origin, hosts) for origin in value)
+
+
+class RelaySettings(_Strict):
+    """The agent_db outbox relay (P4.6, D-252g); off by default until ingest-api exists (P6.1)."""
+
+    enabled: bool
+    ingest_url: str | None
+    interval_s: float = Field(gt=0, le=3600)
+    batch_size: int = Field(ge=1, le=200)
+    max_backoff_s: float = Field(gt=0, le=3600)
+    # httpx applies this per phase and per read or write call (pool, connect, write, read); for the small batch and
+    # answer this keeps a send well inside the 4 s the relay may hold the pending rows (memory_store._RELAY_HOLD_MS,
+    # D-254a, D-258). There is no total deadline: Postgres ending the idle session at 4 s is the hard limit.
+    timeout_s: float = Field(gt=0, le=1)
+
+    @field_validator("ingest_url", mode="before")
+    @classmethod
+    def _empty_is_none(cls, value: object) -> object:
+        return None if value in (None, "") else value
+
+    @field_validator("ingest_url")
+    @classmethod
+    def _local_ingest(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        url = httpx.URL(value) if value.isascii() else None
+        if url is None or url.scheme not in ("http", "https") or url.userinfo or url.query or url.fragment:
+            raise ValueError("ingest_url must be a plain http or https URL without credentials, query or fragment")
+        if url.host not in LOCAL_INGEST_HOSTS:
+            raise ValueError(
+                f"ingest_url host must be one of: {', '.join(sorted(LOCAL_INGEST_HOSTS))} (phase 1 is local)"
+            )
+        return str(url)
+
+    @model_validator(mode="after")
+    def _url_when_enabled(self) -> RelaySettings:
+        if self.enabled and self.ingest_url is None:
+            raise ValueError("the relay needs ingest_url when it is enabled")
+        if self.max_backoff_s < self.interval_s:
+            raise ValueError("max_backoff_s must not be smaller than interval_s")
+        return self
+
+
 class AgentsConfig(_Strict):
     agents: dict[str, AgentSettings]
     guardrails: GuardrailsSettings
@@ -267,6 +332,8 @@ class AgentsConfig(_Strict):
     discovery: DiscoverySettings
     memory: MemorySettings
     services: ServicesSettings
+    session: SessionSettings
+    relay: RelaySettings
 
     @model_validator(mode="after")
     def _known_agents(self) -> AgentsConfig:

@@ -25,6 +25,7 @@ from src.memory.memory_store import (
     Database,
     DatabaseConfig,
     PostgresAuditLog,
+    PostgresCheckpointStore,
     PostgresConversationMemory,
     PostgresIdempotencyMaintenance,
     PostgresKnowledgeRepository,
@@ -417,11 +418,20 @@ def test_deleting_project_data_removes_everything_that_belongs_to_the_project_an
     PostgresScopeDecisionLog(database, utc_now, uuid4).record(
         ScopeDecisionRecord(session, "ALLOW", 0.9, "SCOPE_CLASSIFIER", 5, "tr"), warehouse_consent=True
     )
+    PostgresCheckpointStore(database, utc_now).put(session, uuid4(), "msgpack", b"\x81")
 
     result = conversation.delete_project_data(PROJECT)
 
     assert (result.sessions_deleted, result.outbox_events_deleted, result.project_ref_deleted) == (1, 1, True)
-    tables = ("project_ref", "chat_session", "chat_message", "message_evidence", "idempotency_record", "outbox_event")
+    tables = (
+        "project_ref",
+        "chat_session",
+        "chat_message",
+        "message_evidence",
+        "idempotency_record",
+        "outbox_event",
+        "graph_checkpoint",
+    )
     for table in tables:
         assert count(database, table) == 0, table
     assert count(database, "agent_run", f"id = '{run}' AND session_id IS NULL") == 1
@@ -438,6 +448,7 @@ def test_the_rolled_back_project_deletion_keeps_the_pending_event_and_the_idempo
     PostgresScopeDecisionLog(database, utc_now, uuid4).record(
         ScopeDecisionRecord(session, "ALLOW", 0.9, "SCOPE_CLASSIFIER", 5, "tr"), warehouse_consent=True
     )
+    PostgresCheckpointStore(database, utc_now).put(session, uuid4(), "msgpack", b"\x81")
 
     with failing_insert(migrator, "audit_log"), pytest.raises(DBAPIError):
         conversation.delete_project_data(PROJECT)
@@ -445,6 +456,7 @@ def test_the_rolled_back_project_deletion_keeps_the_pending_event_and_the_idempo
     assert count(database, "outbox_event") == 1
     assert count(database, "idempotency_record") == 1
     assert count(database, "project_ref") == 1
+    assert count(database, "graph_checkpoint") == 1
 
 
 def test_the_outbox_payload_equals_the_stored_decision_and_fits_the_event_contract(database: Database) -> None:
@@ -499,3 +511,67 @@ def test_a_request_behind_a_stuck_lock_gives_up_after_the_lock_timeout(
     assert getattr(caught.value.orig, "sqlstate", None) == "55P03"  # lock_not_available, not retried
     assert database.retries == 0
     assert conversation.append_user_message(session, "sonra").ordinal == 1
+
+
+# ---- graph checkpoints (P4.6, D-253; acid-3nf-database §7.4) ----
+
+
+def test_checkpoint_writes_racing_a_session_deletion_never_deadlock(
+    database: Database, conversation: PostgresConversationMemory
+) -> None:
+    store = PostgresCheckpointStore(database, utc_now)
+    baseline = deadlocks(database)
+    for round_number in range(8):
+        session = conversation.create_session(PROJECT, KEY, "tr").session.id
+        store.put(session, uuid4(), "msgpack", b"first")  # half the writes take the update path
+        jobs: list[Callable[[], object]] = [partial(store.put, session, uuid4(), "msgpack", b"next") for _ in range(3)]
+        jobs.append(partial(conversation.delete_session, session))
+
+        results = run_threads(jobs)
+
+        unexpected = [r for r in results if isinstance(r, Exception) and not isinstance(r, SessionNotFoundError)]
+        assert not unexpected, (round_number, unexpected)
+        assert count(database, "graph_checkpoint", f"session_id = '{session}'") == 0  # gone with its session
+    assert deadlocks(database) == baseline
+    assert database.retries == 0
+
+
+def test_the_purge_skips_a_locked_checkpoint_and_never_deletes_a_fresh_one(
+    database: Database, conversation: PostgresConversationMemory, migrator: Engine
+) -> None:
+    store = PostgresCheckpointStore(database, utc_now)
+    locked = conversation.create_session(PROJECT, KEY, "tr").session.id
+    fresh = conversation.create_session(PROJECT, KEY, "tr").session.id
+    store.put(locked, uuid4(), "msgpack", b"old")
+    store.put(fresh, uuid4(), "msgpack", b"new")
+    with migrator.begin() as connection:
+        connection.execute(
+            text("UPDATE graph_checkpoint SET updated_at = updated_at - interval '2 days' WHERE session_id = :s"),
+            {"s": locked},
+        )
+
+    holder = database.engine.connect()
+    transaction = holder.begin()
+    holder.execute(text("SELECT 1 FROM graph_checkpoint WHERE session_id = :s FOR UPDATE"), {"s": locked})
+    try:
+        assert store.purge_idle() == 0  # the locked row is skipped (SKIP LOCKED), not waited for
+    finally:
+        transaction.rollback()
+        holder.close()
+
+    assert store.purge_idle() == 1
+    assert count(database, "graph_checkpoint", f"session_id = '{fresh}'") == 1
+
+
+def test_a_checkpoint_that_fails_its_digest_is_ignored(
+    database: Database, conversation: PostgresConversationMemory, migrator: Engine
+) -> None:
+    store = PostgresCheckpointStore(database, utc_now)
+    session = conversation.create_session(PROJECT, KEY, "tr").session.id
+    store.put(session, uuid4(), "msgpack", b"genuine")
+    with migrator.begin() as connection:
+        connection.execute(
+            text("UPDATE graph_checkpoint SET state = decode('ff', 'hex') WHERE session_id = :s"), {"s": session}
+        )
+
+    assert store.get(session) is None

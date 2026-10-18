@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from src.agents.base_agent import AgentContext, AgentTask, Budget, TaskKind
 from src.agents.planner_agent import PlannerAgent
 from src.prompts.templates import CLARIFICATION_QUESTIONS
+from src.tools.base_tool import ToolRejectedError
 from tests.support.agent_fakes import (
     FakeClock,
     RecordingAuditLog,
@@ -119,7 +120,8 @@ def toolbox(*, answered: list[str] | None = None, kb_hits: list[dict[str, Any]] 
             "create_plan": [
                 {"id": str(uuid4()), "scanId": SCAN_ID, "createdAt": "2026-01-01T00:00:00Z", "itemCount": 1}
             ],
-            "get_plan": [plan_page()],
+            # No plan yet (404), then the plan create_plan made (D-252c).
+            "get_plan": [ToolRejectedError(404, "not-found"), plan_page()],
             "kb_search": [{"hits": kb_hits if kb_hits is not None else []}],
         },
     )
@@ -169,6 +171,7 @@ def test_a_full_profile_runs_the_planning_tools_in_order() -> None:
         "list_findings",
         "get_topology",
         "score_findings",
+        "get_plan",
         "create_plan",
         "get_plan",
         "kb_search",
@@ -238,8 +241,9 @@ def test_without_a_model_the_explanation_is_a_template_note() -> None:
 
 def test_a_tight_budget_leaves_the_plan_but_marks_the_explanation() -> None:
     box = toolbox(kb_hits=[])
-    # 6 steps: profile, list_findings, get_topology, score, create_plan, get_plan -> none left for an explanation.
-    result = run(box, ScriptedLLM(), steps=6)
+    # 7 steps: profile, list_findings, get_topology, score, get_plan (404), create_plan, get_plan -> none left for an
+    # explanation.
+    result = run(box, ScriptedLLM(), steps=7)
 
     assert result.status == "COMPLETED"
     explanation = result.data["explanations"][0]

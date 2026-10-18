@@ -28,7 +28,7 @@ from src.agents.base_agent import (
 from src.llm.provider import ChatMessage, LLMError, LLMProvider
 from src.memory.long_term import KnowledgeBase, KnowledgeUnavailableError, RuntimeVersions
 from src.memory.short_term import AuditLog
-from src.prompts.system_prompts import ANSWER_WRITER, SUPERVISOR_INTENT, unsure
+from src.prompts.system_prompts import ANSWER_WRITER, SUPERVISOR_INTENT, neutralize, unsure
 from src.prompts.templates import INTENTS, few_shot_block, match_intent
 
 _DISPATCH_INTENTS = frozenset({"inventory", "risk_priority"})
@@ -40,6 +40,8 @@ class SupervisorState(AgentState):
     sub_result: AgentResult | None = None
     answer_text: str = ""
     answer_evidence: tuple[Evidence, ...] = ()
+    # The knowledge-base passages the answer rests on: the output checker compares the answer's numbers with them.
+    passages: tuple[str, ...] = ()
 
 
 class SupervisorAgent(BaseAgent[SupervisorState]):
@@ -69,6 +71,8 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
 
     def report(self, context: AgentContext, state: SupervisorState) -> AgentResult:
         data: dict[str, Any] = {"intent": state.intent}
+        if state.passages:
+            data["passages"] = list(state.passages)
         if state.sub_result is not None:
             sub = state.sub_result
             data["inventory"] = sub.data
@@ -80,6 +84,8 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
     # ---- intent ----
 
     def _intent(self, state: SupervisorState) -> str:
+        if state.task.intent is not None:  # the task router already chose it (D-252a)
+            return state.task.intent if state.task.intent in INTENTS else "unknown"
         question = state.task.question or ""
         try:
             result = self._generate(
@@ -132,7 +138,10 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
             Evidence(kind="knowledge_base", reference=hit.source_url or hit.doc_key, source_version=hit.version_tag)
             for hit in hits
         )
-        sources = "\n".join(f"[{i + 1}] {hit.title} ({hit.version_tag}): {hit.text}" for i, hit in enumerate(hits))
+        sources = "\n".join(
+            f"[{i + 1}] {neutralize(hit.title)} ({neutralize(hit.version_tag)}): {neutralize(hit.text)}"
+            for i, hit in enumerate(hits)
+        )
         try:
             result = self._generate(
                 state,
@@ -141,8 +150,8 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
                     ChatMessage(
                         role="user",
                         content=(
-                            f"answer_language: {lang}\nQuestion: {question}\n"
-                            f"<knowledge_base>\n{sources}\n</knowledge_base>"
+                            f"answer_language: {lang}\n<knowledge_base>\n{sources}\n</knowledge_base>\n"
+                            f"<question>\n{neutralize(question)}\n</question>"
                         ),
                     ),
                 ),
@@ -160,3 +169,4 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
             return
         state.answer_text = result.text.strip()
         state.answer_evidence = evidence
+        state.passages = tuple(hit.text for hit in hits)

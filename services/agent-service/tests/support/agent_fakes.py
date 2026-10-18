@@ -47,6 +47,7 @@ TOOL_CODES: dict[str, ToolCode] = {
     "register_project": "CORE",
     "get_project": "CORE",
     "get_consents": "CORE",
+    "list_scans": "CORE",
     "analyze_crypto": "ANALYZER",
     "build_topology": "ANALYZER",
     "get_snippet": "ANALYZER",
@@ -80,7 +81,7 @@ class ScriptedToolbox:
     def __init__(
         self,
         names: Sequence[str],
-        handlers: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+        handlers: Mapping[str, Sequence[Mapping[str, Any] | Exception]] | None = None,
         *,
         errors: Mapping[str, Exception] | None = None,
         clock: Callable[[], datetime] | None = None,
@@ -110,6 +111,9 @@ class ScriptedToolbox:
         if not queue:
             raise AssertionError(f"no scripted output left for {name}")
         output = queue.pop(0)
+        if isinstance(output, Exception):  # a scripted failure in the queue (for example a 404 before a create)
+            self._record(context, code, "FAILED")
+            raise output
         self._record(context, code, "SUCCEEDED")
         return ToolResult(context.call_id, name, code, "SUCCEEDED", 1, output)
 

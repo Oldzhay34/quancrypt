@@ -248,3 +248,23 @@ services:
     circuit_breaker:
       fail_max: 3
       reset_timeout_s: 60
+
+# The HTTP layer (P4.6, guardrails-security section 6, D-252f): the UI's session token (the CLI generates it at
+# `quancrypt init`; at least 32 characters, no CHANGE_ME; the service does not start without it), the UI origins CORS
+# admits (as core-service), and how long a second request on a busy session waits before 409 session-busy.
+session:
+  token: ${QUANCRYPT_SESSION_TOKEN}
+  ui_origins: [http://127.0.0.1:8080, http://localhost:8080]
+  queue_wait_s: 30
+
+# The outbox relay (P4.6, D-252g; core-service D-155/D-156 rules): off until ingest-api exists (P6.1). A failed send
+# doubles the wait from interval_s up to max_backoff_s; a successful round resets it. The consent is read again
+# before every send and an event without it is dropped (D-232a).
+relay:
+  enabled: ${OUTBOX_RELAY_ENABLED:-false}
+  ingest_url: ${INGEST_API_URL:-}
+  interval_s: 5
+  batch_size: 100
+  max_backoff_s: 300
+  # Per httpx phase, at most 1: four phases fit the 4 s the relay may hold the rows it sends (D-254a).
+  timeout_s: 1

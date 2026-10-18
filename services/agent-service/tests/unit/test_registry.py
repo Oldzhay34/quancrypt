@@ -27,7 +27,7 @@ def test_a_toolbox_shows_only_the_tools_on_its_agents_list(registry: ToolRegistr
 
 
 def test_no_agent_may_register_projects_or_read_consents(registry: ToolRegistry) -> None:
-    workflow_only = {"register_project", "get_project", "get_consents"}
+    workflow_only = {"register_project", "get_project", "get_consents", "list_scans"}
     for agent in APPROVED_ALLOW_LISTS:
         assert not workflow_only & registry.scoped(agent).names()
 

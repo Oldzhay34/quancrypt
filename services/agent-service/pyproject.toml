@@ -178,3 +178,13 @@ type = "forbidden"
 source_modules = ["src.memory.short_term", "src.memory.long_term"]
 forbidden_modules = ["src.memory.memory_store", "sqlalchemy", "alembic", "psycopg"]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+# D-11: LangGraph (and the langchain-core it brings) is used only by the graph module; agents and the orchestrator see
+# plain Protocols.
+name = "LangGraph is imported only by src.workflows.agent_graph"
+type = "forbidden"
+source_modules = ["src.agents", "src.app", "src.evaluation", "src.guardrails", "src.llm", "src.memory", "src.prompts", "src.tools", "src.workflows"]
+forbidden_modules = ["langgraph", "langchain_core", "langsmith"]
+ignore_imports = ["src.workflows.agent_graph -> langgraph", "src.workflows.agent_graph -> langchain_core"]
+allow_indirect_imports = true

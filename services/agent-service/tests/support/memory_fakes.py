@@ -8,9 +8,9 @@ tests): ordinals, idempotency replay, deletion semantics, run states and the kno
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from src.memory.long_term import (
@@ -22,6 +22,8 @@ from src.memory.long_term import (
 )
 from src.memory.memory_store import utc_now
 from src.memory.short_term import (
+    CHECKPOINT_MAX_BYTES,
+    CHECKPOINT_STATE_TYPE,
     TRACE_ID,
     ChatMessage,
     ChatSession,
@@ -34,6 +36,7 @@ from src.memory.short_term import (
     InvalidRecordError,
     Language,
     MessagePage,
+    PendingEvent,
     ProjectDataDeletion,
     ProjectKeyMismatchError,
     Role,
@@ -46,6 +49,7 @@ from src.memory.short_term import (
     SessionCreated,
     SessionNotFoundError,
     StepRecord,
+    StoredCheckpoint,
     trim_to_window,
 )
 
@@ -187,7 +191,7 @@ class InMemoryScopeDecisionLog:
     def __init__(self, conversation: InMemoryConversationMemory) -> None:
         self._conversation = conversation
         self.decisions: list[ScopeDecisionRecord] = []
-        self.events: list[dict[str, object]] = []
+        self.events: list[PendingEvent] = []
 
     def record(self, decision: ScopeDecisionRecord, *, warehouse_consent: bool) -> ScopeDecisionResult:
         session = None if decision.session_id is None else self._conversation.sessions.get(decision.session_id)
@@ -195,8 +199,87 @@ class InMemoryScopeDecisionLog:
         self.decisions.append(stored)
         if not (warehouse_consent and session is not None):
             return ScopeDecisionResult(uuid4(), event_written=False)
-        self.events.append({"decision": decision.decision, "deciding_ring": decision.deciding_ring})
+        payload = {
+            "decision": decision.decision,
+            "confidence": decision.confidence,
+            "deciding_ring": decision.deciding_ring,
+            "latency_ms": decision.latency_ms,
+            "language": decision.language,
+        }
+        key = self._conversation.project_keys[session.project_id]
+        self.events.append(PendingEvent(uuid4(), "scope_decision", 1, key, utc_now(), payload))
         return ScopeDecisionResult(uuid4(), event_written=True)
+
+
+class InMemoryCheckpointStore:
+    """`CheckpointStore` double: one checkpoint per live session, the same monotonic guard and 24-hour purge."""
+
+    def __init__(self, conversation: InMemoryConversationMemory, clock: Callable[[], datetime] = utc_now) -> None:
+        self._conversation = conversation
+        self._clock = clock
+        self.rows: dict[UUID, StoredCheckpoint] = {}
+
+    def get(self, session_id: UUID) -> StoredCheckpoint | None:
+        if session_id not in self._conversation.sessions:  # the CASCADE of the real store
+            self.rows.pop(session_id, None)
+            return None
+        return self.rows.get(session_id)
+
+    def put(self, session_id: UUID, checkpoint_id: UUID, state_type: str, state: bytes) -> bool:
+        if state_type != CHECKPOINT_STATE_TYPE or not 0 < len(state) <= CHECKPOINT_MAX_BYTES:
+            raise InvalidRecordError("a checkpoint is msgpack, 1 to 65536 bytes")
+        if session_id not in self._conversation.sessions:
+            raise SessionNotFoundError("the session does not exist")
+        current = self.rows.get(session_id)
+        if current is not None and not current.checkpoint_id < checkpoint_id:
+            return False
+        self.rows[session_id] = StoredCheckpoint(checkpoint_id, state_type, state, self._clock())
+        return True
+
+    def purge_idle(self) -> int:
+        cutoff = self._clock() - timedelta(hours=24)
+        stale = [sid for sid, row in self.rows.items() if row.updated_at < cutoff]
+        for sid in stale:
+            del self.rows[sid]
+        return len(stale)
+
+
+class InMemoryOutboxRelayStore:
+    """`OutboxRelayStore` double over the in-memory scope log's events: oldest first, mark once, drop pending only."""
+
+    def __init__(self, conversation: InMemoryConversationMemory, scope_log: InMemoryScopeDecisionLog) -> None:
+        self._conversation = conversation
+        self._log = scope_log
+        self.published: set[UUID] = set()
+
+    def pending(self, limit: int) -> tuple[PendingEvent, ...]:
+        if not 1 <= limit <= 200:
+            raise InvalidRecordError("the relay batch is 1 to 200 events")
+        waiting = [e for e in self._log.events if e.id not in self.published]
+        return tuple(sorted(waiting, key=lambda e: (e.occurred_at, str(e.id)))[:limit])
+
+    def publish_locked(self, event_ids: Sequence[UUID], send: Callable[[tuple[PendingEvent, ...]], None]) -> int:
+        wanted = set(event_ids)
+        locked = tuple(
+            sorted(
+                (e for e in self._log.events if e.id in wanted and e.id not in self.published),
+                key=lambda e: (e.occurred_at, str(e.id)),
+            )
+        )
+        if not locked:
+            return 0
+        send(locked)  # an exception leaves everything pending
+        self.published |= {e.id for e in locked}
+        return len(locked)
+
+    def discard(self, event_ids: Sequence[UUID]) -> int:
+        doomed = {i for i in event_ids if i not in self.published}
+        before = len(self._log.events)
+        self._log.events = [e for e in self._log.events if e.id not in doomed]
+        return before - len(self._log.events)
+
+    def project_ids(self, project_key: str) -> tuple[UUID, ...]:
+        return tuple(sorted(pid for pid, key in self._conversation.project_keys.items() if key == project_key))
 
 
 class InMemoryKnowledgeRepository:

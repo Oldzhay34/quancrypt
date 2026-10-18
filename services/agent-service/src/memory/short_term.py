@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID
 
 Role = Literal["USER", "ASSISTANT"]
@@ -344,4 +344,75 @@ class ConsentReader(Protocol):
 class IdempotencyMaintenance(Protocol):
     def purge_idempotency_records(self) -> int:
         """Delete idempotency records older than 24 hours; returns how many (D-136)."""
+        ...
+
+
+# ---- graph checkpoints (P4.6, D-252e, D-253) ----
+
+CHECKPOINT_STATE_TYPE = "msgpack"
+CHECKPOINT_MAX_BYTES = 65536
+
+
+@dataclass(frozen=True)
+class StoredCheckpoint:
+    """The latest checkpoint of a session as stored: opaque bytes; the graph adapter (de)serializes them (D-11)."""
+
+    checkpoint_id: UUID
+    state_type: str
+    state: bytes
+    updated_at: datetime
+
+
+class CheckpointStore(Protocol):
+    """One row per chat session: the latest LangGraph checkpoint, codes and ids only (no chat text, D-252e)."""
+
+    def get(self, session_id: UUID) -> StoredCheckpoint | None:
+        """The stored checkpoint, or None (also when its digest does not match: it is then ignored and logged)."""
+        ...
+
+    def put(self, session_id: UUID, checkpoint_id: UUID, state_type: str, state: bytes) -> bool:
+        """Upsert the session's checkpoint; an older id never overwrites a newer one (returns False then).
+
+        Raises `SessionNotFoundError` when the session is gone and `InvalidRecordError` for a wrong type or size.
+        """
+        ...
+
+    def purge_idle(self) -> int:
+        """Delete checkpoints not written for 24 hours; returns how many (the chat history stays)."""
+        ...
+
+
+# ---- outbox relay (P4.6, D-232a, D-252g) ----
+
+
+@dataclass(frozen=True)
+class PendingEvent:
+    id: UUID
+    event_type: str
+    schema_version: int
+    project_key: str
+    occurred_at: datetime
+    payload: Mapping[str, Any]
+
+
+class OutboxRelayStore(Protocol):
+    """The relay's view of `outbox_event`: read pending events oldest first, send them under a row lock, drop
+    unconsented ones."""
+
+    def pending(self, limit: int) -> tuple[PendingEvent, ...]: ...
+
+    def publish_locked(self, event_ids: Sequence[UUID], send: Callable[[tuple[PendingEvent, ...]], None]) -> int:
+        """Lock the events among `event_ids` that are still pending, call `send` with them and mark them sent, all in
+        one transaction; returns how many were marked. Events being deleted right now (DeleteProjectData) are skipped,
+        and a DeleteProjectData that starts during the send waits for it, so no event is sent after its deletion
+        committed (D-254). If `send` raises, nothing is marked and the exception propagates. `send` is not called
+        when no event is left."""
+        ...
+
+    def discard(self, event_ids: Sequence[UUID]) -> int:
+        """Delete pending events whose project has no valid warehouse consent any more (D-232a, fail-closed)."""
+        ...
+
+    def project_ids(self, project_key: str) -> tuple[UUID, ...]:
+        """The core project ids known for a project key (a key can come back with a new id, D-233b)."""
         ...

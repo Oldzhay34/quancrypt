@@ -22,10 +22,11 @@ from tests.support.postgres import PostgresInstance, start_postgres, stop_postgr
 os.environ.setdefault("AGENT_DB_APP_PASSWORD", "unit-test-app-password")
 os.environ.setdefault("AGENT_DB_MIGRATOR_PASSWORD", "unit-test-migrator-password")
 os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "unit-test-internal-token-0123456789abcdef")
+os.environ.setdefault("QUANCRYPT_SESSION_TOKEN", "unit-test-session-token-0123456789abcdef")
 
 _ENTITY_TABLES = (
     "project_ref, chat_session, chat_message, message_evidence, agent_run, agent_step, tool_call, scope_decision, "
-    "kb_document, kb_document_applicability, kb_chunk, outbox_event, idempotency_record, audit_log"
+    "kb_document, kb_document_applicability, kb_chunk, outbox_event, idempotency_record, audit_log, graph_checkpoint"
 )
 
 

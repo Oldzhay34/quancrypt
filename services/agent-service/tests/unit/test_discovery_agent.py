@@ -101,8 +101,7 @@ def test_with_no_uncertain_findings_the_scan_runs_without_the_model() -> None:
         "analyze_crypto",
         "record_findings",
         "record_scan_artifact",
-        "complete_scan",
-    ]
+    ]  # a successful scan stays RUNNING for the topology; the workflow completes it (D-256)
     assert result.data is not None and result.data["findingsRecorded"] == 2
     assert llm.requests == []
 

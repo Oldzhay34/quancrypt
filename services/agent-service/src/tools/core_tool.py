@@ -3,7 +3,8 @@
 
 Every command that the contract gives an `Idempotency-Key` sends the call id as that key, so a retried call cannot
 create
-a second scan, a second batch of findings or a second plan. `get_consents` is on no agent's allow-list (D-238a); the
+a second scan, a second batch of findings or a second plan. `get_consents` and `list_scans` are on no agent's allow-list
+(D-238a, D-252d); the
 workflow layer reads the warehouse consent through `CoreConsentReader` (`ConsentReader`, P4.6).
 """
 
@@ -28,6 +29,7 @@ from src.tools.contracts.core_service import (
     ProjectProfile,
     Scan,
     ScanArtifact,
+    ScanPage,
     Topology,
 )
 
@@ -115,6 +117,15 @@ SPECS = (
         path_params=("scanId",),
         header_params=(("language", "Accept-Language"),),
         reply="markdown",
+    ),
+    # The workflow layer finds the session's latest completed scan (D-252d); on no agent's allow-list.
+    EndpointSpec(
+        "list_scans",
+        "GET",
+        f"{_PROJECT}/scans",
+        path_params=("projectId",),
+        query_params=("page", "size"),
+        response_model=ScanPage,
     ),
     EndpointSpec("get_consents", "GET", f"{_PROJECT}/consents", path_params=("projectId",), response_model=ConsentList),
 )

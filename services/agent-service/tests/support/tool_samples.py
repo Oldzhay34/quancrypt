@@ -165,6 +165,14 @@ SAMPLES: dict[str, tuple[dict[str, Any], str, str, int, Any, bool]] = {
         "# Migration plan\n\n1 item.\n",
         False,
     ),
+    "list_scans": (
+        {"projectId": PROJECT, "page": 0, "size": 20},
+        "GET",
+        f"/api/v1/projects/{PROJECT}/scans",
+        200,
+        {"items": [_SCAN_BODY], "page": 0, "size": 20, "totalElements": 1},
+        False,
+    ),
     "get_consents": (
         {"projectId": PROJECT},
         "GET",

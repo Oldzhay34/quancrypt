@@ -1,12 +1,11 @@
 openapi: 3.1.0
 info:
   title: Quancrypt agent-service API
-  version: 1.0.0-draft
-  description: 'TASLAK (P4.1). agent-service sohbet oturumlarını, ilk taramayı ve netleştirme sorularını sunar; yanıtlar SSE ile akar
-    (D-216). Uç adları ve olay türleri P4.1 promptundan gelir; istek ve yanıt alanları taslaktır ve ilgili fazlarda (P4.5) kesinleşir,
-    kesinleşmeden önce kullanıcı onayı gerekir. Alan adları snake_case''tir. Kimlik doğrulama: UI''ın URL parçasından okuyup her isteğe
-    `Authorization: Bearer` olarak eklediği oturum token''ı (guardrails-security bölüm 6). Hatalar RFC 9457 `application/problem+json`.
-    Sağlık uçları (`/health/liveness`, `/health/readiness`) kimliksizdir ve bu kontratta yer almaz.'
+  version: 1.0.0
+  description: 'agent-service sohbet oturumlarını, ilk taramayı ve netleştirme sorularını sunar; yanıtlar SSE ile akar (D-216).
+    P4.1 taslağı P4.6''da uygulandı (D-252); alanlar bu sürümde kesinleşir. Alan adları snake_case''tir. Kimlik doğrulama: UI''ın URL
+    parçasından okuyup her isteğe `Authorization: Bearer` olarak eklediği oturum token''ı (guardrails-security bölüm 6). Hatalar RFC 9457
+    `application/problem+json`. Sağlık uçları (`/health/liveness`, `/health/readiness`) kimliksizdir ve bu kontratta yer almaz.'
 servers:
 - url: http://127.0.0.1:8083
   description: Yerel geliştirme (docs/ports.md)
@@ -50,6 +49,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '409':
           $ref: '#/components/responses/IdempotencyConflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
         '500':
           $ref: '#/components/responses/InternalError'
   /api/v1/sessions/{id}:
@@ -110,7 +111,8 @@ paths:
       tags:
       - Mesaj
       description: 'Kullanıcı mesajını gönderir ve yanıtı SSE olarak akıtır. Akış bir akış hattıdır: `Idempotency-Key` kabul etmez.
-        Aynı oturumda bir yanıt sürerken ikinci mesaj 409 `session-busy` alır. Kapsam dışı istekte `refusal` olayı sabit ret metniyle
+        Aynı oturumda bir yanıt veya tarama sürerken ikinci istek sırada en çok 30 sn (yapılandırılabilir) bekler; süre dolarsa
+        409 `session-busy` alır (D-252f). Kapsam dışı istekte `refusal` olayı sabit ret metniyle
         gelir (crypto-domain). Yanıt başladıktan sonraki hatalar `error` olayıyla bildirilir (HTTP durumu artık değişmez).'
       parameters:
       - $ref: '#/components/parameters/TraceId'
@@ -163,7 +165,7 @@ paths:
       tags:
       - Tarama
       description: 'İlk taramayı başlatır (keşif, sonra topoloji) ve ilerlemeyi ile özet kartını SSE olarak akıtır; olay türleri
-        mesaj akışıyla aynıdır. Çalışan bir tarama varsa 409 `session-busy`. `root` analyzer-service kökü kuralına uyar.'
+        mesaj akışıyla aynıdır. Oturumda bir yanıt veya tarama sürüyorsa istek sırada en çok 30 sn bekler; süre dolarsa 409 `session-busy` (D-252f). `root` analyzer-service kökü kuralına uyar.'
       parameters:
       - $ref: '#/components/parameters/TraceId'
       - $ref: '#/components/parameters/SessionId'
@@ -386,7 +388,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     SessionBusy:
-      description: 'Oturumda bir yanıt veya tarama sürüyor (`type`: `session-busy`).'
+      description: 'Oturumda bir yanıt veya tarama sürüyor ve sıra bekleme süresi doldu (`type`: `session-busy`).'
       headers:
         X-Trace-Id:
           $ref: '#/components/headers/TraceId'

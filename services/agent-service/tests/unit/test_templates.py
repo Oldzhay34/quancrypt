@@ -70,3 +70,22 @@ def test_the_keyword_fallback_maps_each_example_to_its_intent() -> None:
 
 def test_an_unrelated_question_is_unknown() -> None:
     assert match_intent("Tell me a joke about cats.") == "unknown"
+
+
+def test_the_clarification_options_match_the_core_seed() -> None:
+    from src.prompts.templates import CLARIFICATION_OPTIONS
+
+    pattern = re.compile(
+        r"INSERT INTO clarification_option \(question_code, option_code, text_tr, text_en, sort_order\) VALUES "
+        r"\('([A-Z_]+)', '([A-Z_]+)', '([A-Z_]+)', '([A-Z_]+)', (\d+)\);"
+    )
+    seed: dict[str, list[tuple[int, str]]] = {code: [] for code in CLARIFICATION_QUESTIONS}
+    for question, option, text_tr, text_en, order in pattern.findall(SEED.read_text("utf-8")):
+        assert text_tr == option and text_en == option  # the seed's texts are the codes themselves
+        seed[question].append((int(order), option))
+    assert {code: tuple(o for _, o in sorted(items)) for code, items in seed.items()} == CLARIFICATION_OPTIONS
+
+
+def test_where_questions_are_inventory_questions() -> None:
+    assert match_intent("Servisler arasında RSA nerede?") == "inventory"
+    assert match_intent("Where is RSA used between services?") == "inventory"

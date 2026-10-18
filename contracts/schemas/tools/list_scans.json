@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "list_scans",
+  "description": "core-service ListScans (GET /api/v1/projects/{projectId}/scans), paged, newest first. On no agent's allow-list: the workflow layer picks the session's scan (D-252d).",
+  "$defs": {
+    "input": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "page": {
+          "$ref": "../../openapi/core-service.yaml#/components/parameters/Page/schema"
+        },
+        "size": {
+          "$ref": "../../openapi/core-service.yaml#/components/parameters/Size/schema"
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$ref": "../../openapi/core-service.yaml#/components/schemas/ScanPage"
+    }
+  }
+}

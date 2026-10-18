@@ -41,7 +41,7 @@ def test_every_registered_tool_has_exactly_one_valid_contract(registry: ToolRegi
     store = schemas()
 
     assert files == set(registry.names())
-    assert len(files) == 20
+    assert len(files) == 21  # P4.6 added list_scans (D-252d)
     for name in files:
         store.check_contract(name)  # Draft 2020-12, $defs.input and $defs.output, references resolve locally
 

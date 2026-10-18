@@ -54,6 +54,16 @@ CLARIFICATION_QUESTIONS: dict[str, tuple[str, str]] = {
     ),
 }
 
+# The answer options of each question, word for word as the core-service V2 seed (`clarification_option`; the seed's
+# Turkish and English texts are the codes themselves). An empty tuple is a free-text question (answer kind TEXT).
+CLARIFICATION_OPTIONS: dict[str, tuple[str, ...]] = {
+    "TLS_TERMINATION": ("APPLICATION", "INGRESS", "SERVICE_MESH", "LOAD_BALANCER", "UNKNOWN"),
+    "JDK_UPGRADE_POSSIBLE": ("YES", "NO", "UNKNOWN"),
+    "HYBRID_INCAPABLE_PARTNERS": ("YES", "NO", "UNKNOWN"),
+    "COMPLIANCE_REQUIREMENT": ("YES", "NO", "UNKNOWN"),
+    "DEVICE_HARDWARE_OPENSSL": (),
+}
+
 # At least one Turkish and one English example per intent (prompt task 7), question -> intent code.
 INTENT_EXAMPLES: tuple[tuple[str, str], ...] = (
     ("Projemde hangi şifreleme algoritmaları kullanılıyor?", "inventory"),
@@ -97,6 +107,9 @@ INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
         "what cryptography",
         "which algorithms",
         "which encryption",
+        # D-252i (UC2: "Servisler arasında RSA nerede?").
+        "nerede",
+        "where",
     ),
     "risk_priority": (
         "öncelik",
@@ -171,3 +184,10 @@ def over_budget_note(item: Mapping[str, Any], finding: Mapping[str, Any], lang: 
     if lang == "en":
         return f"{_head(item, lang)} The explanation budget was reached; the strategy and effort are above."
     return f"{_head(item, lang)} Açıklama bütçesi doldu; strateji ve efor yukarıdadır."
+
+
+def no_scan_note(lang: str) -> str:
+    """The answer to an inventory or plan question before any completed scan (no claim, D-252b)."""
+    if lang == "en":
+        return "There is no completed scan for this project yet; start the initial scan first."
+    return "Bu proje için henüz tamamlanmış bir tarama yok; önce ilk taramayı başlatın."

@@ -62,6 +62,8 @@ class AgentTask:
     scan_id: UUID | None = None
     root: str | None = None
     question: str | None = None
+    # The intent the task router chose (D-252a); when set, the supervisor does not classify again.
+    intent: str | None = None
 
 
 @dataclass

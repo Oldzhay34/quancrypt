@@ -8,7 +8,7 @@ fail, they are not skipped (P4.2, D-231b).
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -28,13 +28,16 @@ from src.memory.long_term import (
 from src.memory.memory_store import (
     Database,
     PostgresAuditLog,
+    PostgresCheckpointStore,
     PostgresConversationMemory,
     PostgresKnowledgeRepository,
+    PostgresOutboxRelayStore,
     PostgresScopeDecisionLog,
     utc_now,
 )
 from src.memory.short_term import (
     AuditLog,
+    CheckpointStore,
     ConversationMemory,
     ConversationWindow,
     DuplicateRecordError,
@@ -42,6 +45,8 @@ from src.memory.short_term import (
     IdempotencyConflictError,
     IdempotencyKey,
     InvalidRecordError,
+    OutboxRelayStore,
+    PendingEvent,
     ProjectKeyMismatchError,
     RunNotFoundError,
     RunNotRunningError,
@@ -54,8 +59,10 @@ from src.memory.short_term import (
 from tests.support.embedding import DIMENSIONS, MODEL, BagOfWordsEmbedder
 from tests.support.memory_fakes import (
     InMemoryAuditLog,
+    InMemoryCheckpointStore,
     InMemoryConversationMemory,
     InMemoryKnowledgeRepository,
+    InMemoryOutboxRelayStore,
     InMemoryScopeDecisionLog,
 )
 
@@ -527,3 +534,218 @@ _FACTORIES: tuple[Callable[..., object], ...] = (
     InMemoryScopeDecisionLog,
     InMemoryKnowledgeRepository,
 )
+
+
+# ---- graph checkpoints (P4.6, D-253) ----
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+def _ids() -> tuple[UUID, UUID, UUID]:
+    # uuid6-like order: the later id compares greater (byte order), as LangGraph's checkpoint ids do.
+    return (
+        UUID("1f1cb0a7-7994-6389-8000-000000000001"),
+        UUID("1f1cb0a7-7994-6389-8000-000000000002"),
+        UUID("1f1cb0a7-7994-6389-8000-000000000003"),
+    )
+
+
+class CheckpointContract:
+    @pytest.fixture
+    def stores(self) -> tuple[CheckpointStore, ConversationMemory, _Clock]:
+        raise NotImplementedError
+
+    def test_a_checkpoint_round_trips_per_session(
+        self, stores: tuple[CheckpointStore, ConversationMemory, _Clock]
+    ) -> None:
+        store, memory, _ = stores
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        first, _, _ = _ids()
+
+        assert store.get(session) is None
+        assert store.put(session, first, "msgpack", b"\x81\xa1a\x01") is True
+        stored = store.get(session)
+        assert stored is not None
+        assert (stored.checkpoint_id, stored.state_type, stored.state) == (first, "msgpack", b"\x81\xa1a\x01")
+
+    def test_an_older_checkpoint_never_overwrites_a_newer_one(
+        self, stores: tuple[CheckpointStore, ConversationMemory, _Clock]
+    ) -> None:
+        store, memory, _ = stores
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        first, second, third = _ids()
+
+        assert store.put(session, second, "msgpack", b"new") is True
+        assert store.put(session, first, "msgpack", b"old") is False
+        assert store.put(session, second, "msgpack", b"same") is False
+        stored = store.get(session)
+        assert stored is not None and stored.state == b"new"
+        assert store.put(session, third, "msgpack", b"newer") is True
+
+    def test_a_deleted_session_has_no_checkpoint_and_refuses_one(
+        self, stores: tuple[CheckpointStore, ConversationMemory, _Clock]
+    ) -> None:
+        store, memory, _ = stores
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        first, second, _ = _ids()
+        store.put(session, first, "msgpack", b"x")
+
+        memory.delete_session(session)
+
+        assert store.get(session) is None
+        with pytest.raises(SessionNotFoundError):
+            store.put(session, second, "msgpack", b"y")
+
+    def test_only_msgpack_up_to_64_kib_is_stored(
+        self, stores: tuple[CheckpointStore, ConversationMemory, _Clock]
+    ) -> None:
+        store, memory, _ = stores
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        first, _, _ = _ids()
+        for state_type, state in (("pickle", b"x"), ("msgpack", b""), ("msgpack", b"x" * 65537)):
+            with pytest.raises(InvalidRecordError):
+                store.put(session, first, state_type, state)
+        assert store.put(session, first, "msgpack", b"x" * 65536) is True
+
+    def test_checkpoints_idle_for_24_hours_are_purged_and_the_chat_stays(
+        self, stores: tuple[CheckpointStore, ConversationMemory, _Clock]
+    ) -> None:
+        store, memory, clock = stores
+        old = memory.create_session(PROJECT, KEY, "tr").session.id
+        fresh = memory.create_session(PROJECT, KEY, "tr").session.id
+        memory.append_user_message(old, "merhaba")
+        first, second, _ = _ids()
+        store.put(old, first, "msgpack", b"old")
+        clock.now = clock.now + timedelta(hours=23)
+        store.put(fresh, second, "msgpack", b"fresh")
+        clock.now = clock.now + timedelta(hours=2)
+
+        assert store.purge_idle() == 1
+        assert store.get(old) is None
+        assert store.get(fresh) is not None
+        assert memory.list_messages(old, 0, 10).total == 1
+
+
+class TestInMemoryCheckpoints(CheckpointContract):
+    @pytest.fixture
+    def stores(self) -> tuple[CheckpointStore, ConversationMemory, _Clock]:
+        clock = _Clock()
+        memory = InMemoryConversationMemory(WINDOW)
+        return InMemoryCheckpointStore(memory, clock), memory, clock
+
+
+@pytest.mark.postgres
+class TestPostgresCheckpoints(CheckpointContract):
+    @pytest.fixture
+    def stores(self, database: Database) -> tuple[CheckpointStore, ConversationMemory, _Clock]:
+        clock = _Clock()
+        return (
+            PostgresCheckpointStore(database, clock),
+            PostgresConversationMemory(database, WINDOW, clock, uuid4),
+            clock,
+        )
+
+
+# ---- outbox relay store (P4.6, D-232a, D-252g) ----
+
+
+def _decision(session: UUID) -> ScopeDecisionRecord:
+    return ScopeDecisionRecord(session, "DENY", None, "RULE_FILTER", 2, "tr")
+
+
+class OutboxRelayContract:
+    @pytest.fixture
+    def relay(self) -> tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]:
+        raise NotImplementedError
+
+    def test_pending_events_come_oldest_first_with_their_envelope_fields(
+        self, relay: tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]
+    ) -> None:
+        store, log, memory = relay
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        for _ in range(3):
+            log.record(_decision(session), warehouse_consent=True)
+
+        pending = store.pending(10)
+
+        assert len(pending) == 3
+        assert [e.occurred_at for e in pending] == sorted(e.occurred_at for e in pending)
+        assert {(e.event_type, e.schema_version, e.project_key) for e in pending} == {("scope_decision", 1, KEY)}
+        assert pending[0].payload["deciding_ring"] == "RULE_FILTER"
+        assert len(store.pending(2)) == 2
+
+    def test_marking_is_idempotent_and_discard_removes_only_pending_events(
+        self, relay: tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]
+    ) -> None:
+        store, log, memory = relay
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        for _ in range(3):
+            log.record(_decision(session), warehouse_consent=True)
+        first, second, third = store.pending(10)
+        sent: list[tuple[PendingEvent, ...]] = []
+
+        assert store.publish_locked([first.id], sent.append) == 1
+        assert store.publish_locked([first.id], sent.append) == 0  # already sent: not sent again
+        assert [[e.id for e in batch] for batch in sent] == [[first.id]]
+        assert store.discard([first.id, second.id]) == 1  # the sent one stays
+        assert [e.id for e in store.pending(10)] == [third.id]
+        assert store.publish_locked([], sent.append) == 0 and store.discard([]) == 0
+        assert len(sent) == 1  # `send` is not called when nothing is left
+
+    def test_a_failing_send_marks_nothing_and_a_deleted_event_is_not_sent(
+        self, relay: tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]
+    ) -> None:
+        store, log, memory = relay
+        session = memory.create_session(PROJECT, KEY, "tr").session.id
+        for _ in range(2):
+            log.record(_decision(session), warehouse_consent=True)
+        first, second = store.pending(10)
+
+        def fail(_: tuple[PendingEvent, ...]) -> None:
+            raise RuntimeError("ingest down")
+
+        with pytest.raises(RuntimeError):
+            store.publish_locked([first.id], fail)
+        assert [e.id for e in store.pending(10)] == [first.id, second.id]
+
+        store.discard([second.id])
+        sent: list[tuple[PendingEvent, ...]] = []
+        assert store.publish_locked([first.id, second.id], sent.append) == 1
+        assert [[e.id for e in batch] for batch in sent] == [[first.id]]
+
+    def test_project_ids_resolve_a_key_and_the_batch_is_bounded(
+        self, relay: tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]
+    ) -> None:
+        store, _, memory = relay
+        memory.create_session(PROJECT, KEY, "tr")
+
+        assert store.project_ids(KEY) == (PROJECT,)
+        assert store.project_ids("c" * 64) == ()
+        for limit in (0, 201):
+            with pytest.raises(InvalidRecordError):
+                store.pending(limit)
+
+
+class TestInMemoryOutboxRelay(OutboxRelayContract):
+    @pytest.fixture
+    def relay(self) -> tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]:
+        memory = InMemoryConversationMemory(WINDOW)
+        log = InMemoryScopeDecisionLog(memory)
+        return InMemoryOutboxRelayStore(memory, log), log, memory
+
+
+@pytest.mark.postgres
+class TestPostgresOutboxRelay(OutboxRelayContract):
+    @pytest.fixture
+    def relay(self, database: Database) -> tuple[OutboxRelayStore, ScopeDecisionLog, ConversationMemory]:
+        return (
+            PostgresOutboxRelayStore(database, utc_now),
+            PostgresScopeDecisionLog(database, utc_now, uuid4),
+            PostgresConversationMemory(database, WINDOW, utc_now, uuid4),
+        )

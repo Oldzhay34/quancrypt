@@ -382,3 +382,75 @@ def test_the_internal_token_is_never_printed(config_dir: Path) -> None:
     settings = load_settings()
 
     assert settings.agents.services.internal_token.get_secret_value() not in repr(settings)
+
+
+# ---- P4.6: session and relay ----
+
+
+def test_the_shipped_session_and_relay_settings(config_dir: Path) -> None:
+    settings = load_settings()
+
+    assert settings.agents.session.ui_origins == ("http://127.0.0.1:8080", "http://localhost:8080")
+    assert settings.agents.session.queue_wait_s == 30  # D-252f
+    relay = settings.agents.relay
+    assert (relay.enabled, relay.ingest_url, relay.interval_s, relay.batch_size, relay.max_backoff_s) == (
+        False,
+        None,
+        5,
+        100,
+        300,
+    )
+    assert relay.timeout_s == 1  # per httpx phase; four phases fit the 4 s row-lock hold (D-254a)
+
+
+def test_a_relay_timeout_above_one_second_is_refused() -> None:
+    from pydantic import ValidationError
+
+    from src.app.settings import RelaySettings
+
+    with pytest.raises(ValidationError):
+        RelaySettings(enabled=False, ingest_url=None, interval_s=5, batch_size=100, max_backoff_s=300, timeout_s=2)
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["short-token", "CHANGE_ME-CHANGE_ME-CHANGE_ME-CHANGE_ME", "has spaces in the middle of a long token value"],
+)
+def test_a_placeholder_or_short_session_token_stops_the_service(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch, token: str
+) -> None:
+    monkeypatch.setenv("QUANCRYPT_SESSION_TOKEN", token)
+
+    with pytest.raises(ConfigError, match="session.token") as raised:
+        load_settings()
+
+    assert token not in str(raised.value)
+
+
+def test_a_missing_session_token_stops_the_service(config_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("QUANCRYPT_SESSION_TOKEN", raising=False)
+
+    with pytest.raises(ConfigError, match="QUANCRYPT_SESSION_TOKEN"):
+        load_settings()
+
+
+def test_an_enabled_relay_needs_a_local_ingest_url(config_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OUTBOX_RELAY_ENABLED", "true")
+    with pytest.raises(ConfigError, match="relay"):
+        load_settings()
+
+    for url in ("http://evil.example/events", "http://user:pw@ingest-api:8084/x", "ftp://ingest-api/x"):
+        monkeypatch.setenv("INGEST_API_URL", url)
+        with pytest.raises(ConfigError, match="ingest_url") as raised:
+            load_settings()
+        assert "pw@" not in str(raised.value)
+
+    monkeypatch.setenv("INGEST_API_URL", "http://ingest-api:8084/api/v1/events")
+    assert load_settings().agents.relay.ingest_url == "http://ingest-api:8084/api/v1/events"
+
+
+def test_a_ui_origin_must_be_local(config_dir: Path) -> None:
+    _replace(config_dir, "agent_config.yaml", "http://localhost:8080]", "https://ui.example.com]")
+
+    with pytest.raises(ConfigError, match="ui_origins"):
+        load_settings()

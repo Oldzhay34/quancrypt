@@ -1,8 +1,10 @@
 """The discovery agent (M4, UC1): it scans a project's cryptography and records the inventory (P4.5).
 
 It starts a scan, runs the static analyzer, classifies the findings the analyzer left uncertain (with the language
-model, within a step allowance that always keeps the recording steps), records the findings and the CBOM and completes
-the scan. The inventory comes from static analysis; the language model only resolves uncertain algorithm families, and
+model, within a step allowance that always keeps the recording steps) and records the findings and the CBOM. A
+successful scan stays RUNNING: the initial-scan workflow completes it after the topology is recorded, because
+core-service takes a topology only for a running scan (D-256); on its own failure discovery closes the scan as FAILED
+(D-250b). The inventory comes from static analysis; the language model only resolves uncertain algorithm families, and
 discovery recomputes the priority of its choice with a port of the crypto-domain table (D-186, D-248d), so a family that
 needs no migration is dropped. Without a model the inventory is still recorded (NFR-05): the uncertain findings stay
 UNKNOWN.
@@ -32,7 +34,7 @@ from src.agents.base_agent import (
 )
 from src.llm.provider import ChatMessage, LLMError, LLMProvider
 from src.memory.short_term import AuditLog
-from src.prompts.system_prompts import DISCOVERY_CLASSIFY
+from src.prompts.system_prompts import DISCOVERY_CLASSIFY, neutralize
 from src.tools.base_tool import ToolError, ToolResult
 
 # ---- the priority table port (crypto-domain, D-149, D-151; port of analyzer PriorityClassifier) ----
@@ -135,9 +137,8 @@ def _weak_classic(
 # ---- the agent ----
 
 _PRIORITY_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
-# Steps kept for the tail of the run so the inventory is always written: record_findings, record_scan_artifact,
-# complete_scan.
-_RESERVED_STEPS = 3
+# Steps kept for the tail of the run so the inventory is always written: record_findings, record_scan_artifact.
+_RESERVED_STEPS = 2
 # core-service's per-scan finding limit (D-141).
 MAX_FINDINGS = 500
 # Classification stops when less than this share of the time budget is left, so recording still fits (D-250b).
@@ -199,11 +200,6 @@ class DiscoveryAgent(BaseAgent[DiscoveryState]):
     def act(self, context: AgentContext, state: DiscoveryState) -> None:
         self._classify(context, state)
         self._record(context, state)
-
-    def verify(self, context: AgentContext, state: DiscoveryState) -> None:
-        self._call_tool(
-            state, "complete_scan", {"scanId": state.scan_id, "body": {"outcome": "COMPLETED"}}, self._context(context)
-        )
 
     def _on_failure(self, context: AgentContext, state: DiscoveryState) -> bool:
         """Close a started but unfinished scan as FAILED; it would block the project's next scan (D-250b)."""
@@ -281,8 +277,8 @@ class DiscoveryAgent(BaseAgent[DiscoveryState]):
             state.classified += 1
 
     def _ask_family(self, state: DiscoveryState, finding: Mapping[str, Any], snippet: Mapping[str, Any]) -> str | None:
-        source = f"{finding['file']}:{finding['line_start'] or 1}"
-        body = "\n".join(f"{line['number']}: {line['text']}" for line in snippet["lines"])
+        source = neutralize(f"{finding['file']}:{finding['line_start'] or 1}")
+        body = "\n".join(f"{line['number']}: {neutralize(line['text'])}" for line in snippet["lines"])
         block = f'<project_data source="{source}">\n{body}\n</project_data>'
         result = self._generate(
             state,

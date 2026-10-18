@@ -39,7 +39,7 @@ def test_the_migration_builds_the_approved_schema_shape(database: Database) -> N
             "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' "
             "AND table_type = 'BASE TABLE' AND table_name <> 'alembic_version'",
         )
-        == 31
+        == 32  # P4.6 added graph_checkpoint (D-253)
     )
     with database.engine.connect() as connection:
         rows = connection.execute(
@@ -49,8 +49,8 @@ def test_the_migration_builds_the_approved_schema_shape(database: Database) -> N
             )
         ).all()
     constraints: dict[str, int] = {str(row[0]): int(row[1]) for row in rows}
-    assert constraints["f"] == 28
-    assert constraints["c"] == 44
+    assert constraints["f"] == 29
+    assert constraints["c"] == 47
     assert constraints["u"] == 21
     explicit_indexes = _scalar(
         database,
@@ -59,7 +59,7 @@ def test_the_migration_builds_the_approved_schema_shape(database: Database) -> N
         "WHERE n.nspname = 'public' AND NOT i.indisprimary AND NOT EXISTS "
         "(SELECT 1 FROM pg_constraint k WHERE k.conindid = i.indexrelid)",
     )
-    assert explicit_indexes == 11
+    assert explicit_indexes == 12
     assert _scalar(database, "SELECT count(*) FROM pg_type WHERE typtype = 'e'") == 0  # no ENUM (acid-3nf-database)
     assert (
         _scalar(
@@ -92,8 +92,8 @@ def test_applying_the_migrations_twice_changes_nothing(migrated_config: Database
             text("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")
         ).scalar_one()
     engine.dispose()
-    assert before == after == "0001"
-    assert tables == 32  # 31 schema tables + alembic_version
+    assert before == after == "0002"
+    assert tables == 33  # 32 schema tables + alembic_version
 
 
 def test_the_schema_behaves_as_designed(postgres_instance: PostgresInstance, database: Database) -> None:
@@ -148,3 +148,42 @@ def test_a_wrong_password_is_refused(migrated_config: DatabaseConfig) -> None:
     with pytest.raises(DBAPIError), wrong.connect():
         pass
     wrong.dispose()
+
+
+def test_graph_checkpoint_constraints_and_cascade(database: Database) -> None:
+    """D-253: each CHECK, the uuid type and the foreign key reject a bad row; the row goes with its session."""
+    with database.engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO project_ref VALUES ('00000000-0000-0000-0000-0000000000a1', repeat('a', 64), now())")
+        )
+        connection.execute(
+            text(
+                "INSERT INTO chat_session VALUES ('00000000-0000-0000-0000-0000000000b1', "
+                "'00000000-0000-0000-0000-0000000000a1', 'tr', now())"
+            )
+        )
+    session = "'00000000-0000-0000-0000-0000000000b1'"
+    good = f"{session}, gen_random_uuid(), 'msgpack', '\x81'::bytea, encode(sha256('\x81'::bytea), 'hex'), now()"
+    bad_rows = {
+        "ck_graph_checkpoint_type": f"{session}, gen_random_uuid(), 'pickle', '\x81'::bytea, repeat('a', 64), now()",
+        "ck_graph_checkpoint_size": f"{session}, gen_random_uuid(), 'msgpack', ''::bytea, repeat('a', 64), now()",
+        "ck_graph_checkpoint_sha": f"{session}, gen_random_uuid(), 'msgpack', '\x81'::bytea, 'not-a-digest', now()",
+        "fk_graph_checkpoint_session": (
+            "gen_random_uuid(), gen_random_uuid(), 'msgpack', '\x81'::bytea, repeat('a', 64), now()"
+        ),
+    }
+    for constraint, values in bad_rows.items():
+        with pytest.raises(DBAPIError) as caught, database.engine.begin() as connection:
+            connection.execute(text(f"INSERT INTO graph_checkpoint VALUES ({values})"))
+        assert getattr(getattr(caught.value.orig, "diag", None), "constraint_name", None) == constraint
+    with pytest.raises(DBAPIError), database.engine.begin() as connection:
+        connection.execute(
+            text(
+                f"INSERT INTO graph_checkpoint VALUES ({session}, 'not-a-uuid', 'msgpack', "
+                f"'\x81'::bytea, repeat('a', 64), now())"
+            )
+        )
+    with database.engine.begin() as connection:  # the application role writes it (D-54 default privileges)
+        connection.execute(text(f"INSERT INTO graph_checkpoint VALUES ({good})"))
+        connection.execute(text(f"DELETE FROM chat_session WHERE id = {session}"))
+        assert connection.execute(text("SELECT count(*) FROM graph_checkpoint")).scalar_one() == 0

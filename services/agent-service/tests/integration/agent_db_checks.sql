@@ -26,9 +26,9 @@ CREATE FUNCTION pg_temp.vec(seed int) RETURNS vector LANGUAGE sql AS $f$
 $f$;
 
 -- ---- şema sayımı
-SELECT pg_temp.assert('31 tablo (17 lookup + 14 varlık)',
+SELECT pg_temp.assert('32 tablo (17 lookup + 15 varlık; P4.6 graph_checkpoint)',
   (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-   AND table_name <> 'alembic_version') = 31);
+   AND table_name <> 'alembic_version') = 32);
 SELECT pg_temp.assert('ENUM tipi yok', (SELECT count(*) FROM pg_type WHERE typtype = 'e') = 0);
 SELECT pg_temp.assert('JSON kolonu yalnız outbox_event.payload',
   (SELECT string_agg(table_name || '.' || column_name, ',') FROM information_schema.columns

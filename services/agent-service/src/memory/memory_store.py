@@ -9,6 +9,7 @@ error message.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import threading
@@ -35,6 +36,8 @@ from src.memory.long_term import (
     UpsertOutcome,
 )
 from src.memory.short_term import (
+    CHECKPOINT_MAX_BYTES,
+    CHECKPOINT_STATE_TYPE,
     TRACE_ID,
     ChatMessage,
     ChatSession,
@@ -50,6 +53,7 @@ from src.memory.short_term import (
     Language,
     MemoryStoreError,
     MessagePage,
+    PendingEvent,
     ProjectDataDeletion,
     ProjectKeyMismatchError,
     Role,
@@ -63,6 +67,7 @@ from src.memory.short_term import (
     SessionCreated,
     SessionNotFoundError,
     StepRecord,
+    StoredCheckpoint,
     trim_to_window,
 )
 
@@ -75,6 +80,12 @@ _RETRYABLE_SQLSTATES = frozenset({"40P01", "40001"})
 # A request waits at most 5 s for a row lock and a statement runs at most 30 s: a stuck transaction cannot hang callers.
 _SESSION_OPTIONS = "-c lock_timeout=5000 -c statement_timeout=30000"
 _IDEMPOTENCY_TTL = timedelta(hours=24)
+# How long the relay may hold pending outbox rows while sending them: below lock_timeout (5000 ms) above (D-254). The
+# send itself is capped at 4 x relay.timeout_s (at most 1 s per httpx phase); the remaining margin covers the row lock,
+# the UPDATE and the commit, which are short single-statement steps.
+_RELAY_HOLD_MS = 4000
+# A checkpoint not written for this long is purged; the chat history stays (D-252e).
+_CHECKPOINT_IDLE = timedelta(hours=24)
 _PROVISIONAL_STATUS = 202
 _PROJECT_REF_ATTEMPTS = 3
 
@@ -688,9 +699,8 @@ class PostgresScopeDecisionLog:
                 "latency_ms": decision.latency_ms,
                 "language": decision.language,
             }
-            # TODO(P4.2-1): agent-service has no outbox relay yet. The relay (P6.1) must re-read the WAREHOUSE_ANALYTICS
-            # consent from core-service right before it sends and drop the event when the consent is gone or unreadable
-            # (fail-closed, D-232a); until then these events only accumulate.
+            # The relay (src/app/outbox_relay.py, P4.6) re-reads the WAREHOUSE_ANALYTICS consent right before it sends
+            # and drops the event when the consent is gone or unreadable (fail-closed, D-232a).
             conn.execute(
                 text(
                     "INSERT INTO outbox_event (id, event_type, schema_version, project_key, occurred_at, payload, "
@@ -718,6 +728,170 @@ class PostgresIdempotencyMaintenance:
             return conn.execute(
                 text("DELETE FROM idempotency_record WHERE created_at < :cutoff"), {"cutoff": cutoff}
             ).rowcount
+
+        return self._db.run(work)
+
+
+# ---- graph checkpoints (P4.6, D-253) ----
+
+
+class PostgresCheckpointStore:
+    """`CheckpointStore`: one row per session, single-statement writes (agent_db-transactions.md, P4.6 eki)."""
+
+    def __init__(self, database: Database, clock: Clock) -> None:
+        self._db = database
+        self._clock = clock
+
+    def get(self, session_id: UUID) -> StoredCheckpoint | None:
+        def work(conn: Connection) -> Row[Any] | None:
+            return conn.execute(
+                text(
+                    "SELECT checkpoint_id, state_type, state, state_sha256, updated_at FROM graph_checkpoint "
+                    "WHERE session_id = :sid"
+                ),
+                {"sid": session_id},
+            ).first()
+
+        row = self._db.run(work)
+        if row is None:
+            return None
+        state = bytes(row.state)
+        if hashlib.sha256(state).hexdigest() != row.state_sha256:
+            _LOG.warning("A graph checkpoint failed its digest check and is ignored")
+            return None
+        return StoredCheckpoint(row.checkpoint_id, row.state_type, state, row.updated_at)
+
+    def put(self, session_id: UUID, checkpoint_id: UUID, state_type: str, state: bytes) -> bool:
+        if state_type != CHECKPOINT_STATE_TYPE:
+            raise InvalidRecordError("a checkpoint is stored as msgpack only")
+        if not 0 < len(state) <= CHECKPOINT_MAX_BYTES:
+            raise InvalidRecordError("a checkpoint must be 1 to 65536 bytes")
+        values = {
+            "sid": session_id,
+            "cid": checkpoint_id,
+            "type": state_type,
+            "state": state,
+            "sha": hashlib.sha256(state).hexdigest(),
+            "now": self._clock(),
+        }
+
+        def work(conn: Connection) -> bool:
+            # The monotonic guard: an overlapping older write never overwrites a newer checkpoint (uuid6 byte order).
+            written = conn.execute(
+                text(
+                    "INSERT INTO graph_checkpoint "
+                    "(session_id, checkpoint_id, state_type, state, state_sha256, updated_at) "
+                    "VALUES (:sid, :cid, :type, :state, :sha, :now) "
+                    "ON CONFLICT (session_id) DO UPDATE SET checkpoint_id = EXCLUDED.checkpoint_id, "
+                    "state_type = EXCLUDED.state_type, state = EXCLUDED.state, state_sha256 = EXCLUDED.state_sha256, "
+                    "updated_at = EXCLUDED.updated_at WHERE graph_checkpoint.checkpoint_id < EXCLUDED.checkpoint_id "
+                    "RETURNING session_id"
+                ),
+                values,
+            ).first()
+            return written is not None
+
+        try:
+            return self._db.run(work)
+        except IntegrityError as exc:
+            if _constraint(exc) == "fk_graph_checkpoint_session":
+                raise SessionNotFoundError("the session does not exist") from None
+            raise
+
+    def purge_idle(self) -> int:
+        cutoff = self._clock() - _CHECKPOINT_IDLE
+
+        def work(conn: Connection) -> int:
+            # SKIP LOCKED: never wait behind a DeleteProjectData cascade that locks rows in session order.
+            return conn.execute(
+                text(
+                    "DELETE FROM graph_checkpoint WHERE session_id IN (SELECT session_id FROM graph_checkpoint "
+                    "WHERE updated_at < :cutoff ORDER BY session_id FOR UPDATE SKIP LOCKED)"
+                ),
+                {"cutoff": cutoff},
+            ).rowcount
+
+        return self._db.run(work)
+
+
+# ---- outbox relay (P4.6, D-232a, D-252g) ----
+
+
+class PostgresOutboxRelayStore:
+    """`OutboxRelayStore`: pending events oldest first; mark sent ones and drop unconsented ones (D-232a)."""
+
+    def __init__(self, database: Database, clock: Clock) -> None:
+        self._db = database
+        self._clock = clock
+
+    def pending(self, limit: int) -> tuple[PendingEvent, ...]:
+        if not 1 <= limit <= 200:
+            raise InvalidRecordError("the relay batch is 1 to 200 events")
+
+        def work(conn: Connection) -> tuple[PendingEvent, ...]:
+            rows = conn.execute(
+                text(
+                    "SELECT id, event_type, schema_version, project_key, occurred_at, payload FROM outbox_event "
+                    "WHERE published_at IS NULL ORDER BY occurred_at, id LIMIT :limit"
+                ),
+                {"limit": limit},
+            ).all()
+            return tuple(
+                PendingEvent(r.id, r.event_type, r.schema_version, r.project_key.strip(), r.occurred_at, r.payload)
+                for r in rows
+            )
+
+        return self._db.run(work)
+
+    def publish_locked(self, event_ids: Sequence[UUID], send: Callable[[tuple[PendingEvent, ...]], None]) -> int:
+        if not event_ids:
+            return 0
+
+        def work(conn: Connection) -> int:
+            # The send waits inside this transaction; Postgres ends the session if it stays idle longer than
+            # _RELAY_HOLD_MS, so a DeleteProjectData waiting on these rows (lock_timeout 5000 ms) always gets them.
+            conn.execute(text(f"SET LOCAL idle_in_transaction_session_timeout = {_RELAY_HOLD_MS}"))
+            rows = conn.execute(
+                text(
+                    "SELECT id, event_type, schema_version, project_key, occurred_at, payload FROM outbox_event "
+                    "WHERE id = ANY(:ids) AND published_at IS NULL ORDER BY occurred_at, id FOR UPDATE SKIP LOCKED"
+                ),
+                {"ids": list(event_ids)},
+            ).all()
+            if not rows:
+                return 0
+            send(
+                tuple(
+                    PendingEvent(r.id, r.event_type, r.schema_version, r.project_key.strip(), r.occurred_at, r.payload)
+                    for r in rows
+                )
+            )
+            return conn.execute(
+                text("UPDATE outbox_event SET published_at = GREATEST(:now, occurred_at) WHERE id = ANY(:ids)"),
+                {"now": self._clock(), "ids": [r.id for r in rows]},
+            ).rowcount
+
+        return self._db.run(work)
+
+    def discard(self, event_ids: Sequence[UUID]) -> int:
+        if not event_ids:
+            return 0
+
+        def work(conn: Connection) -> int:
+            return conn.execute(
+                text("DELETE FROM outbox_event WHERE id = ANY(:ids) AND published_at IS NULL"),
+                {"ids": list(event_ids)},
+            ).rowcount
+
+        return self._db.run(work)
+
+    def project_ids(self, project_key: str) -> tuple[UUID, ...]:
+        def work(conn: Connection) -> tuple[UUID, ...]:
+            rows = conn.execute(
+                text("SELECT project_id FROM project_ref WHERE project_key = :key ORDER BY project_id"),
+                {"key": project_key},
+            ).all()
+            return tuple(row.project_id for row in rows)
 
         return self._db.run(work)
 

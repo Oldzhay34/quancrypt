@@ -1,17 +1,33 @@
 """Composition root: the only place where concrete classes are built (agent-service-layout section 3).
 
 P4.1 built the LLM side; P4.2 added the database and the memory ports; P4.3 the tools (registry, allow-lists, service
-clients); P4.4 the scope keeper chain and the output checker. Later phases add agents and the workflow.
+clients); P4.4 the scope keeper chain and the output checker; P4.6 the agents (built fresh per request by the agent
+factory), the orchestrator, the outbox relay and the housekeeping task.
 """
 
 from __future__ import annotations
 
+import os
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from src.agents.base_agent import Budget
+from src.agents.discovery_agent import DiscoveryAgent
+from src.agents.planner_agent import PlannerAgent
+from src.agents.supervisor_agent import SupervisorAgent
+from src.agents.topology_agent import TopologyAgent
 from src.app.api import ReadinessCheck
+from src.app.outbox_relay import (
+    HOUSEKEEPING_INTERVAL_S,
+    Backoff,
+    HttpEventPublisher,
+    OutboxRelay,
+    PeriodicTask,
+    housekeeping_work,
+    relay_work,
+)
 from src.app.settings import (
     LOCAL_SERVICE_HOSTS,
     AppSettings,
@@ -35,14 +51,17 @@ from src.memory.memory_store import (
     DatabaseConfig,
     DatabaseReadiness,
     PostgresAuditLog,
+    PostgresCheckpointStore,
     PostgresConversationMemory,
     PostgresIdempotencyMaintenance,
     PostgresKnowledgeRepository,
+    PostgresOutboxRelayStore,
     PostgresScopeDecisionLog,
     utc_now,
 )
 from src.memory.short_term import (
     AuditLog,
+    CheckpointStore,
     ConsentReader,
     ConversationMemory,
     ConversationWindow,
@@ -56,6 +75,8 @@ from src.tools.core_tool import CoreConsentReader, core_tools
 from src.tools.kb_search_tool import KbSearchTool
 from src.tools.registry import ToolRegistry
 from src.tools.risk_model_tool import RuleBaselineRiskModel, ScoreFindingsTool
+from src.workflows.agent_graph import LangGraphWorkflows
+from src.workflows.orchestrator import AgentSet, Orchestrator
 
 
 @dataclass
@@ -80,8 +101,17 @@ class Container:
     readiness_checks: Sequence[ReadinessCheck]
     # Runs once at startup (lifespan): the migrations. A failure stops the service (acid-3nf-database section 4).
     startup: Callable[[], None]
+    checkpoints: CheckpointStore
+    orchestrator: Orchestrator  # the HTTP layer's only entry to sessions, messages and scans (P4.6)
+    # Background tasks started in the lifespan: the housekeeping task always, the outbox relay when enabled (D-252g).
+    background: Sequence[PeriodicTask]
     # Called once at shutdown, in reverse order of registration.
     _closers: list[Callable[[], None]] = field(default_factory=list)
+
+    def start_background(self) -> None:
+        for task in self.background:
+            task.start()
+            self._closers.append(task.stop)
 
     def close(self) -> None:
         while self._closers:
@@ -89,6 +119,7 @@ class Container:
 
 
 def build_container(settings: AppSettings) -> Container:
+    _disable_remote_tracing()
     closers: list[Callable[[], None]] = []
     llm: LLMProvider
     embeddings: EmbeddingProvider
@@ -130,27 +161,99 @@ def build_container(settings: AppSettings) -> Container:
         schemas,
         redactor,
     )
+    audit = PostgresAuditLog(database, utc_now, uuid.uuid4)
+    conversation = PostgresConversationMemory(database, window, utc_now, uuid.uuid4)
+    scope_decisions = PostgresScopeDecisionLog(database, utc_now, uuid.uuid4)
+    idempotency = PostgresIdempotencyMaintenance(database, utc_now)
+    checkpoints = PostgresCheckpointStore(database, utc_now)
+    consent_reader = CoreConsentReader(registry.call)
+    guard_chain = GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, embeddings))
+    output_checker = OutputChecker(rule_filter, redactor, settings.agents.output_check.on_mismatch)
+    orchestrator = Orchestrator(
+        conversation=conversation,
+        audit=audit,
+        scope_log=scope_decisions,
+        consent=consent_reader,
+        call_tool=registry.call,
+        guard=guard_chain,
+        output_checker=output_checker,
+        llm=llm,
+        agents=_agent_factory(settings, registry, knowledge, audit),
+        workflows=LangGraphWorkflows(checkpoints),
+        queue_wait_s=settings.agents.session.queue_wait_s,
+        clock=utc_now,
+    )
+    background = [PeriodicTask("housekeeping", housekeeping_work(idempotency, checkpoints), HOUSEKEEPING_INTERVAL_S)]
+    relay_settings = settings.agents.relay
+    if relay_settings.enabled and relay_settings.ingest_url is not None:
+        publisher = HttpEventPublisher(relay_settings.ingest_url, relay_settings.timeout_s)
+        closers.append(publisher.close)
+        relay = OutboxRelay(
+            PostgresOutboxRelayStore(database, utc_now), consent_reader, publisher, relay_settings.batch_size
+        )
+        backoff = Backoff(relay_settings.interval_s, relay_settings.max_backoff_s)
+        background.append(PeriodicTask("outbox-relay", relay_work(relay, backoff), relay_settings.interval_s))
     return Container(
         settings=settings,
         llm=llm,
         embeddings=embeddings,
         llm_health=llm_health,
         database=database,
-        conversation=PostgresConversationMemory(database, window, utc_now, uuid.uuid4),
-        audit=PostgresAuditLog(database, utc_now, uuid.uuid4),
-        scope_decisions=PostgresScopeDecisionLog(database, utc_now, uuid.uuid4),
-        idempotency=PostgresIdempotencyMaintenance(database, utc_now),
+        conversation=conversation,
+        audit=audit,
+        scope_decisions=scope_decisions,
+        idempotency=idempotency,
         knowledge=knowledge,
         knowledge_index=knowledge,
         redactor=redactor,
         tools=registry,
-        consent_reader=CoreConsentReader(registry.call),
-        guard_chain=GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, embeddings)),
-        output_checker=OutputChecker(rule_filter, redactor, settings.agents.output_check.on_mismatch),
+        consent_reader=consent_reader,
+        guard_chain=guard_chain,
+        output_checker=output_checker,
         readiness_checks=(DatabaseReadiness(database),),
         startup=database.migrate,
+        checkpoints=checkpoints,
+        orchestrator=orchestrator,
+        background=background,
         _closers=closers,
     )
+
+
+def _disable_remote_tracing() -> None:
+    """LangGraph brings langchain-core, which brings the LangSmith client: it sends traces to a cloud service only when
+    tracing is switched on in the environment. Phase 1 is local (guardrails-security section 1), so it is forced off."""
+    for name in ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGCHAIN_TRACING"):
+        os.environ[name] = "false"
+
+
+def _agent_factory(
+    settings: AppSettings, registry: ToolRegistry, knowledge: KnowledgeBase, audit: AuditLog
+) -> Callable[[LLMProvider], AgentSet]:
+    """Fresh agents and toolboxes per request (each run has its own tool-call journal); the model is the request's."""
+    agents = settings.agents.agents
+    discovery_settings = settings.agents.discovery
+
+    def budget(name: str) -> Budget:
+        limits = agents[name].budget
+        return Budget(max_steps=limits.max_steps, max_tokens=limits.max_tokens, timeout_s=limits.timeout_s)
+
+    def build(llm: LLMProvider) -> AgentSet:
+        planner = PlannerAgent(registry.scoped("planner"), llm, knowledge, audit, budget("planner"))
+        return AgentSet(
+            discovery=DiscoveryAgent(
+                registry.scoped("discovery"),
+                llm,
+                audit,
+                budget("discovery"),
+                uncertain_below=discovery_settings.uncertain_below,
+                llm_confidence=discovery_settings.llm_confidence,
+            ),
+            topology=TopologyAgent(registry.scoped("topology"), audit, budget("topology")),
+            planner=planner,
+            answer=SupervisorAgent(llm, knowledge, audit, budget("supervisor"), {"planner": planner}),
+        )
+
+    return build
 
 
 def build_redactor(settings: AppSettings) -> Redactor:

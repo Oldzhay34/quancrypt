@@ -45,7 +45,7 @@ public final class GetSnippetService implements GetSnippetUseCase {
         RelativePath path = Inputs.path(query.path());
         int line = Inputs.line(query.line());
         int context = Inputs.context(query.context());
-        if (sensitiveFiles.isRefused(path)) {
+        if (sensitiveFiles.isRefused(path) || java.util.Arrays.asList(query.root().toLowerCase(java.util.Locale.ROOT).split("/")).contains(".quancrypt")) {
             throw new AnalyzerUseCaseException(ProblemCode.PATH_NOT_ALLOWED, "snippets of secret-bearing files are not served");
         }
         return Failures.translate(() -> {

@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  */
 public final class FileClassifier {
 
-    private static final Set<String> TOOL_DIRECTORIES = Set.of(".git", ".gradle", ".idea", "node_modules");
+    private static final Set<String> TOOL_DIRECTORIES = Set.of(".git", ".gradle", ".idea", ".quancrypt", "node_modules");
     private static final Set<String> OUTPUT_DIRECTORIES = Set.of("build", "target");
     private static final Set<String> BUILD_FILES = Set.of("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
             "settings.gradle.kts");

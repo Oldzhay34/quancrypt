@@ -50,6 +50,7 @@ class FileClassifierTest {
         assertThat(classifier.skipsDirectory("node_modules", Set.of("package.json"))).isTrue();
         assertThat(classifier.skipsDirectory(".gradle", Set.of())).isTrue();
         assertThat(classifier.skipsDirectory(".idea", Set.of())).isTrue();
+        assertThat(classifier.skipsDirectory(".quancrypt", Set.of())).isTrue();
     }
 
     @Test

@@ -1,0 +1,77 @@
+annotated-doc==0.0.5
+    # via typer
+anyio==4.15.1
+    # via httpx
+ast-serialize==0.13.1
+    # via mypy
+certifi==2026.10.18
+    # via
+    #   httpcore
+    #   httpx
+click==8.5.0
+    # via import-linter
+coverage==7.16.2
+    # via -r requirements-dev.in
+grimp==3.17
+    # via import-linter
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via
+    #   -r requirements.in
+    #   respx
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+import-linter==2.15
+    # via -r requirements-dev.in
+iniconfig==2.3.1
+    # via pytest
+librt==0.16.0
+    # via mypy
+markdown-it-py==4.2.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
+mypy==2.4.0
+    # via -r requirements-dev.in
+mypy-extensions==1.1.0
+    # via mypy
+packaging==26.3
+    # via pytest
+pathspec==1.1.1
+    # via mypy
+pluggy==1.7.0
+    # via pytest
+pygments==2.21.0
+    # via
+    #   pytest
+    #   rich
+pytest==9.1.1
+    # via -r requirements-dev.in
+pyyaml==6.0.3
+    # via -r requirements.in
+respx==0.23.1
+    # via -r requirements-dev.in
+rich==15.0.0
+    # via
+    #   import-linter
+    #   typer
+ruff==0.16.10
+    # via -r requirements-dev.in
+shellingham==1.5.4
+    # via typer
+tenacity==9.1.4
+    # via -r requirements.in
+typer==0.27.2
+    # via -r requirements.in
+types-pyyaml==6.0.12.20260906
+    # via -r requirements-dev.in
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   import-linter
+    #   mypy

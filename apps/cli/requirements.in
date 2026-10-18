@@ -1,0 +1,5 @@
+# Runtime dependencies (D-28: compiled to requirements.txt with `uv pip compile`); versions come from docs/VERSIONS.md.
+typer==0.27.2
+httpx==0.28.1
+PyYAML==6.0.3
+tenacity==9.1.4

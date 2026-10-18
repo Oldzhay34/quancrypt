@@ -1,0 +1,153 @@
+[build-system]
+requires = ["uv_build==0.12.23"]
+build-backend = "uv_build"
+
+[project]
+name = "quancrypt-cli"
+version = "1.0.0"
+description = "Quancrypt command line: `quancrypt init` sets Quancrypt up in a Spring Boot project root and opens the local web UI"
+requires-python = ">=3.12"
+# Dependencies are pinned in requirements.in / requirements.txt (D-28); `uv tool install ./apps/cli` resolves them from here.
+dependencies = [
+    "typer==0.27.2",
+    "httpx==0.28.1",
+    "PyYAML==6.0.3",
+    "tenacity==9.1.4",
+]
+
+[project.scripts]
+quancrypt = "quancrypt_cli.__main__:main"
+
+[tool.uv.build-backend]
+module-name = "quancrypt_cli"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs Docker, built service images and a prepared Quancrypt home (QUANCRYPT_HOME); only `make integration` runs it, never `make verify`",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks; the tests run fixed local addresses, temp files and the docker CLI on purpose.
+"tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607"]
+# User-facing prose in two languages: long lines are the texts, not code.
+"src/quancrypt_cli/api/messages.py" = ["E501"]
+# The one module that runs the docker CLI: a fixed argument list, never a shell (D-277).
+"src/quancrypt_cli/infrastructure/docker_compose_runner.py" = ["S603", "S607"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = ["src", "."]
+packages = ["quancrypt_cli", "tests"]
+explicit_package_bases = true
+
+[tool.coverage.run]
+source = ["quancrypt_cli"]
+branch = true
+
+[tool.importlinter]
+root_package = "quancrypt_cli"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain depends on nothing in the package"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.domain"]
+forbidden_modules = [
+    "quancrypt_cli.api",
+    "quancrypt_cli.facade",
+    "quancrypt_cli.port",
+    "quancrypt_cli.usecase",
+    "quancrypt_cli.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "port depends only on domain"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.port"]
+forbidden_modules = [
+    "quancrypt_cli.api",
+    "quancrypt_cli.facade",
+    "quancrypt_cli.usecase",
+    "quancrypt_cli.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "usecase depends only on port and domain"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.usecase"]
+forbidden_modules = [
+    "quancrypt_cli.api",
+    "quancrypt_cli.facade",
+    "quancrypt_cli.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "facade depends only on port.inbound"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.facade"]
+forbidden_modules = [
+    "quancrypt_cli.api",
+    "quancrypt_cli.domain",
+    "quancrypt_cli.port.outbound",
+    "quancrypt_cli.usecase",
+    "quancrypt_cli.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "api depends only on facade"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.api"]
+forbidden_modules = [
+    "quancrypt_cli.domain",
+    "quancrypt_cli.port",
+    "quancrypt_cli.usecase",
+    "quancrypt_cli.infrastructure",
+]
+
+[[tool.importlinter.contracts]]
+name = "infrastructure does not call use cases, facades or the api"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.infrastructure"]
+forbidden_modules = [
+    "quancrypt_cli.api",
+    "quancrypt_cli.facade",
+    "quancrypt_cli.port.inbound",
+    "quancrypt_cli.usecase",
+]
+# The composition root (container.py) is the one infrastructure module that sees every layer, as config/ does in Java.
+ignore_imports = [
+    "quancrypt_cli.infrastructure.container -> quancrypt_cli.usecase.*",
+    "quancrypt_cli.infrastructure.container -> quancrypt_cli.facade.*",
+]
+
+[[tool.importlinter.contracts]]
+name = "frameworks and process libraries stay in their layers"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.domain", "quancrypt_cli.port", "quancrypt_cli.usecase", "quancrypt_cli.facade"]
+forbidden_modules = ["typer", "click", "httpx", "yaml", "tenacity", "subprocess", "webbrowser"]
+
+[[tool.importlinter.contracts]]
+name = "the Typer commands do not reach the HTTP, YAML or process libraries"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["quancrypt_cli.api"]
+forbidden_modules = ["httpx", "yaml", "tenacity", "subprocess", "webbrowser"]

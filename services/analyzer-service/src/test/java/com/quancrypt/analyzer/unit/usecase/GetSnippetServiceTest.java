@@ -1,5 +1,6 @@
 package com.quancrypt.analyzer.unit.usecase;
 
+import com.quancrypt.analyzer.port.inbound.AnalyzerUseCaseException;
 import static com.quancrypt.analyzer.unit.usecase.Fixtures.MAVEN_ROOT;
 import static com.quancrypt.analyzer.unit.usecase.Fixtures.assertProblem;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,12 @@ class GetSnippetServiceTest {
     void aLineAfterTheEndOrAMissingFileIsNotFound() {
         assertProblem(() -> service.get(new GetSnippetQuery(MAVEN_ROOT, FILE, 31, 3)), ProblemCode.NOT_FOUND);
         assertProblem(() -> service.get(new GetSnippetQuery(MAVEN_ROOT, "src/main/java/Missing.java", 1, 3)), ProblemCode.NOT_FOUND);
+    }
+
+    @Test
+    void aRootInsideTheQuancryptStateDirectoryIsRefused() {
+        assertThatThrownBy(() -> service.get(new GetSnippetQuery("/workspace/.quancrypt", "session.token", 1, 0)))
+                .isInstanceOf(AnalyzerUseCaseException.class);
     }
 
     @Test

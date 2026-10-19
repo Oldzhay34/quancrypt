@@ -18,9 +18,12 @@ public abstract class ConsentPortsContract extends PortContract {
         return ports.privacyNotices().latest().orElseThrow();
     }
 
+    /** The latest notice version of the adapter under test: the fake holds version 1, the migrated database version 2 (V4, D-284). */
+    protected abstract int expectedLatestNoticeVersion();
+
     @Test
-    void latestPrivacyNoticeIsVersionOne() {
-        assertThat(notice().version()).isEqualTo(1);
+    void latestPrivacyNoticeIsTheHighestVersion() {
+        assertThat(notice().version()).isEqualTo(expectedLatestNoticeVersion());
     }
 
     @Test

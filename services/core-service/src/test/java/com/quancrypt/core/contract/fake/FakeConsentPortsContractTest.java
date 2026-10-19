@@ -10,4 +10,9 @@ class FakeConsentPortsContractTest extends ConsentPortsContract {
     protected PortSet newPorts() {
         return PortSet.fake();
     }
+
+    @Override
+    protected int expectedLatestNoticeVersion() {
+        return 1;
+    }
 }

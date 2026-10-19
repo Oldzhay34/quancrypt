@@ -1,0 +1,67 @@
+.shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+}
+.brand {
+    flex: none;
+}
+.project {
+    flex: 1;
+    color: var(--muted);
+}
+.header select {
+    font: inherit;
+    padding: 0.3rem;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+.body {
+    flex: 1;
+    display: flex;
+}
+.nav {
+    width: 12rem;
+    padding: 1rem 0.75rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.link,
+.active {
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text);
+}
+.active {
+    background: var(--accent);
+    color: var(--on-accent);
+}
+.main {
+    flex: 1;
+    padding: 1.5rem;
+}
+@media (max-width: 700px) {
+    .body {
+        flex-direction: column;
+    }
+    .nav {
+        width: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+}

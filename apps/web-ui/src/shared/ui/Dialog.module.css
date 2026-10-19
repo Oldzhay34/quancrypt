@@ -1,0 +1,28 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgb(0 0 0 / 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+.panel {
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 1.25rem;
+    max-width: 30rem;
+    width: calc(100% - 2rem);
+    border: 1px solid var(--border);
+}
+.title {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+}
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}

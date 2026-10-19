@@ -1,0 +1,57 @@
+import type { MessageKey } from './tr';
+
+export const en: Record<MessageKey, string> = {
+    'app.title': 'Quancrypt',
+    'lang.label': 'Language',
+    'nav.chat': 'Chat',
+    'nav.inventory': 'Inventory',
+    'nav.topology': 'Topology',
+    'nav.plan': 'Plan',
+    'nav.settings': 'Settings',
+    'nav.label': 'Main menu',
+    'header.project': 'Project',
+    'header.stop': 'Stop',
+    'header.stopping': 'Stopping…',
+    'placeholder.comingSoon': 'This screen will be added in a later stage.',
+    'common.loading': 'Loading…',
+    'common.retry': 'Try again',
+    'common.cancel': 'Cancel',
+    'common.confirm': 'Confirm',
+    'common.error': 'Something went wrong',
+    'error.network': 'The service could not be reached. Make sure the Quancrypt services are running.',
+    'error.conflict': 'The record was changed elsewhere. Reload the page and try again.',
+    'error.generic': 'The request could not be completed.',
+    'auth.missing.title': 'No session key',
+    'auth.missing.body':
+        'This interface only opens with a Quancrypt session key. Run `quancrypt init` in your project, then open the address `http://127.0.0.1:8080/#token=` followed by the content of the `.quancrypt/session.token` file in your project.',
+    'auth.rejected.title': 'Session is not valid',
+    'auth.rejected.body':
+        'The services did not accept the session key (a new `quancrypt init` may have replaced it). Open the address again with the current key from `.quancrypt/session.token`.',
+    'project.none.title': 'No registered project',
+    'project.none.body': 'Run `quancrypt init` in your project root.',
+    'consent.title': 'Privacy notice and consents',
+    'consent.notice.version': 'Privacy notice version {version}',
+    'consent.notice.disclaimer': 'This text is not legal advice.',
+    'consent.intro':
+        'Analysis does not require consent. The two consents below are optional and off by default.',
+    'consent.WAREHOUSE_ANALYTICS.title': 'Analytics (WAREHOUSE_ANALYTICS)',
+    'consent.WAREHOUSE_ANALYTICS.desc':
+        'Anonymous, coded events are sent to the local analytics store and used in dashboards.',
+    'consent.MODEL_TRAINING.title': 'Model training (MODEL_TRAINING)',
+    'consent.MODEL_TRAINING.desc': 'The same anonymous data is used to train local risk models.',
+    'consent.continue': 'Continue',
+    'consent.saving': 'Saving…',
+    'consent.withoutConsentHint': 'You can continue without consent; analysis still works.',
+    'consent.state.on': 'On',
+    'consent.state.off': 'Off',
+    'settings.title': 'Settings',
+    'settings.consents.title': 'Consents',
+    'settings.consents.help': 'You can withdraw a consent at any time.',
+    'settings.notice.link': 'Show the privacy notice',
+    'settings.notice.hide': 'Hide the privacy notice',
+    'settings.revoke.title': 'Withdraw consent',
+    'settings.revoke.WAREHOUSE_ANALYTICS':
+        'This project’s events not yet sent will be discarded and the deletion of its records in the warehouse will be requested. Continue?',
+    'settings.revoke.MODEL_TRAINING':
+        'This project’s data will no longer be used for model training. Continue?',
+};

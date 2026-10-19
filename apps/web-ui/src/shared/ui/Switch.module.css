@@ -1,0 +1,33 @@
+.row {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.text {
+    flex: 1;
+}
+.label {
+    font-weight: 600;
+}
+.description {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+}
+.control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.input {
+    width: 2.4rem;
+    height: 1.3rem;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+.state {
+    min-width: 3rem;
+    color: var(--muted);
+}

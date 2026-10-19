@@ -127,7 +127,7 @@ class ContractConformanceTest extends IntegrationTest {
     void everyOperationAnswersAsTheContractDeclares() {
         // privacy notice and project
         Reply notice = expect("GetPrivacyNotice", 200, ui(call("GetPrivacyNotice")));
-        assertThat(notice.json().get("version").asInt()).isEqualTo(1);
+        assertThat(notice.json().get("version").asInt()).isEqualTo(2);
         Map<String, Object> registration = Map.of("identity", "git@example.com:bank/payments.git", "displayName", "Payments");
         Reply registered = expect("RegisterProject", 201, ui(call("RegisterProject")).header("Idempotency-Key", "reg-1").json(registration));
         String projectId = registered.json().get("id").asString();
@@ -148,7 +148,10 @@ class ContractConformanceTest extends IntegrationTest {
 
         // consent (UI token only)
         Reply consent = expect("GrantConsent", 201, ui(call("GrantConsent", "projectId", projectId))
-                .json(Map.of("consentType", "WAREHOUSE_ANALYTICS", "privacyNoticeVersion", 1)));
+                .json(Map.of("consentType", "WAREHOUSE_ANALYTICS", "privacyNoticeVersion", 2)));
+        // Only the latest notice version is accepted: version 1 is superseded by version 2 (D-135, D-284).
+        expect("GrantConsent", 400, ui(call("GrantConsent", "projectId", projectId))
+                .json(Map.of("consentType", "MODEL_TRAINING", "privacyNoticeVersion", 1)));
         expect("GetConsents", 200, ui(call("GetConsents", "projectId", projectId)));
 
         // scan, findings, topology, artifact

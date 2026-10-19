@@ -80,9 +80,9 @@ class AtomicityTest extends IntegrationTest {
     @Test
     void consentUseCasesRollBack() {
         UUID projectId = project("/work/demo");
-        assertNoTrace(() -> grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 1, Optional.empty(),
+        assertNoTrace(() -> grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, Optional.empty(),
                 idem("k-grant", DIGEST), "UI")));
-        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 1, Optional.empty(), Optional.empty(), "UI"));
+        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, Optional.empty(), Optional.empty(), "UI"));
         assertNoTrace(() -> revokeConsent.execute(new RevokeConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 0, "UI")));
     }
 

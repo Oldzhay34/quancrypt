@@ -1,0 +1,57 @@
+export const tr = {
+    'app.title': 'Quancrypt',
+    'lang.label': 'Dil',
+    'nav.chat': 'Sohbet',
+    'nav.inventory': 'Envanter',
+    'nav.topology': 'Topoloji',
+    'nav.plan': 'Plan',
+    'nav.settings': 'Ayarlar',
+    'nav.label': 'Ana menü',
+    'header.project': 'Proje',
+    'header.stop': 'Durdur',
+    'header.stopping': 'Durduruluyor…',
+    'placeholder.comingSoon': 'Bu ekran sonraki aşamada eklenecek.',
+    'common.loading': 'Yükleniyor…',
+    'common.retry': 'Yeniden dene',
+    'common.cancel': 'Vazgeç',
+    'common.confirm': 'Onayla',
+    'common.error': 'Bir hata oluştu',
+    'error.network': 'Servise ulaşılamadı. Quancrypt servislerinin çalıştığından emin olun.',
+    'error.conflict': 'Kayıt başka bir yerden değiştirilmiş. Sayfayı yenileyip yeniden deneyin.',
+    'error.generic': 'İstek tamamlanamadı.',
+    'auth.missing.title': 'Oturum anahtarı yok',
+    'auth.missing.body':
+        'Bu arayüz yalnızca Quancrypt oturum anahtarıyla açılır. Projenizde `quancrypt init` çalıştırın, ardından adresi `http://127.0.0.1:8080/#token=` ve projenizdeki `.quancrypt/session.token` dosyasının içeriği olarak açın.',
+    'auth.rejected.title': 'Oturum geçersiz',
+    'auth.rejected.body':
+        'Servisler oturum anahtarını kabul etmedi (yeni bir `quancrypt init` anahtarı değiştirmiş olabilir). `.quancrypt/session.token` dosyasındaki güncel anahtarla adresi yeniden açın.',
+    'project.none.title': 'Kayıtlı proje yok',
+    'project.none.body': 'Projenizin kök dizininde `quancrypt init` çalıştırın.',
+    'consent.title': 'Aydınlatma metni ve onaylar',
+    'consent.notice.version': 'Aydınlatma metni sürüm {version}',
+    'consent.notice.disclaimer': 'Bu metin hukuki görüş değildir.',
+    'consent.intro':
+        'Analiz için onay gerekmez. Aşağıdaki iki onay isteğe bağlıdır ve varsayılan olarak kapalıdır.',
+    'consent.WAREHOUSE_ANALYTICS.title': 'Analitik (WAREHOUSE_ANALYTICS)',
+    'consent.WAREHOUSE_ANALYTICS.desc':
+        'Anonim, kodlanmış olaylar yerel analiz deposuna gönderilir ve panolarda kullanılır.',
+    'consent.MODEL_TRAINING.title': 'Model eğitimi (MODEL_TRAINING)',
+    'consent.MODEL_TRAINING.desc': 'Aynı anonim veriler yerel risk modellerinin eğitiminde kullanılır.',
+    'consent.continue': 'Devam et',
+    'consent.saving': 'Kaydediliyor…',
+    'consent.withoutConsentHint': 'Onay vermeden de devam edebilirsiniz; analiz yine çalışır.',
+    'consent.state.on': 'Açık',
+    'consent.state.off': 'Kapalı',
+    'settings.title': 'Ayarlar',
+    'settings.consents.title': 'Onaylar',
+    'settings.consents.help': 'Onayları istediğiniz zaman geri alabilirsiniz.',
+    'settings.notice.link': 'Aydınlatma metnini göster',
+    'settings.notice.hide': 'Aydınlatma metnini gizle',
+    'settings.revoke.title': 'Onayı geri çek',
+    'settings.revoke.WAREHOUSE_ANALYTICS':
+        'Bu projenin gönderilmemiş olayları atılacak ve warehouse’taki kayıtlarının silinmesi istenecek. Devam edilsin mi?',
+    'settings.revoke.MODEL_TRAINING':
+        'Bu proje verileri artık model eğitiminde kullanılmayacak. Devam edilsin mi?',
+} as const;
+
+export type MessageKey = keyof typeof tr;

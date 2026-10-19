@@ -139,6 +139,18 @@ services:
         condition: service_healthy
     stop_grace_period: 40s
 
+  web-ui:
+    profiles: [app]
+    build:
+      # A static site built from apps/web-ui and served by nginx as user 10001 (P5.2). It has no environment: the two service
+      # addresses (127.0.0.1:8081 and :8083) are fixed in the page and in its Content-Security-Policy.
+      context: ./apps/web-ui
+    image: web-ui:1.0.0
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - quancrypt
+
   qbank-account-service:
     profiles: [demo]
     build:

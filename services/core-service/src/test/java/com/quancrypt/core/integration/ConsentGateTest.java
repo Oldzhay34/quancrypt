@@ -24,7 +24,7 @@ class ConsentGateTest extends IntegrationTest {
     @Test
     void noConsentNoEventsButTheAnalysisIsStored() {
         UUID projectId = project("/work/demo");
-        grantConsent.execute(new GrantConsentCommand(projectId, "MODEL_TRAINING", 1, Optional.empty(), Optional.empty(), "UI"));
+        grantConsent.execute(new GrantConsentCommand(projectId, "MODEL_TRAINING", 2, Optional.empty(), Optional.empty(), "UI"));
         recordRuntimeProfile.execute(new RecordRuntimeProfileCommand(projectId, "21", Optional.empty(), Optional.empty(), "UI"));
         UUID scanId = runningScan(projectId);
         List<UUID> ids = record(scanId, tlsFinding("src/main/java/Tls.java", "Tls#a")).createdIds();
@@ -47,7 +47,7 @@ class ConsentGateTest extends IntegrationTest {
         revokeConsent.execute(new RevokeConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 0, "UI"));
         assertThat(pendingTypes()).containsExactly("consent_revoked");
 
-        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 1, Optional.of(1), Optional.empty(), "UI"));
+        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, Optional.of(1), Optional.empty(), "UI"));
         recordRuntimeProfile.execute(new RecordRuntimeProfileCommand(projectId, "21", Optional.empty(), Optional.empty(), "UI"));
         revokeConsent.execute(new RevokeConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, "UI"));
         assertThat(pendingTypes()).containsExactly("consent_revoked", "consent_revoked");

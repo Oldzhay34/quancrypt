@@ -34,7 +34,7 @@ class KvkkDeleteTest extends IntegrationTest {
     @Test
     void deletingAProjectRemovesItsTreeAndKeepsTheAuditTrail() {
         UUID projectId = projectWithConsent("/work/demo");
-        grantConsent.execute(new GrantConsentCommand(projectId, "MODEL_TRAINING", 1, Optional.empty(), Optional.empty(), "UI"));
+        grantConsent.execute(new GrantConsentCommand(projectId, "MODEL_TRAINING", 2, Optional.empty(), Optional.empty(), "UI"));
         recordRuntimeProfile.execute(new RecordRuntimeProfileCommand(projectId, "21", Optional.empty(), Optional.empty(), "UI"));
         relayOutboxEvents.execute(new RelayOutboxEventsCommand(100));
         saveClarificationAnswers.execute(new SaveClarificationAnswersCommand(projectId,

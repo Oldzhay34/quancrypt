@@ -130,7 +130,7 @@ public abstract class IntegrationTest {
 
     protected UUID projectWithConsent(String identity) {
         UUID projectId = project(identity);
-        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 1, Optional.empty(), Optional.empty(), "UI"));
+        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, Optional.empty(), Optional.empty(), "UI"));
         return projectId;
     }
 

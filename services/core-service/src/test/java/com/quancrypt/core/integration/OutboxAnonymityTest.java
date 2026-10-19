@@ -36,7 +36,7 @@ class OutboxAnonymityTest extends IntegrationTest {
     @Test
     void outboxHoldsNoRawIdentifiersAndNoSecretPatterns() throws Exception {
         UUID projectId = registerProject.execute(new RegisterProjectCommand(IDENTITY, "Payments", Optional.empty(), "UI")).id();
-        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 1, Optional.empty(),
+        grantConsent.execute(new GrantConsentCommand(projectId, "WAREHOUSE_ANALYTICS", 2, Optional.empty(),
                 Optional.empty(), "UI"));
         recordRuntimeProfile.execute(new RecordRuntimeProfileCommand(projectId, "21", Optional.of("4.1.1"), Optional.empty(), "UI"));
         UUID scanId = runningScan(projectId);
@@ -52,7 +52,7 @@ class OutboxAnonymityTest extends IntegrationTest {
         deleteProject.execute(new DeleteProjectCommand(projectId, "UI"));
         // DeleteProject dropped the pending events; produce them again on a second project and keep it.
         UUID kept = registerProject.execute(new RegisterProjectCommand(IDENTITY + "-2", "Payments 2", Optional.empty(), "UI")).id();
-        grantConsent.execute(new GrantConsentCommand(kept, "WAREHOUSE_ANALYTICS", 1, Optional.empty(),
+        grantConsent.execute(new GrantConsentCommand(kept, "WAREHOUSE_ANALYTICS", 2, Optional.empty(),
                 Optional.empty(), "UI"));
         recordRuntimeProfile.execute(new RecordRuntimeProfileCommand(kept, "21", Optional.empty(), Optional.empty(), "UI"));
         UUID scan2 = runningScan(kept);

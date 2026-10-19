@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * acid-3nf-database section 7, migration test: on an empty database the three migrations build exactly the approved
+ * acid-3nf-database section 7, migration test: on an empty database the four migrations build exactly the approved
  * G-CORE-DB schema (43 tables, 3 views, the indexes) and its lookup data, and the service role gets DML only (D-54).
  */
 class MigrationTest {
@@ -48,7 +48,7 @@ class MigrationTest {
                   AND (starts_with(indexname, 'ix_') OR indexname = 'uq_scan_one_running_per_project')
                 ORDER BY indexname""").query(String.class).list()).containsExactlyElementsOf(INDEXES);
         assertThat(migrator.sql("SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank").query(String.class).list())
-                .containsExactly("1", "2", "3");
+                .containsExactly("1", "2", "3", "4");
     }
 
     @Test
@@ -60,11 +60,15 @@ class MigrationTest {
                 Map.entry("scan_status", 3), Map.entry("node_kind", 5), Map.entry("protocol", 6), Map.entry("consent_type", 2),
                 Map.entry("classified_by", 2), Map.entry("caller_kind", 2), Map.entry("answer_kind", 3), Map.entry("event_type", 7),
                 Map.entry("audit_action", 14), Map.entry("clarification_question", 5), Map.entry("clarification_option", 14),
-                Map.entry("privacy_notice", 1));
+                Map.entry("privacy_notice", 2));
         expected.forEach((table, count) ->
                 assertThat(migrator.sql("SELECT count(*) FROM " + table).query(Integer.class).single()).as(table).isEqualTo(count));
         assertThat(migrator.sql("SELECT text_tr <> '' AND text_en <> '' FROM privacy_notice WHERE version = 1").query(Boolean.class).single())
                 .isTrue();
+        // Version 2 (V4, D-284) is the latest one: the version the UI shows and the only one GrantConsent accepts (D-135).
+        assertThat(migrator.sql("SELECT text_tr <> '' AND text_en <> '' FROM privacy_notice WHERE version = 2").query(Boolean.class).single())
+                .isTrue();
+        assertThat(migrator.sql("SELECT max(version) FROM privacy_notice").query(Integer.class).single()).isEqualTo(2);
     }
 
     @Test

@@ -11,4 +11,9 @@ class JdbcConsentPortsContractTest extends ConsentPortsContract {
     protected PortSet newPorts() {
         return JdbcPortSet.fresh();
     }
+
+    @Override
+    protected int expectedLatestNoticeVersion() {
+        return 2;
+    }
 }

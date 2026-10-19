@@ -87,7 +87,7 @@ class ConcurrencyTest extends IntegrationTest {
     void twoFirstConsentsOneGets409() throws Exception {
         UUID projectId = project("/work/demo");
         Callable<?> grant = () -> grantConsent.execute(
-                new GrantConsentCommand(projectId, "MODEL_TRAINING", 1, Optional.empty(), Optional.empty(), "UI"));
+                new GrantConsentCommand(projectId, "MODEL_TRAINING", 2, Optional.empty(), Optional.empty(), "UI"));
 
         List<ProblemCode> outcomes = race(List.of(grant, grant));
 

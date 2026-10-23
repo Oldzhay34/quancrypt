@@ -86,6 +86,17 @@ def test_the_clarification_options_match_the_core_seed() -> None:
     assert {code: tuple(o for _, o in sorted(items)) for code, items in seed.items()} == CLARIFICATION_OPTIONS
 
 
+def test_the_clarification_answer_kinds_match_the_core_seed() -> None:
+    from src.prompts.templates import CLARIFICATION_ANSWER_KINDS
+
+    pattern = re.compile(
+        r"INSERT INTO clarification_question \(code, text_tr, text_en, answer_kind, sort_order\) VALUES "
+        r"\('([A-Z_]+)', '(?:[^']|'')*', '(?:[^']|'')*', '([A-Z_]+)', \d+\);"
+    )
+    seed = dict(pattern.findall(SEED.read_text("utf-8")))
+    assert seed == CLARIFICATION_ANSWER_KINDS
+
+
 def test_where_questions_are_inventory_questions() -> None:
     assert match_intent("Servisler arasında RSA nerede?") == "inventory"
     assert match_intent("Where is RSA used between services?") == "inventory"

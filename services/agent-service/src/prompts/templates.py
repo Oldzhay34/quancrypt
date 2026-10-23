@@ -64,6 +64,17 @@ CLARIFICATION_OPTIONS: dict[str, tuple[str, ...]] = {
     "DEVICE_HARDWARE_OPENSSL": (),
 }
 
+# The answer kind of each question, word for word as the core-service V2 seed (`clarification_question.answer_kind`):
+# OPTION takes an option only (core rejects free text), OPTION_WITH_TEXT an option and optional free text, TEXT free
+# text only (D-291b).
+CLARIFICATION_ANSWER_KINDS: dict[str, str] = {
+    "TLS_TERMINATION": "OPTION",
+    "JDK_UPGRADE_POSSIBLE": "OPTION",
+    "HYBRID_INCAPABLE_PARTNERS": "OPTION",
+    "COMPLIANCE_REQUIREMENT": "OPTION_WITH_TEXT",
+    "DEVICE_HARDWARE_OPENSSL": "TEXT",
+}
+
 # At least one Turkish and one English example per intent (prompt task 7), question -> intent code.
 INTENT_EXAMPLES: tuple[tuple[str, str], ...] = (
     ("Projemde hangi şifreleme algoritmaları kullanılıyor?", "inventory"),

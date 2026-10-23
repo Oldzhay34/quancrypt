@@ -319,7 +319,8 @@ def _from_result(result: AgentResult) -> dict[str, Any]:
         "outcome": result.status,
         "draft": result.text,
         "evidence": [
-            {"kind": e.kind, "reference": e.reference, "source_version": e.source_version} for e in result.evidence
+            {"kind": e.kind, "reference": e.reference, "source_version": e.source_version, "title": e.title}
+            for e in result.evidence
         ],
         "tool_results": [dict(result.data)] if result.data else [],
         "clarifications": list(result.clarifications),

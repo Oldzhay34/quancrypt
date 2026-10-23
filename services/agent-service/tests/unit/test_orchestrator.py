@@ -93,6 +93,7 @@ def test_risk_priority_runs_the_plan_task_and_streams_the_clarification_question
     [question] = stream[0][1]["questions"]
     assert question["question_code"] == "TLS_TERMINATION" and question["answer"] is None
     assert question["options"][0]["option_code"] == "APPLICATION"
+    assert question["answer_kind"] == "OPTION"
 
 
 def test_stop_ends_the_answer_at_the_next_node_boundary_and_is_audited() -> None:
@@ -241,6 +242,10 @@ def test_clarifications_are_listed_with_options_and_saved_through_core() -> None
     assert jdk["answer"] == {"question_code": "JDK_UPGRADE_POSSIBLE", "option_code": "YES", "free_text": None}
     device = next(item for item in saved if item["question_code"] == "DEVICE_HARDWARE_OPENSSL")
     assert device["options"] == [] and device["answer"] is None
+    kinds_by_code = {item["question_code"]: item["answer_kind"] for item in saved}
+    assert kinds_by_code["COMPLIANCE_REQUIREMENT"] == "OPTION_WITH_TEXT"
+    assert kinds_by_code["HYBRID_INCAPABLE_PARTNERS"] == "OPTION"
+    assert kinds_by_code["DEVICE_HARDWARE_OPENSSL"] == "TEXT"
 
 
 def test_an_abandoned_stream_still_frees_the_session_and_finishes_the_run() -> None:
@@ -353,3 +358,33 @@ def test_poll_reports_a_timeout_then_the_end_on_every_later_call() -> None:
             break
         seen.append(item)
     assert seen and stream.poll(0.05) == (True, None)
+
+
+def test_only_knowledge_base_evidence_carries_a_title_on_the_stream() -> None:
+    from src.agents.base_agent import Evidence
+
+    result = AgentResult(
+        status="COMPLETED",
+        text="ML-KEM is the FIPS 203 KEM.",
+        evidence=(
+            Evidence(
+                kind="knowledge_base",
+                reference="https://doi.org/10.6028/NIST.FIPS.203",
+                source_version="2024",
+                title="FIPS 203",
+            ),
+            Evidence(kind="code_location", reference="Tokenizer.java:31", title="never shown"),
+        ),
+    )
+    w = world(answer=FakeRunner(result))
+
+    stream = events(w.orchestrator.begin_message(session(w), "Which post-quantum algorithm should I choose?", TRACE))
+
+    shown = [data["evidence"] for event, data in stream if event == "evidence"]
+    assert shown[0] == {
+        "kind": "knowledge_base",
+        "reference": "https://doi.org/10.6028/NIST.FIPS.203",
+        "source_version": "2024",
+        "title": "FIPS 203",
+    }
+    assert "title" not in shown[1]

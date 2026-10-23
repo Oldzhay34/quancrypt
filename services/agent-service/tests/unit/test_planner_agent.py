@@ -202,6 +202,7 @@ def test_an_explanation_carries_a_knowledge_base_source() -> None:
     assert result.evidence and result.evidence[0].kind == "knowledge_base"
     assert result.evidence[0].reference == "https://openjdk.org/jeps/496"
     assert result.evidence[0].source_version == "JDK24"
+    assert result.evidence[0].title
     explanation = result.data["explanations"][0]
     assert explanation["note"] is None and explanation["sources"] == ["https://openjdk.org/jeps/496"]
 

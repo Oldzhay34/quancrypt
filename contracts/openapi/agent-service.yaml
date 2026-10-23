@@ -517,6 +517,13 @@ components:
           - 'null'
           maxLength: 64
           description: Bilgi tabanı kaynağının sürüm etiketi; diğer türlerde null.
+        title:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+          description: 'Bilgi tabanı kaynağının başlığı (yalnız `knowledge_base`). Canlı akışta dolu olabilir; geçmişten yüklenen
+            mesajlarda yoktur, çünkü saklanmaz (D-291g).'
       required:
       - kind
       - reference
@@ -614,6 +621,15 @@ components:
           description: Boşsa soru serbest metinlidir.
           items:
             $ref: '#/components/schemas/ClarificationOption'
+        answer_kind:
+          type: string
+          description: 'Yanıt biçimi (core-service `clarification_question.answer_kind`): `OPTION` yalnız seçenek (serbest metin
+            400 ile reddedilir), `OPTION_WITH_TEXT` seçenek ve isteğe bağlı serbest metin, `TEXT` yalnız zorunlu serbest metin
+            (`options` boş). D-291b.'
+          enum:
+          - OPTION
+          - OPTION_WITH_TEXT
+          - TEXT
         answer:
           oneOf:
           - $ref: '#/components/schemas/ClarificationAnswer'
@@ -622,6 +638,7 @@ components:
       - question_code
       - text
       - options
+      - answer_kind
       - answer
       additionalProperties: false
     ClarificationAnswer:

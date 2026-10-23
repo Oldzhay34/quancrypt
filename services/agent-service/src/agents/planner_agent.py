@@ -280,7 +280,10 @@ class PlannerAgent(BaseAgent[PlannerState]):
             return no_source_note(item, finding, lang), [], "no_source"
         evidence = [
             Evidence(
-                kind="knowledge_base", reference=hit["source_url"] or hit["doc_key"], source_version=hit["version_tag"]
+                kind="knowledge_base",
+                reference=hit["source_url"] or hit["doc_key"],
+                source_version=hit["version_tag"],
+                title=hit["title"],
             )
             for hit in hits
         ]

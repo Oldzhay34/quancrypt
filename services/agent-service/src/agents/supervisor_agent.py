@@ -135,7 +135,12 @@ class SupervisorAgent(BaseAgent[SupervisorState]):
             state.answer_text = unsure(lang)
             return
         evidence = tuple(
-            Evidence(kind="knowledge_base", reference=hit.source_url or hit.doc_key, source_version=hit.version_tag)
+            Evidence(
+                kind="knowledge_base",
+                reference=hit.source_url or hit.doc_key,
+                source_version=hit.version_tag,
+                title=hit.title,
+            )
             for hit in hits
         )
         sources = "\n".join(

@@ -43,7 +43,7 @@ from src.memory.short_term import (
 )
 from src.memory.short_term import Evidence as StoredEvidence
 from src.prompts.system_prompts import refusal
-from src.prompts.templates import CLARIFICATION_OPTIONS, CLARIFICATION_QUESTIONS
+from src.prompts.templates import CLARIFICATION_ANSWER_KINDS, CLARIFICATION_OPTIONS, CLARIFICATION_QUESTIONS
 from src.tools.base_tool import ToolContext, ToolError, ToolRejectedError, ToolUnavailableError
 from src.workflows.agent_graph import (
     AnswerChecker,
@@ -72,6 +72,7 @@ _TOPOLOGY_FAILED = (
     "The findings were recorded, but the topology could not be recorded.",
 )
 _TOKEN_CHUNK = 64
+_TITLE_MAX = 200  # the contract's Evidence.title limit
 
 
 class SessionBusyError(Exception):
@@ -412,10 +413,7 @@ class Orchestrator:
         for start in range(0, len(text), _TOKEN_CHUNK):
             yield SseEvent("token", {"text": text[start : start + _TOKEN_CHUNK]})
         for item in evidence:
-            yield SseEvent(
-                "evidence",
-                {"evidence": {"kind": item.kind, "reference": item.reference, "source_version": item.source_version}},
-            )
+            yield SseEvent("evidence", {"evidence": _evidence_data(item)})
         message = self._store_answer(session.id, text, evidence)
         self._finish(context, "COMPLETED")
         if message is None:  # the session was deleted while the answer ran
@@ -564,9 +562,21 @@ def _error(code: str, language: Language) -> SseEvent:
 
 
 def _evidence(item: Mapping[str, Any]) -> Evidence:
+    title = item.get("title")
     return Evidence(
-        kind=item["kind"], reference=str(item["reference"])[:1024], source_version=item.get("source_version")
+        kind=item["kind"],
+        reference=str(item["reference"])[:1024],
+        source_version=item.get("source_version"),
+        title=str(title)[:_TITLE_MAX] if title else None,
     )
+
+
+def _evidence_data(item: Evidence) -> dict[str, Any]:
+    """The `evidence` event's payload; `title` only for knowledge-base evidence that has one (D-291g)."""
+    data: dict[str, Any] = {"kind": item.kind, "reference": item.reference, "source_version": item.source_version}
+    if item.kind == "knowledge_base" and item.title:
+        data["title"] = item.title
+    return data
 
 
 def _questions(codes: Sequence[str], answers: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -581,6 +591,7 @@ def _questions(codes: Sequence[str], answers: Mapping[str, Mapping[str, Any]]) -
                 "question_code": code,
                 "text": {"tr": tr, "en": en},
                 "options": [{"option_code": o, "text": {"tr": o, "en": o}} for o in CLARIFICATION_OPTIONS[code]],
+                "answer_kind": CLARIFICATION_ANSWER_KINDS[code],
                 "answer": None
                 if answer is None
                 else {

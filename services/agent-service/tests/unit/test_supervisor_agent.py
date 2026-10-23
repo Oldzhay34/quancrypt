@@ -64,6 +64,7 @@ def test_a_knowledge_intent_is_answered_from_the_knowledge_base_with_a_source() 
     assert result.text == "Use ML-KEM for key establishment."
     assert result.evidence and result.evidence[0].reference == "https://doi.org/10.6028/NIST.FIPS.203"
     assert result.evidence[0].source_version == "2024"
+    assert result.evidence[0].title == "FIPS 203"
 
 
 def test_no_source_gives_the_fixed_not_sure_answer() -> None:

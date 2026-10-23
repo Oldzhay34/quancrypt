@@ -85,11 +85,13 @@ class AgentContext:
 
 @dataclass(frozen=True)
 class Evidence:
-    """A citation an answer carries (contract names, D-248c). `source_version` only for knowledge-base evidence."""
+    """A citation an answer carries (contract names, D-248c). `source_version` and `title` only for knowledge-base
+    evidence; the title is shown on the live stream and is not stored (D-291g)."""
 
     kind: EvidenceKind
     reference: str
     source_version: str | None = None
+    title: str | None = None
 
 
 @dataclass(frozen=True)

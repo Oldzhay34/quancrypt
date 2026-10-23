@@ -184,6 +184,8 @@ export interface components {
             reference: string;
             /** @description Bilgi tabanı kaynağının sürüm etiketi; diğer türlerde null. */
             source_version?: string | null;
+            /** @description Bilgi tabanı kaynağının başlığı (yalnız `knowledge_base`). Canlı akışta dolu olabilir; geçmişten yüklenen mesajlarda yoktur, çünkü saklanmaz (D-291g). */
+            title?: string | null;
         };
         Message: {
             /** Format: uuid */
@@ -219,6 +221,11 @@ export interface components {
             text: components["schemas"]["LocalizedText"];
             /** @description Boşsa soru serbest metinlidir. */
             options: components["schemas"]["ClarificationOption"][];
+            /**
+             * @description Yanıt biçimi (core-service `clarification_question.answer_kind`): `OPTION` yalnız seçenek (serbest metin 400 ile reddedilir), `OPTION_WITH_TEXT` seçenek ve isteğe bağlı serbest metin, `TEXT` yalnız zorunlu serbest metin (`options` boş). D-291b.
+             * @enum {string}
+             */
+            answer_kind: "OPTION" | "OPTION_WITH_TEXT" | "TEXT";
             answer: components["schemas"]["ClarificationAnswer"] | null;
         };
         ClarificationAnswer: {

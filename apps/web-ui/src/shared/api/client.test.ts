@@ -85,3 +85,68 @@ describe('api client', () => {
         });
     });
 });
+
+describe('api client: event streams', () => {
+    const eventStream = (body: string | null = 'data: x\n\n', type = 'text/event-stream') =>
+        new Response(body, { status: 200, headers: { 'Content-Type': type } });
+
+    it('asks for an event stream with the same headers as a request and returns the body', async () => {
+        const { client, fetchImpl } = clientWith(() => eventStream());
+
+        const body = await client.stream('agent', 'POST', '/api/v1/sessions/s/messages', {
+            body: { content: 'merhaba' },
+        });
+
+        expect(await new Response(body).text()).toBe('data: x\n\n');
+        const [url, init] = fetchImpl.mock.calls[0] as unknown as [URL, RequestInit];
+        expect(url.origin).toBe('http://127.0.0.1:8083');
+        const headers = init.headers as Record<string, string>;
+        expect(headers.Accept).toBe('text/event-stream');
+        expect(headers.Authorization).toBe(`Bearer ${'T'.repeat(43)}`);
+        expect(headers['Content-Type']).toBe('application/json');
+        expect(init.body).toBe('{"content":"merhaba"}');
+        expect(init.credentials).toBe('omit');
+        expect(url.href).not.toContain('T'.repeat(43));
+    });
+
+    it('raises the problem code of a refused stream and reports a 401', async () => {
+        const { client, onUnauthorized } = clientWith(() =>
+            problem(409, 'https://quancrypt.local/problems/session-busy'),
+        );
+        await expect(client.stream('agent', 'POST', '/x')).rejects.toMatchObject({
+            status: 409,
+            code: 'session-busy',
+        });
+        expect(onUnauthorized).not.toHaveBeenCalled();
+
+        const unauthorized = clientWith(() => problem(401, 'https://quancrypt.local/problems/unauthorized'));
+        await expect(unauthorized.client.stream('agent', 'POST', '/x')).rejects.toMatchObject({
+            status: 401,
+        });
+        expect(unauthorized.onUnauthorized).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a successful answer that is not an event stream', async () => {
+        const { client } = clientWith(() => eventStream('{}', 'application/json'));
+
+        await expect(client.stream('agent', 'POST', '/x')).rejects.toMatchObject({
+            status: 200,
+            code: 'protocol',
+        });
+    });
+
+    it('lets a cancellation through untouched instead of calling it a network error', async () => {
+        const controller = new AbortController();
+        const { client } = clientWith(() => {
+            controller.abort();
+            throw new DOMException('aborted', 'AbortError');
+        });
+
+        const error = await client
+            .stream('agent', 'POST', '/x', { signal: controller.signal })
+            .catch((caught: unknown) => caught);
+
+        expect(error).toBeInstanceOf(DOMException);
+        expect((error as DOMException).name).toBe('AbortError');
+    });
+});

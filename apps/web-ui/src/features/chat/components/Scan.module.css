@@ -1,0 +1,95 @@
+.panel {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.title {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+}
+.none {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+}
+.form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+.field {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.field input {
+    font: inherit;
+    padding: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--text);
+}
+.field input[aria-invalid='true'] {
+    border-color: var(--danger);
+}
+.help {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+.error {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--danger);
+}
+
+.summary {
+    margin: 0;
+}
+.summaryTitle {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+}
+.meta {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+.counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    list-style: none;
+}
+.tables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+}
+.table {
+    border-collapse: collapse;
+    min-width: 12rem;
+}
+.table caption {
+    padding-bottom: 0.25rem;
+    font-weight: 600;
+    text-align: left;
+}
+.table th,
+.table td {
+    padding: 0.2rem 0.75rem 0.2rem 0;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+.table td:last-child,
+.table th:last-child {
+    text-align: right;
+    padding-right: 0;
+}

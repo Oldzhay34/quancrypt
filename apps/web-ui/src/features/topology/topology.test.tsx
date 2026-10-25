@@ -80,7 +80,7 @@ describe('topology screen', () => {
         await screen.findByRole('img');
         const cy = instances.at(-1) as FakeCy;
 
-        await tap(cy, 'edge', { id: () => 'edge-0' });
+        await tap(cy, 'edge', { id: () => 'e:0' });
 
         const panel = await screen.findByRole('complementary', { name: 'Bağlantı ayrıntısı' });
         expect(within(panel).getByText('qbank-gateway → qbank-payment-service')).toBeInTheDocument();
@@ -91,7 +91,7 @@ describe('topology screen', () => {
         expect(within(panel).getByText('src/main/java/Pay1.java:11')).toBeInTheDocument();
         expect(within(panel).getByText('RSA · TLS_KEY_EXCHANGE · P1')).toBeInTheDocument();
         expect(within(panel).getByText('src/main/java/Pay2.java')).toBeInTheDocument();
-        expect(cy.selected).toEqual(['edge-0']);
+        expect(cy.selected).toEqual(['e:0']);
     });
 
     it('tells apart a connection without findings and clears the panel when empty space is tapped', async () => {
@@ -100,7 +100,7 @@ describe('topology screen', () => {
         await screen.findByRole('img');
         const cy = instances.at(-1) as FakeCy;
 
-        await tap(cy, 'edge', { id: () => 'edge-2' });
+        await tap(cy, 'edge', { id: () => 'e:2' });
         const panel = await screen.findByRole('complementary');
         expect(within(panel).getByText('Bu bağlantıya bağlı bulgu yok.')).toBeInTheDocument();
         expect(within(panel).getByText('Bilinmiyor')).toBeInTheDocument();

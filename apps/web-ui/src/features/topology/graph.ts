@@ -56,26 +56,33 @@ function edgeLabel(protocol: string, tls: boolean, mtls: boolean): string {
 /** Cytoscape elements and the connection list from a recorded topology and the scan's findings. */
 export function buildGraph(topology: Topology, findings: readonly Finding[]): TopologyGraph {
     const byId = new Map(findings.map((finding) => [finding.id, finding]));
-    const nodes = topology.nodes.map((node) => ({
-        data: { id: node.name, label: node.name, kind: node.nodeKind },
+    // Names come from the analysed project and may be anything (even "e:0"): Cytoscape ids are made here, in two separate
+    // series, and the name only serves as the label. A repeated id would make Cytoscape drop the element silently.
+    const nodes = topology.nodes.map((node, index) => ({
+        data: { id: `n:${index}`, label: node.name, kind: node.nodeKind },
     }));
-    const known = new Set(topology.nodes.map((node) => node.name));
+    const nodeIds = new Map<string, string>();
+    topology.nodes.forEach((node, index) => {
+        if (!nodeIds.has(node.name)) nodeIds.set(node.name, `n:${index}`);
+    });
     const edges: GraphEdge[] = [];
     const connections: Connection[] = [];
     topology.links.forEach((link, index) => {
         // A link whose end is not a recorded node cannot be drawn.
-        if (!known.has(link.source) || !known.has(link.target)) return;
+        const source = nodeIds.get(link.source);
+        const target = nodeIds.get(link.target);
+        if (source === undefined || target === undefined) return;
         const linked = link.findingIds.flatMap((id) => {
             const finding = byId.get(id);
             return finding ? [finding] : [];
         });
-        const id = `edge-${index}`;
+        const id = `e:${index}`;
         const status = edgeStatus(linked);
         edges.push({
             data: {
                 id,
-                source: link.source,
-                target: link.target,
+                source,
+                target,
                 label: edgeLabel(link.protocol, link.tls, link.mtls),
                 status,
                 protocol: link.protocol,

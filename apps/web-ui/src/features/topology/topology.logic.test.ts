@@ -48,12 +48,45 @@ describe('graph elements', () => {
     const graph = buildGraph(TOPOLOGY, FINDINGS);
 
     it('has one node per recorded node, with its kind', () => {
-        expect(graph.nodes.map((node) => [node.data.id, node.data.kind])).toEqual([
+        expect(graph.nodes.map((node) => [node.data.label, node.data.kind])).toEqual([
             ['qbank-gateway', 'GATEWAY'],
             ['qbank-payment-service', 'SERVICE'],
             ['mosquitto', 'BROKER'],
             ['terminal-001', 'DEVICE'],
         ]);
+    });
+
+    it('keeps ids unique and apart even when a node is named like an edge id', () => {
+        const hostile = buildGraph(
+            {
+                ...TOPOLOGY,
+                nodes: [
+                    { name: 'e:0', nodeKind: 'SERVICE' },
+                    { name: 'n:1', nodeKind: 'SERVICE' },
+                    { name: 'edge-0', nodeKind: 'GATEWAY' },
+                ],
+                links: [
+                    {
+                        source: 'e:0',
+                        target: 'edge-0',
+                        protocol: 'HTTP',
+                        tls: true,
+                        mtls: false,
+                        callSites: [],
+                        findingIds: [],
+                    },
+                ],
+            },
+            FINDINGS,
+        );
+        const ids = [...hostile.nodes, ...hostile.edges].map((element) => element.data.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(hostile.edges).toHaveLength(1);
+        // The edge joins the node ids of the two names, and the connection still shows the names.
+        const [edge] = hostile.edges;
+        expect(hostile.nodes.find((node) => node.data.id === edge?.data.source)?.data.label).toBe('e:0');
+        expect(hostile.nodes.find((node) => node.data.id === edge?.data.target)?.data.label).toBe('edge-0');
+        expect(hostile.connections[0]?.source).toBe('e:0');
     });
 
     it('gives every node kind its own shape', () => {

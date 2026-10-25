@@ -65,3 +65,20 @@
         border-bottom: 1px solid var(--border);
     }
 }
+.dashboard {
+    flex: none;
+}
+
+/* Printing a screen (the plan report): only the content, without the menu and the header. */
+@media print {
+    .header,
+    .nav {
+        display: none;
+    }
+    .shell {
+        display: block;
+    }
+    .main {
+        padding: 0;
+    }
+}

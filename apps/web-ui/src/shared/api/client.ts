@@ -38,6 +38,11 @@ export interface ApiResponse<T> {
     headers: Headers;
 }
 
+export interface DownloadedBody {
+    blob: Blob;
+    contentType: string;
+}
+
 export interface ApiClient {
     request<T>(
         service: Service,
@@ -55,6 +60,18 @@ export interface ApiClient {
         path: string,
         options?: RequestOptions,
     ): Promise<ReadableStream<Uint8Array>>;
+    /** A `GET` whose answer is a file or text (CBOM, Markdown report): same headers and errors as `request`, the body as a Blob. */
+    download(
+        service: Service,
+        path: string,
+        accept: string,
+        options?: RequestOptions,
+    ): Promise<DownloadedBody>;
+    /**
+     * Whether something answers at `url`. The answer is opaque (`no-cors`) and never read; no token, cookie or header of ours is sent.
+     * Any HTTP answer means "yes"; a refused connection, a failure or no answer within `timeoutMs` means "no".
+     */
+    probe(url: string, timeoutMs: number): Promise<boolean>;
 }
 
 export interface ClientConfig {
@@ -142,6 +159,28 @@ export function createApiClient(config: ClientConfig): ApiClient {
                 response.status !== 204 && (response.headers.get('Content-Type') ?? '').includes('json');
             const data = (hasBody ? await response.json() : undefined) as T;
             return { data, status: response.status, headers: response.headers };
+        },
+
+        async download(service: Service, path: string, accept: string, options: RequestOptions = {}) {
+            const response = await send(service, 'GET', path, options, accept);
+            return { blob: await response.blob(), contentType: response.headers.get('Content-Type') ?? '' };
+        },
+
+        async probe(url: string, timeoutMs: number) {
+            try {
+                await doFetch(url, {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    credentials: 'omit',
+                    cache: 'no-store',
+                    // A `no-cors` request must follow redirects (a browser refuses any other mode); Superset redirects `/` to its login.
+                    redirect: 'follow',
+                    signal: AbortSignal.timeout(timeoutMs),
+                });
+                return true;
+            } catch {
+                return false;
+            }
         },
 
         async stream(service: Service, method: string, path: string, options: RequestOptions = {}) {

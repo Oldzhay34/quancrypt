@@ -1,0 +1,157 @@
+.layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+}
+.main {
+    flex: 1 1 28rem;
+    min-width: 0;
+}
+.canvas {
+    position: relative;
+    overflow: hidden;
+    height: 22rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.panel {
+    flex: 0 1 20rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.panelHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.panelTitle {
+    margin: 0;
+    font-size: 1rem;
+    word-break: break-word;
+}
+.panelSub {
+    margin: 0.75rem 0 0.25rem;
+    font-size: 0.9rem;
+}
+.close {
+    font: inherit;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+.facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.2rem 0.75rem;
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+}
+.facts dt {
+    color: var(--muted);
+}
+.facts dd {
+    margin: 0;
+}
+.findings {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+}
+.findings li {
+    display: flex;
+    flex-direction: column;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.path {
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+}
+.meta {
+    color: var(--muted);
+}
+.note {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+.legend {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.legendTitle {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+}
+.legendList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin: 0 0 0.4rem;
+    padding: 0;
+    list-style: none;
+    font-size: 0.85rem;
+}
+.swatch {
+    display: inline-block;
+    width: 1.5rem;
+    height: 0.4rem;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+    border-radius: 2px;
+}
+.swatchVulnerable {
+    background: #d55e00;
+}
+.swatchResistant {
+    background: #0072b2;
+}
+.swatchMixed {
+    background: #e69f00;
+}
+.swatchSymmetric {
+    background: #009e73;
+}
+.swatchUnknown {
+    background: #767676;
+}
+.list {
+    width: 100%;
+    margin-top: 1rem;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.list caption {
+    padding: 0.4rem 0;
+    text-align: left;
+    color: var(--muted);
+}
+.list th,
+.list td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+.selected {
+    background: var(--bg);
+}
+.rowButton {
+    font: inherit;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+}

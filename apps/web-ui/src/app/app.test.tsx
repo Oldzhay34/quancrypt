@@ -23,7 +23,10 @@ describe('opening the app', () => {
         await screen.findByRole('heading', { name: 'Aydınlatma metni ve onaylar' });
         expect(window.location.hash).toBe('');
         expect(window.location.href).not.toContain(TOKEN);
-        expect(backend.calls.every((call) => call.headers.get('Authorization') === `Bearer ${TOKEN}`)).toBe(
+        // Every call to the two services carries the token; the dashboard probe (port 8088) deliberately carries nothing.
+        const serviceCalls = backend.calls.filter((call) => call.url.port !== '8088');
+        expect(serviceCalls.length).toBeGreaterThan(0);
+        expect(serviceCalls.every((call) => call.headers.get('Authorization') === `Bearer ${TOKEN}`)).toBe(
             true,
         );
     });

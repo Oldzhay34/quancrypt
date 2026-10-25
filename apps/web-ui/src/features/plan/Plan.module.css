@@ -1,0 +1,155 @@
+.tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+.tab,
+.tabActive {
+    font: inherit;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+}
+.tabActive {
+    border-color: var(--border);
+    background: var(--surface);
+    font-weight: 600;
+}
+.tableWrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.table caption {
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    color: var(--muted);
+}
+.table th,
+.table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+.path {
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+}
+.muted {
+    color: var(--muted);
+}
+.reasons {
+    margin: 0.25rem 0 0;
+    padding-left: 1.2rem;
+}
+.badge {
+    display: inline-block;
+    padding: 0.05rem 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+.critical {
+    border-color: var(--danger);
+    color: var(--danger);
+    font-weight: 700;
+}
+.high {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.medium {
+    border-style: dashed;
+}
+.low {
+    color: var(--muted);
+}
+.state {
+    background: var(--bg);
+}
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.reportActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+.report {
+    max-width: 60rem;
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.report h2 {
+    margin: 0.5rem 0 0.75rem;
+    font-size: 1.3rem;
+}
+.report h3 {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 1.1rem;
+}
+.report h4 {
+    margin: 1rem 0 0.4rem;
+    font-size: 0.95rem;
+    word-break: break-all;
+}
+.report ul {
+    padding-left: 1.2rem;
+}
+.report li > p {
+    margin: 0.2rem 0;
+}
+
+/* Printing the report ("Yazdır / PDF"): only the document is printed, in black on white, with sensible page breaks. */
+@media print {
+    .noPrint {
+        display: none !important;
+    }
+    .report {
+        max-width: none;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: #000;
+    }
+    .report h2,
+    .report h3,
+    .report h4 {
+        break-after: avoid;
+    }
+    .report h4,
+    .report ul,
+    .report tr {
+        break-inside: avoid;
+    }
+    .tableWrap {
+        overflow: visible;
+        border: 0;
+    }
+    .table {
+        font-size: 0.75rem;
+    }
+    .table thead {
+        display: table-header-group;
+    }
+}

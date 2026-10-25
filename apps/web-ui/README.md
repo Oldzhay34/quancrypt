@@ -2,8 +2,9 @@
 
 Quancrypt web arayüzü: React + Vite + TypeScript, feature tabanlı (D-15). P5.2 kapsamı: iskelet, oturum anahtarı, TR/EN,
 KVKK aydınlatma ve onay akışı, ayarlar, düzen. P5.3 kapsamı: sohbet ve netleştirme ekranı (ilk tarama özeti, soru sorma,
-kanıt çipleri, ret kartı, netleştirme formu, durdurma, geçmişi silme). Envanter, topoloji ve plan ekranlarının içi P5.4'tedir
-(şimdilik yer tutucu).
+kanıt çipleri, ret kartı, netleştirme formu, durdurma, geçmişi silme). P5.4 kapsamı: envanter (filtreler, CBOM indirme),
+topoloji (Cytoscape.js grafiği, lejant, bağlantı paneli) ve plan (riske göre maddeler, rapor, Markdown indirme, yazdırma/PDF,
+madde onayı).
 
 ## Çalıştırma
 
@@ -22,7 +23,7 @@ kendiliğinden açması bu sürümde yoktur, D-286.)
 
 ```
 src/app/       yönlendirici, sağlayıcılar, düzen, geçitler (proje ve onay)
-src/features/  chat/ consent/ settings/ (inventory, topology, plan: yer tutucu)
+src/features/  chat/ consent/ inventory/ plan/ settings/ topology/
 src/shared/    api/ auth/ i18n/ project/ session/ ui/
 ```
 
@@ -37,6 +38,11 @@ src/shared/    api/ auth/ i18n/ project/ session/ ui/
   `index.ts` üzerinden ulaşır ve `app` import etmez.
 - API tipleri `contracts/openapi/*.yaml` dosyalarından üretilir (`make gen-api`); üretilen dosyalar `src/shared/api/generated/`
   altındadır ve commit'lenir.
+- Üç ekran (envanter, topoloji, plan) projenin en yeni tamamlanmış taramasını gösterir. Plan raporu (`text/markdown`) küçük bir
+  okuyucuyla (`features/plan/markdown.ts`) çizilir: yalnızca başlık, liste, tablo ve ters bölü kaçışları; HTML, bağlantı ve vurgu
+  yoktur. "Yazdır / PDF" tarayıcının yazdırma penceresini açar (menü ve düğmeler yazdırmada gizlenir, D-15).
+- Topoloji kenar rengi, kenara bağlı bulguların algoritma ailesinden istemcide türetilir (D-293a); renk tek işaret değildir: her
+  durumun kendi çizgi kalınlığı ve ok biçimi, lejantta ve tabloda adı vardır.
 - Aydınlatma metni sunucudan düz metin olarak gelir ve düz metin olarak gösterilir (HTML olarak asla).
 
 ## Komutlar
@@ -53,8 +59,8 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
 
 ## Güvenlik
 
-- nginx `USER 10001` ile çalışır. Başlıklar: `Content-Security-Policy` (`connect-src` yalnızca `http://127.0.0.1:8081` ve
-  `http://127.0.0.1:8083`, `frame-ancestors 'none'`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
+- nginx `USER 10001` ile çalışır. Başlıklar: `Content-Security-Policy` (`connect-src` yalnızca `http://127.0.0.1:8081`,
+  `http://127.0.0.1:8083` ve (Dashboard bağlantısının yoklaması için) `http://127.0.0.1:8088`, `frame-ancestors 'none'`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
 - Yalnızca `GET` ve `HEAD` kabul edilir. Dış kaynak (CDN, yazı tipi) yoktur.
 - Anahtar yalnızca `Authorization: Bearer` başlığında gider; URL'ye, loga veya hata iletisine yazılmaz.
 - `localStorage`'da yalnızca üç kişisel olmayan bilgi durur: dil seçimi (`quancrypt.lang`), "ilk çalıştırma görüldü"

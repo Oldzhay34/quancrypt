@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { ApiError, errorMessageKey, readSseStream, SseError, useApi } from '@/shared/api';
+import {
+    ApiError,
+    errorMessageKey,
+    getScanSummary,
+    getTopology,
+    listScans,
+    readSseStream,
+    SseError,
+    useApi,
+} from '@/shared/api';
 import type { ClarificationAnswer, Topology, ScanSummary } from '@/shared/api/types';
 import { useI18n } from '@/shared/i18n';
 import type { MessageKey } from '@/shared/i18n';
@@ -9,10 +18,7 @@ import {
     answerClarifications,
     createSession,
     deleteSession,
-    getScanSummary,
-    getTopology,
     listMessages,
-    listScans,
     streamInitialScan,
     streamMessage,
 } from './api';

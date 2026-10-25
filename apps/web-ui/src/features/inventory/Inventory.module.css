@@ -1,0 +1,83 @@
+.summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    margin: 0 0 1rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    list-style: none;
+}
+.summary li {
+    display: flex;
+    flex-direction: column;
+}
+.summaryLabel {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+.summaryValue {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+.filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+}
+.filter select {
+    font: inherit;
+    padding: 0.3rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+}
+.spacer {
+    flex: 1;
+}
+.tableWrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.table th,
+.table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+.table caption {
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    color: var(--muted);
+}
+.path {
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+}
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+.note {
+    color: var(--muted);
+}

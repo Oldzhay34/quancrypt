@@ -26,4 +26,17 @@ export type ScanPage = CoreComponents['schemas']['ScanPage'];
 export type ScanSummary = CoreComponents['schemas']['ScanSummary'];
 export type Topology = CoreComponents['schemas']['Topology'];
 
+// core-service (inventory, topology, plan; P5.4)
+export type Finding = CoreComponents['schemas']['Finding'];
+export type FindingPage = CoreComponents['schemas']['FindingPage'];
+export type PlanItem = CoreComponents['schemas']['PlanItem'];
+export type Plan = CoreComponents['schemas']['Plan'];
+export type PlanPage = CoreComponents['schemas']['PlanPage'];
+export type RiskFactor = CoreComponents['schemas']['RiskFactor'];
+export type AlgorithmFamily = Finding['algorithmFamily'];
+export type UsageContext = Finding['usageContext'];
+export type LocationKind = Finding['locationKind'];
+export type Priority = Finding['priority'];
+export type PlanState = PlanItem['state'];
+
 export const CONSENT_TYPES: readonly ConsentType[] = ['WAREHOUSE_ANALYTICS', 'MODEL_TRAINING'];

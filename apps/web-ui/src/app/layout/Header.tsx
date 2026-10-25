@@ -2,6 +2,7 @@ import { useI18n } from '@/shared/i18n';
 import type { Language } from '@/shared/i18n';
 import { useProject } from '@/shared/project';
 import { useActiveSession } from '@/shared/session';
+import { SUPERSET_URL, useSupersetReachable } from '@/shared/superset';
 import { Button } from '@/shared/ui';
 import styles from './Layout.module.css';
 
@@ -9,6 +10,7 @@ export function Header() {
     const { t, language, setLanguage } = useI18n();
     const { project, projects, selectProject } = useProject();
     const { sessionId, stop, stopping } = useActiveSession();
+    const dashboardUp = useSupersetReachable();
 
     return (
         <header className={styles.header}>
@@ -30,6 +32,11 @@ export function Header() {
                     <span title={t('header.project')}>{project?.displayName}</span>
                 )}
             </div>
+            {dashboardUp ? (
+                <a href={SUPERSET_URL} target="_blank" rel="noopener noreferrer" className={styles.dashboard}>
+                    {t('header.dashboard')}
+                </a>
+            ) : null}
             <select
                 aria-label={t('lang.label')}
                 value={language}

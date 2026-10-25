@@ -1,6 +1,9 @@
 export { ApiProvider, useApi } from './ApiProvider';
 export { ApiError, createApiClient } from './client';
-export type { ApiClient } from './client';
+export type { ApiClient, DownloadedBody } from './client';
+export { listAllFindings } from './findings';
+export type { FindingQuery } from './findings';
+export { getScanSummary, getTopology, listScans } from './scans';
 export { errorMessageKey } from './errors';
 export { createSseParser, MAX_EVENT_CHARS, readSseStream, SseError } from './sse';
 export type { SseMessage, SseParser } from './sse';

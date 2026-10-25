@@ -1,4 +1,14 @@
-import type { ChatMessage, Consent, Project, Scan, ScanSummary, Topology } from '@/shared/api/types';
+import type {
+    ChatMessage,
+    Consent,
+    Finding,
+    Plan,
+    PlanItem,
+    Project,
+    Scan,
+    ScanSummary,
+    Topology,
+} from '@/shared/api/types';
 
 export const TOKEN = 'A'.repeat(43);
 export const PROJECT: Project = {
@@ -116,6 +126,16 @@ export class FakeBackend {
 
     // core-service (scan overview)
     overview: ScanOverview | null = null;
+    findings: Finding[] = [];
+    /** The CBOM body; null: the scan has none (404). */
+    artifact: string | null = null;
+    plan: { plan: Plan; items: PlanItem[] } | null = null;
+    /** The Markdown report per language (`tr`, `en`); null: no plan (404). */
+    planReport: Record<string, string> | null = null;
+    /** Set to refuse the next plan-item transition with this problem (for example `invalid-state-transition`). */
+    failTransition: { status: number; code: string } | null = null;
+    /** Whether something answers on the Superset address (otherwise the probe fails like a refused connection). */
+    supersetUp = false;
 
     /** Prepares a session as if it had been opened before (its id is what the browser remembered). */
     addSession(messages: ChatMessage[] = [], id = SESSION_ID): string {
@@ -162,6 +182,10 @@ export class FakeBackend {
         const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
         const method = init?.method ?? 'GET';
         this.calls.push({ method, url, headers, body });
+        if (url.port === '8088') {
+            if (!this.supersetUp) throw new TypeError('connection refused');
+            return new Response('', { status: 200 });
+        }
         if (this.unauthorized)
             return json(
                 401,
@@ -212,8 +236,73 @@ export class FakeBackend {
             return new Response(null, { status: 204 });
         const chat = this.chatRoute(method, path, body);
         if (chat) return chat;
+        const review = this.reviewRoute(method, url, headers, body);
+        if (review) return review;
         return json(404, {}, 'application/problem+json');
     };
+
+    /** The inventory, CBOM, plan, report and transition endpoints of core-service; null for any other path. */
+    private reviewRoute(method: string, url: URL, headers: Headers, body: unknown): Response | null {
+        const path = url.pathname;
+        const page = Number(url.searchParams.get('page') ?? 0);
+        const size = Number(url.searchParams.get('size') ?? 200);
+        const slice = <T>(items: T[]) => items.slice(page * size, (page + 1) * size);
+        if (method === 'GET' && /^\/api\/v1\/scans\/[^/]+\/findings$/.test(path)) {
+            const filters = ['priority', 'algorithmFamily', 'usageContext', 'locationKind'] as const;
+            const matching = this.findings.filter((finding) =>
+                filters.every((key) => {
+                    const wanted = url.searchParams.get(key);
+                    return wanted === null || finding[key] === wanted;
+                }),
+            );
+            return json(200, { items: slice(matching), page, size, totalElements: matching.length });
+        }
+        if (method === 'GET' && /^\/api\/v1\/scans\/[^/]+\/artifact$/.test(path))
+            return this.artifact === null
+                ? problem(404, 'not-found')
+                : new Response(this.artifact, {
+                      status: 200,
+                      headers: { 'Content-Type': 'application/vnd.cyclonedx+json', ETag: '"abc"' },
+                  });
+        if (method === 'GET' && /^\/api\/v1\/scans\/[^/]+\/plan$/.test(path))
+            return this.plan === null
+                ? problem(404, 'not-found')
+                : json(200, {
+                      plan: this.plan.plan,
+                      items: slice(this.plan.items),
+                      page,
+                      size,
+                      totalElements: this.plan.items.length,
+                  });
+        if (method === 'GET' && /^\/api\/v1\/scans\/[^/]+\/plan\/report$/.test(path)) {
+            if (this.planReport === null) return problem(404, 'not-found');
+            const language = headers.get('Accept-Language') === 'en' ? 'en' : 'tr';
+            return new Response(this.planReport[language] ?? '', {
+                status: 200,
+                headers: { 'Content-Type': 'text/markdown;charset=utf-8' },
+            });
+        }
+        const transition = /^\/api\/v1\/plan-items\/([^/]+)\/transitions$/.exec(path);
+        if (method === 'POST' && transition && this.plan) {
+            if (this.failTransition) {
+                const { status, code } = this.failTransition;
+                this.failTransition = null;
+                return problem(status, code);
+            }
+            const item = this.plan.items.find((candidate) => candidate.id === transition[1]);
+            if (!item) return problem(404, 'not-found');
+            if (headers.get('If-Match') !== `"${item.version}"`)
+                return problem(409, 'concurrent-modification');
+            const next = {
+                ...item,
+                state: (body as { toState: PlanItem['state'] }).toState,
+                version: item.version + 1,
+            };
+            this.plan.items = this.plan.items.map((candidate) => (candidate === item ? next : candidate));
+            return json(200, next);
+        }
+        return null;
+    }
 
     /** The chat endpoints of agent-service and the scan endpoints of core-service; null for any other path. */
     private chatRoute(method: string, path: string, body: unknown): Response | null {

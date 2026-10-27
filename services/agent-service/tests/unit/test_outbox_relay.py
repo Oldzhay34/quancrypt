@@ -15,6 +15,8 @@ import respx
 from src.app.outbox_relay import Backoff, HttpEventPublisher, OutboxRelay, PublishFailedError, relay_work
 from src.memory.short_term import PendingEvent
 
+TOKEN = "service-token-for-the-test-0123456789"
+
 KEY_OK = "a" * 64
 KEY_GONE = "b" * 64
 PROJECT_OK = uuid4()
@@ -111,7 +113,7 @@ def test_a_crashing_round_counts_as_a_failure() -> None:
 
 @pytest.mark.parametrize("status", [500, 404, 302])
 def test_the_http_publisher_fails_on_anything_but_2xx(status: int) -> None:
-    publisher = HttpEventPublisher("http://ingest-api:8084/api/v1/events", 1)
+    publisher = HttpEventPublisher("http://ingest-api:8084/api/v1/events", TOKEN, 1)
     with respx.mock() as mock:
         mock.post("http://ingest-api:8084/api/v1/events").mock(return_value=httpx.Response(status))
         with pytest.raises(PublishFailedError):
@@ -119,8 +121,20 @@ def test_the_http_publisher_fails_on_anything_but_2xx(status: int) -> None:
     publisher.close()
 
 
+def test_the_http_publisher_sends_the_service_token_and_refuses_to_be_built_without_one() -> None:
+    publisher = HttpEventPublisher("http://ingest-api:8084/api/v1/events", TOKEN, 1)
+    with respx.mock() as mock:
+        route = mock.post("http://ingest-api:8084/api/v1/events").mock(return_value=httpx.Response(200))
+        publisher.publish([{"event_id": "x"}])
+    assert route.calls.last.request.headers["X-Internal-Token"] == TOKEN
+    publisher.close()
+    for missing in ("", "   "):
+        with pytest.raises(ValueError, match="token"):
+            HttpEventPublisher("http://ingest-api:8084/api/v1/events", missing, 1)
+
+
 def test_the_http_publisher_posts_a_json_array() -> None:
-    publisher = HttpEventPublisher("http://ingest-api:8084/api/v1/events", 1)
+    publisher = HttpEventPublisher("http://ingest-api:8084/api/v1/events", TOKEN, 1)
     with respx.mock() as mock:
         route = mock.post("http://ingest-api:8084/api/v1/events").mock(return_value=httpx.Response(202))
         publisher.publish([{"event_id": "x"}])

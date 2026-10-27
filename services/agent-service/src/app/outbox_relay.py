@@ -39,11 +39,16 @@ class EventPublisher(Protocol):
 
 
 class HttpEventPublisher:
-    """POSTs the envelopes to ingest-api; no proxy from the environment, no redirects (phase 1 is local)."""
+    """POSTs the envelopes to ingest-api with the service token in `X-Internal-Token` (D-295c); no proxy from the
+    environment, no redirects (phase 1 is local)."""
 
-    def __init__(self, url: str, timeout_s: float) -> None:
+    def __init__(self, url: str, token: str, timeout_s: float) -> None:
+        if not token.strip():
+            raise ValueError("the internal service token is required to send events")
         self._url = url
-        self._client = httpx.Client(timeout=timeout_s, trust_env=False, follow_redirects=False)
+        self._client = httpx.Client(
+            timeout=timeout_s, trust_env=False, follow_redirects=False, headers={"X-Internal-Token": token}
+        )
 
     def publish(self, envelopes: Sequence[dict[str, Any]]) -> None:
         try:

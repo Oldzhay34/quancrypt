@@ -202,7 +202,7 @@ def build_container(settings: AppSettings) -> Container:
     background = [PeriodicTask("housekeeping", housekeeping_work(idempotency, checkpoints), HOUSEKEEPING_INTERVAL_S)]
     relay_settings = settings.agents.relay
     if relay_settings.enabled and relay_settings.ingest_url is not None:
-        publisher = HttpEventPublisher(relay_settings.ingest_url, relay_settings.timeout_s)
+        publisher = HttpEventPublisher(relay_settings.ingest_url, token, relay_settings.timeout_s)
         closers.append(publisher.close)
         relay = OutboxRelay(
             PostgresOutboxRelayStore(database, utc_now), consent_reader, publisher, relay_settings.batch_size

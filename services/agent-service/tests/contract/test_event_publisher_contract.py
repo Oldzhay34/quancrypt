@@ -57,7 +57,7 @@ class TestRecordingPublisher(EventPublisherContract):
 class TestHttpPublisher(EventPublisherContract):
     @pytest.fixture
     def working(self) -> Iterator[EventPublisher]:
-        publisher = HttpEventPublisher(URL, 1)
+        publisher = HttpEventPublisher(URL, "t" * 40, 1)
         with respx.mock() as mock:
             mock.post(URL).mock(return_value=httpx.Response(202))
             yield publisher
@@ -65,7 +65,7 @@ class TestHttpPublisher(EventPublisherContract):
 
     @pytest.fixture
     def failing(self) -> Iterator[EventPublisher]:
-        publisher = HttpEventPublisher(URL, 1)
+        publisher = HttpEventPublisher(URL, "t" * 40, 1)
         with respx.mock() as mock:
             mock.post(URL).mock(side_effect=httpx.ConnectError("refused"))
             yield publisher

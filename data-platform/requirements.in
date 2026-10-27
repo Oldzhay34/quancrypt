@@ -1,0 +1,9 @@
+# Runtime dependencies (D-28: compiled to requirements.txt with `uv pip compile --python-version 3.12`).
+# Versions come from docs/VERSIONS.md. P6.1 (D-295g): the web layer (ingest-api), the database layer (SQLAlchemy Core,
+# Alembic, psycopg 3) and JSON Schema validation of the event envelopes. pydantic comes with FastAPI.
+fastapi==0.142.2
+uvicorn==0.54.0
+SQLAlchemy==2.0.54
+alembic==1.20.0
+psycopg[binary]==3.3.6
+jsonschema==4.26.0

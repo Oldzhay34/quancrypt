@@ -120,8 +120,8 @@ services:
       CORE_SERVICE_URL: http://core-service:8081
       ANALYZER_SERVICE_URL: http://analyzer-service:8082
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
-      # The UI session token (P4.6); the service refuses a missing or placeholder token. The outbox relay stays off until
-      # ingest-api exists (P6.1, D-252g). LangSmith tracing is forced off: nothing leaves the machine.
+      # The UI session token (P4.6); the service refuses a missing or placeholder token. The outbox relay is off by default
+      # and is opened with the lines in .env.example (P6.1, D-296k). LangSmith tracing is forced off: nothing leaves the machine.
       QUANCRYPT_SESSION_TOKEN: ${QUANCRYPT_SESSION_TOKEN:-}
       OUTBOX_RELAY_ENABLED: ${OUTBOX_RELAY_ENABLED:-false}
       INGEST_API_URL: ${INGEST_API_URL:-}
@@ -251,6 +251,35 @@ services:
     depends_on:
       mosquitto:
         condition: service_healthy
+
+  # Veri platformunun giriş kapısı (P6.1): core-service ve agent-service outbox relay'lerinin olaylarını warehouse_db.raw'a yazar
+  # (D-20, D-295). Servis adı `ingest-api` olmalı: agent-service INGEST_API_URL host'unu yalnızca bununla ve loopback ile sınırlar.
+  ingest-api:
+    profiles: [data]
+    build:
+      # The build context is the repository root (the event schemas are copied from contracts/schemas/events); the allow-list
+      # in data-platform/Dockerfile.dockerignore keeps .env, keys and every other service out of it.
+      context: .
+      dockerfile: data-platform/Dockerfile
+    image: ingest-api:1.0.0
+    environment:
+      WAREHOUSE_DB_URL: postgresql+psycopg://warehouse_db_app@postgres:5432/warehouse_db
+      WAREHOUSE_DB_MIGRATOR_URL: postgresql+psycopg://warehouse_db_migrator@postgres:5432/warehouse_db
+      # No :? here (same reason as core-service); the service refuses to start without real values.
+      WAREHOUSE_DB_APP_PASSWORD: ${WAREHOUSE_DB_APP_PASSWORD:-}
+      WAREHOUSE_DB_MIGRATOR_PASSWORD: ${WAREHOUSE_DB_MIGRATOR_PASSWORD:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+    ports:
+      - "127.0.0.1:8084:8084"
+    networks:
+      - quancrypt
+    # An 8 MiB request is about 260 MB once parsed and the image lets 8 run at once (--limit-concurrency): a runaway request
+    # must not take the whole machine. The value is a margin, not a measurement of the steady state.
+    mem_limit: 2g
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stop_grace_period: 40s
 
 networks:
   # Uygulama ve veri servisleri.

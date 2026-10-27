@@ -1,0 +1,173 @@
+openapi: 3.1.0
+info:
+  title: Quancrypt ingest-api
+  version: 1.0.0
+  description: 'ingest-api (data-platform, P6.1) core-service ve agent-service outbox relay''lerinin gönderdiği olayları `warehouse_db`
+    iniş katmanına (`raw`) yazar. Her olay zarfı `contracts/schemas/events/<event_type>.json` şemasına göre doğrulanır; uymayan
+    olay reddedilmez, `quarantine`''e yazılır ve parti işlenmiş sayılır (D-295f). Yazma `event_id` ile idempotenttir (aynı olay
+    iki kez gelirse tek satır kalır); bu yüzden `Idempotency-Key` kabul edilmez (hexagonal-service §5''ten bilinçli sapma, D-145a
+    emsali). `consent_revoked` bir komut olayıdır: raw''da saklanmaz, o `project_key`''in raw ve quarantine satırlarını siler ve
+    `ingest_audit`''e yazılır (D-147, D-295d). Uç yalnızca servisler arası çağrıya açıktır (`X-Internal-Token`). Gövde en çok
+    500 olay ve 8 MiB (D-295a). Hatalar RFC 9457.'
+servers:
+- url: http://ingest-api:8084
+  description: İç compose ağı (ingest-api, docs/ports.md)
+tags:
+- name: Olay
+security:
+- internalToken: []
+paths:
+  /api/v1/events:
+    post:
+      operationId: IngestEvents
+      summary: IngestEvents
+      tags:
+      - Olay
+      description: 'Zarf dizisini işler. Öğeler `occurred_at` sırasıyla işlenir; eşitlikte sıra, her istekte aynı olsun diye giriş sırasına
+        değil `event_id`''ye (şemaya uymayan kayıtta kaydın özetine) bağlıdır. Tüm parti tek transaction''dadır. Öğe bir JSON nesnesi
+        değilse, `event_id` yoksa ya da geçersizse, metni veritabanında saklanamıyorsa (NUL, tek başına vekil karakter) ya da çok
+        büyükse (20.000''den fazla değer) `malformed-envelope`; `event_type` için şema yoksa `unknown-event-type`; şemaya uymuyorsa
+        `schema-violation` nedeniyle karantinaya yazılır (neden mesajı değer içermez; yolda yalnız şemada tanımlı adlar yer alır). Aynı
+        `event_id` ikinci kez gelirse yok sayılır ve `duplicate` sayılır; aynı karantina kaydı da tekrar yazılmaz. `consent_revoked`
+        geçerli bir `event_id` ve `project_key` taşıyorsa yükü şemaya uymasa da silme komutudur (şema silmeyi engelleyemez): o
+        anahtarın `raw` ve `quarantine` satırları silinir, iptalin `occurred_at` zamanı (okunamazsa isteğin alındığı zaman) o anahtarın
+        kesim zamanı olur ve aynı anahtarın o zamana eşit veya ondan eski kayıtları (karantina dahil) bir daha yazılmaz, `superseded`
+        sayılır; böylece yeniden gönderilen parti ya da geç gelen eski olay silinen veriyi geri getiremez. 400 yalnızca gövde bir JSON
+        dizisi değilse, boşsa, 500''den fazla öğe veya 8 MiB''dan büyükse döner.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventBatch'
+      responses:
+        '200':
+          description: Parti işlendi (hatalı olaylar karantinada).
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Servisler arası çağrılar için iç token (`INTERNAL_SERVICE_TOKEN`, `.env`). En az 32 karakter.
+  parameters:
+    TraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      description: İzleme kimliği; yalnız 32 küçük harfli onaltılık hane kabul edilir, aksi halde servis üretir ve yanıtta döner.
+      schema:
+        type: string
+        pattern: ^[0-9a-f]{32}$
+  headers:
+    TraceId:
+      description: İzleme kimliği.
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 'İstek geçersiz (`type`: `validation-failed`): gövde bir JSON dizisi değil, boş, 500''den fazla öğe veya 8
+        MiB''dan büyük.'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unauthorized:
+      description: Kimlik doğrulama başarısız (`X-Internal-Token` yok veya yanlış).
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: 'Beklenmeyen hata (`type`: `internal-error`); parti hiçbir şey yazmadan geri alınmıştır ve yeniden gönderilebilir.'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
+        validation-failed, unauthorized, internal-error).'
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+      required:
+      - type
+      - title
+      - status
+      additionalProperties: true
+    EventBatch:
+      type: array
+      description: 'Olay zarfları. Öğe biçimi `contracts/schemas/events/<event_type>.json` ile tanımlıdır (`event_id`, `event_type`,
+        `schema_version`, `occurred_at`, `project_key`, `payload`); burada serbesttir, çünkü şemaya uymayan öğe de karantinaya
+        yazılarak kabul edilir.'
+      minItems: 1
+      maxItems: 500
+      items: {}
+    IngestResult:
+      type: object
+      description: 'Parti sonucu. `received` = `accepted` + `duplicate` + `quarantined` + `consent_revoked` + `superseded`.
+        `consent_revoked` işlenen silme komutlarının sayısıdır (tekrar gelen aynı komut `duplicate` sayılır); `superseded`, projesinin
+        son iptalinden önce veya o anda olmuş ve bu yüzden hiç yazılmayan kayıtların sayısıdır.'
+      properties:
+        received:
+          type: integer
+          minimum: 1
+        accepted:
+          type: integer
+          minimum: 0
+        duplicate:
+          type: integer
+          minimum: 0
+        quarantined:
+          type: integer
+          minimum: 0
+        consent_revoked:
+          type: integer
+          minimum: 0
+        superseded:
+          type: integer
+          minimum: 0
+      required:
+      - received
+      - accepted
+      - duplicate
+      - quarantined
+      - consent_revoked
+      - superseded
+      additionalProperties: false

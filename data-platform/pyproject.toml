@@ -1,0 +1,112 @@
+# Tool settings only (D-28): dependencies live in requirements.in / requirements.txt. The package is src/quancrypt_data.
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "postgres: needs Docker and the local pgvector image; it runs in `make verify` and fails (never skips) without them",
+    "e2e: needs the running stack (postgres, core-service, ingest-api); only `make e2e` runs it, never `make verify`",
+]
+
+[tool.coverage.run]
+source = ["src/quancrypt_data"]
+branch = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks; tests use fixed local addresses and fake secret-looking tokens on purpose; the PostgreSQL tests
+# run the docker CLI and build SQL strings for DDL checks (no user input).
+"tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607", "S608", "E501"]
+# Generated SQL strings (the schema) are long on purpose.
+"migrations/**" = ["E501", "S608"]
+# Identifiers come from the registry constants (validated against a fixed pattern); every value is bound.
+"src/quancrypt_data/infrastructure/persistence/**" = ["S608"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests"]
+explicit_package_bases = true
+mypy_path = "src:."
+
+[tool.importlinter]
+root_package = "quancrypt_data"
+include_external_packages = true
+
+# Rules of hexagonal-service section 2 (D-05). Every contract forbids a whole layer and lists the allowed edges in
+# `ignore_imports`, so a module a later phase adds is covered without touching the contract.
+
+[[tool.importlinter.contracts]]
+name = "domain imports nothing of the service and no framework"
+type = "forbidden"
+source_modules = ["quancrypt_data.domain"]
+forbidden_modules = [
+    "quancrypt_data.port", "quancrypt_data.usecase", "quancrypt_data.facade", "quancrypt_data.api",
+    "quancrypt_data.infrastructure", "fastapi", "pydantic", "sqlalchemy", "psycopg", "alembic", "jsonschema", "starlette",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "port imports only the domain"
+type = "forbidden"
+source_modules = ["quancrypt_data.port"]
+forbidden_modules = [
+    "quancrypt_data.usecase", "quancrypt_data.facade", "quancrypt_data.api", "quancrypt_data.infrastructure",
+    "fastapi", "pydantic", "sqlalchemy", "psycopg", "alembic", "jsonschema", "starlette",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "usecase imports only port and domain"
+type = "forbidden"
+source_modules = ["quancrypt_data.usecase"]
+forbidden_modules = [
+    "quancrypt_data.facade", "quancrypt_data.api", "quancrypt_data.infrastructure",
+    "fastapi", "pydantic", "sqlalchemy", "psycopg", "alembic", "jsonschema", "starlette",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "facade imports only port.inbound"
+type = "forbidden"
+source_modules = ["quancrypt_data.facade"]
+forbidden_modules = [
+    "quancrypt_data.usecase", "quancrypt_data.api", "quancrypt_data.infrastructure", "quancrypt_data.port.outbound",
+    "fastapi", "pydantic", "sqlalchemy", "psycopg", "alembic", "jsonschema", "starlette",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+# `api.ingest` is the bootstrap module of the ASGI entry point (`quancrypt_data.api.ingest:app`, like <Servis>Application.java):
+# it builds the application through the composition root and nothing else.
+name = "api imports only the facade"
+type = "forbidden"
+source_modules = ["quancrypt_data.api"]
+forbidden_modules = [
+    "quancrypt_data.usecase", "quancrypt_data.infrastructure", "quancrypt_data.port", "quancrypt_data.domain",
+    "sqlalchemy", "psycopg", "alembic", "jsonschema",
+]
+ignore_imports = ["quancrypt_data.api.ingest -> quancrypt_data.infrastructure.container"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "infrastructure does not call use cases, facade or api"
+type = "forbidden"
+source_modules = ["quancrypt_data.infrastructure"]
+forbidden_modules = ["quancrypt_data.api", "quancrypt_data.facade", "quancrypt_data.port.inbound", "quancrypt_data.usecase"]
+ignore_imports = [
+    "quancrypt_data.infrastructure.container -> quancrypt_data.usecase.**",
+    "quancrypt_data.infrastructure.container -> quancrypt_data.facade.**",
+    "quancrypt_data.infrastructure.container -> quancrypt_data.api.**",
+    "quancrypt_data.infrastructure.container -> quancrypt_data.port.inbound.**",
+]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true

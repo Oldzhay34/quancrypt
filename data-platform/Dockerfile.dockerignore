@@ -1,0 +1,13 @@
+# Applies to the build context at the repository root (docker build -f data-platform/Dockerfile ... .).
+# Everything is excluded, then only what the image needs is let back in: the event schemas are read at runtime;
+# no .env, no keys, no tests, no other service.
+*
+!contracts/schemas
+!contracts/schemas/events
+!contracts/schemas/events/**
+!data-platform/requirements.txt
+!data-platform/migrations
+!data-platform/migrations/**
+!data-platform/src
+!data-platform/src/**
+**/__pycache__

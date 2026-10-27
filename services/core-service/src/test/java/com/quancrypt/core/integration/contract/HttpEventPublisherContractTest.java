@@ -24,7 +24,7 @@ class HttpEventPublisherContractTest extends EventPublisherContract {
 
     private EventPublisher publisher() {
         return new HttpEventPublisher(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build(), Optional.of(URI.create(stub.url())),
-                Duration.ofSeconds(2), CircuitBreaker.ofDefaults("contract"), new OutboxJson());
+                "t".repeat(40), Duration.ofSeconds(2), CircuitBreaker.ofDefaults("contract"), new OutboxJson());
     }
 
     @Override

@@ -13,28 +13,41 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Sends a batch of event envelopes to the data platform's ingest-api (INGEST_API_URL) as one JSON array. A 2xx answer
- * accepts the whole batch; any other answer, a timeout, an I/O error or an open circuit is a PublishFailedException and
- * the events stay pending (D-156). The ingest-api contract is fixed in P6.1.
+ * Sends a batch of event envelopes to the data platform's ingest-api (INGEST_API_URL) as one JSON array, with the service
+ * token in X-Internal-Token (contracts/openapi/ingest-api.yaml, D-295c). A 2xx answer accepts the whole batch (ingest-api
+ * quarantines what does not match a schema instead of refusing it); any other answer, a timeout, an I/O error or an open
+ * circuit is a PublishFailedException and the events stay pending (D-156).
  */
 public final class HttpEventPublisher implements EventPublisher {
 
+    /** The header ingest-api reads the service token from. */
+    public static final String TOKEN_HEADER = "X-Internal-Token";
+
+    /** Hosts INGEST_API_URL may name (URI.getHost keeps the brackets of an IPv6 literal). */
+    private static final Set<String> ALLOWED_HOSTS = Set.of("ingest-api", "localhost", "127.0.0.1", "[::1]");
+
     private final HttpClient client;
     private final Optional<URI> ingestUrl;
+    private final String internalToken;
     private final Duration requestTimeout;
     private final CircuitBreaker circuitBreaker;
     private final OutboxJson json;
 
-    public HttpEventPublisher(HttpClient client, Optional<URI> ingestUrl, Duration requestTimeout, CircuitBreaker circuitBreaker,
-                              OutboxJson json) {
+    public HttpEventPublisher(HttpClient client, Optional<URI> ingestUrl, String internalToken, Duration requestTimeout,
+                              CircuitBreaker circuitBreaker, OutboxJson json) {
+        if (internalToken == null || internalToken.isBlank()) {
+            throw new IllegalStateException("the internal service token is required to send events");
+        }
         this.client = client;
         this.ingestUrl = ingestUrl;
+        this.internalToken = internalToken;
         this.requestTimeout = requestTimeout;
         this.circuitBreaker = circuitBreaker;
         this.json = json;
@@ -58,6 +71,10 @@ public final class HttpEventPublisher implements EventPublisher {
         if (!httpScheme || uri.getHost() == null || uri.getRawUserInfo() != null) {
             throw new IllegalStateException("INGEST_API_URL must be an http or https URL with a host and without credentials");
         }
+        // Stage 1 is local (guardrails-security section 1): the events carry the service token and go nowhere else.
+        if (!ALLOWED_HOSTS.contains(uri.getHost().toLowerCase(Locale.ROOT))) {
+            throw new IllegalStateException("INGEST_API_URL host must be ingest-api, localhost, 127.0.0.1 or ::1");
+        }
         return Optional.of(uri);
     }
 
@@ -70,6 +87,7 @@ public final class HttpEventPublisher implements EventPublisher {
         HttpRequest request = HttpRequest.newBuilder(url)
                 .timeout(requestTimeout)
                 .header("Content-Type", "application/json")
+                .header(TOKEN_HEADER, internalToken)
                 .POST(HttpRequest.BodyPublishers.ofString(json.envelopes(batch)))
                 .build();
         try {

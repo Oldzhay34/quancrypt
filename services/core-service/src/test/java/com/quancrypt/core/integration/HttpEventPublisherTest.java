@@ -42,9 +42,11 @@ class HttpEventPublisherTest {
         stub.close();
     }
 
+    private static final String TOKEN = "service-token-for-the-test-0123456789";
+
     private HttpEventPublisher publisher(Optional<URI> url) {
-        return new HttpEventPublisher(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build(), url, Duration.ofSeconds(2), breaker,
-                new OutboxJson());
+        return new HttpEventPublisher(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build(), url, TOKEN, Duration.ofSeconds(2),
+                breaker, new OutboxJson());
     }
 
     private static OutboxRecord event() {
@@ -62,12 +64,40 @@ class HttpEventPublisherTest {
     }
 
     @Test
+    void everyRequestCarriesTheServiceTokenInTheInternalTokenHeader() {
+        publisher(Optional.of(URI.create(stub.url()))).publish(List.of(event()));
+        publisher(Optional.of(URI.create(stub.url()))).publish(List.of(event()));
+
+        assertThat(stub.tokens()).containsExactly(TOKEN, TOKEN);
+    }
+
+    @Test
+    void aMissingTokenStopsThePublisherFromBeingBuilt() {
+        for (String missing : new String[] {null, "", "  "}) {
+            assertThatThrownBy(() -> new HttpEventPublisher(HttpClient.newHttpClient(), Optional.empty(), missing, Duration.ofSeconds(1), breaker,
+                    new OutboxJson())).isInstanceOf(IllegalStateException.class).hasMessageContaining("token");
+        }
+    }
+
+    @Test
     void ingestUrlAcceptsOnlyHttpWithoutCredentialsAndNeverEchoesIt() {
         assertThat(HttpEventPublisher.ingestUrl("")).isEmpty();
         assertThat(HttpEventPublisher.ingestUrl("http://ingest-api:8084/api/v1/events")).isPresent();
         for (String bad : new String[] {"ftp://ingest-api/x", "http://user:s3cret-demo@ingest-api/x", "/relative/path", "http://[bad"}) {
             assertThatThrownBy(() -> HttpEventPublisher.ingestUrl(bad)).isInstanceOf(IllegalStateException.class)
                     .hasMessageNotContaining("s3cret-demo").hasMessageNotContaining(bad);
+        }
+    }
+
+    @Test
+    void ingestUrlAcceptsOnlyTheLocalHostsAndNeverEchoesTheRejectedOne() {
+        for (String good : new String[] {"http://ingest-api:8084/x", "http://localhost:8084/x", "http://127.0.0.1:8084/x",
+                "http://[::1]:8084/x", "http://INGEST-API:8084/x"}) {
+            assertThat(HttpEventPublisher.ingestUrl(good)).as(good).isPresent();
+        }
+        for (String bad : new String[] {"https://evil.example.com/x", "http://10.0.0.5:8084/x", "http://ingest-api.evil.com/x"}) {
+            assertThatThrownBy(() -> HttpEventPublisher.ingestUrl(bad)).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("host").hasMessageNotContaining("evil").hasMessageNotContaining("10.0.0.5");
         }
     }
 

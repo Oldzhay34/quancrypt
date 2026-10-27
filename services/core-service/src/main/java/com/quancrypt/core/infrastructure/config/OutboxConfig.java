@@ -39,6 +39,7 @@ public class OutboxConfig {
     @Bean
     EventPublisher eventPublisher(
             OutboxJson json,
+            @Value("${quancrypt.internal-token}") String internalToken,
             @Value("${quancrypt.outbox.ingest-url:}") String ingestUrl,
             @Value("${quancrypt.outbox.relay.enabled:false}") boolean relayEnabled,
             @Value("${quancrypt.outbox.connect-timeout:2s}") Duration connectTimeout,
@@ -47,13 +48,15 @@ public class OutboxConfig {
         if (relayEnabled && url.isEmpty()) {
             throw new IllegalStateException("OUTBOX_RELAY_ENABLED=true needs INGEST_API_URL");
         }
-        HttpClient client = HttpClient.newBuilder().connectTimeout(connectTimeout).followRedirects(HttpClient.Redirect.NEVER).build();
+        // HTTP/1.1 only: by default the JDK client offers an h2c upgrade on plain http, which ingest-api (uvicorn) answers with a warning.
+        HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(connectTimeout)
+                .followRedirects(HttpClient.Redirect.NEVER).build();
         CircuitBreaker breaker = CircuitBreaker.of("ingest-api", CircuitBreakerConfig.custom()
                 .slidingWindowSize(10)
                 .minimumNumberOfCalls(5)
                 .failureRateThreshold(50)
                 .waitDurationInOpenState(Duration.ofSeconds(30))
                 .build());
-        return new HttpEventPublisher(client, url, requestTimeout, breaker, json);
+        return new HttpEventPublisher(client, url, internalToken, requestTimeout, breaker, json);
     }
 }

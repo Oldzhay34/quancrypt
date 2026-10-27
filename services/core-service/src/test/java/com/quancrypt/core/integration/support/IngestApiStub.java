@@ -19,6 +19,7 @@ public final class IngestApiStub implements AutoCloseable {
     private final HttpServer server;
     private final AtomicInteger status = new AtomicInteger(202);
     private final List<String> bodies = new CopyOnWriteArrayList<>();
+    private final List<String> tokens = new CopyOnWriteArrayList<>();
 
     public IngestApiStub() {
         try {
@@ -30,6 +31,7 @@ public final class IngestApiStub implements AutoCloseable {
             try (InputStream in = exchange.getRequestBody()) {
                 bodies.add(new String(in.readAllBytes(), StandardCharsets.UTF_8));
             }
+            tokens.add(String.valueOf(exchange.getRequestHeaders().getFirst("X-Internal-Token")));
             exchange.sendResponseHeaders(status.get(), -1);
             exchange.close();
         });
@@ -48,8 +50,14 @@ public final class IngestApiStub implements AutoCloseable {
         return List.copyOf(bodies);
     }
 
+    /** The X-Internal-Token header of every request received ("null" when it had none). */
+    public List<String> tokens() {
+        return List.copyOf(tokens);
+    }
+
     public void reset() {
         bodies.clear();
+        tokens.clear();
         status.set(202);
     }
 

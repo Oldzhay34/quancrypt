@@ -45,7 +45,7 @@ def test_the_contract_has_the_one_command_and_its_security(contract: dict[str, A
     assert contract["security"] == [{"internalToken": []}]
     scheme = contract["components"]["securitySchemes"]["internalToken"]
     assert (scheme["in"], scheme["name"]) == ("header", "X-Internal-Token")
-    assert set(operation["responses"]) == {"200", "400", "401", "500"}
+    assert set(operation["responses"]) == {"200", "400", "401", "500", "503"}
 
 
 def test_the_batch_limit_of_the_contract_is_the_domain_limit(contract: dict[str, Any]) -> None:

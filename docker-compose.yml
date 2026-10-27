@@ -273,7 +273,7 @@ services:
       - "127.0.0.1:8084:8084"
     networks:
       - quancrypt
-    # An 8 MiB request is about 260 MB once parsed and the image lets 8 run at once (--limit-concurrency): a runaway request
+    # An 8 MiB request is about 260 MB once parsed and the endpoint lets 4 run at once (D-297d): a runaway request
     # must not take the whole machine. The value is a margin, not a measurement of the steady state.
     mem_limit: 2g
     depends_on:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from quancrypt_data.domain.events import (
     MAX_BATCH_EVENTS,
@@ -24,6 +24,11 @@ from quancrypt_data.port.outbound.transaction import TransactionRunner
 from quancrypt_data.usecase.classification import Classified, EventClassifier
 
 _LOG = logging.getLogger("quancrypt_data.usecase")
+
+# A revocation dated further ahead of the time it was received than this is treated as received now, so a wrong clock
+# cannot leave a cut-off that drops the key's later events for ever (D-297b). The tolerance is a chosen value, not a
+# measurement.
+FUTURE_TOLERANCE = timedelta(minutes=5)
 
 
 class IngestEventsService(IngestEventsUseCase):
@@ -94,9 +99,16 @@ class IngestEventsService(IngestEventsUseCase):
                 command = entry.revocation
                 if not command.schema_valid:
                     invalid_commands += 1
-                at = command.occurred_at or received_at
+                at = min(command.occurred_at or received_at, received_at + FUTURE_TOLERANCE)
+                covered = cutoffs.get(command.project_key)
+                # An older revocation that arrives late is audited but erases nothing: what is stored happened after it.
                 erased = self._delete.execute(
-                    DeleteProjectDataCommand(project_key=command.project_key, event_id=command.event_id, occurred_at=at)
+                    DeleteProjectDataCommand(
+                        project_key=command.project_key,
+                        event_id=command.event_id,
+                        occurred_at=at,
+                        erase_rows=covered is None or at > covered,
+                    )
                 ).erased
                 revoked += erased
                 duplicate += not erased

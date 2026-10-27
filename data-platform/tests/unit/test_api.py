@@ -201,3 +201,39 @@ class TestProblems:
         assert "ConnectionError" in caplog.text
         assert "hunter2" not in caplog.text
         assert "hunter2" not in "".join(traceback.format_exception(raised.value))
+
+
+def test_a_batch_beyond_the_concurrency_limit_gets_503_and_is_not_worked_on() -> None:
+    import threading
+
+    from quancrypt_data.api.app import MAX_CONCURRENT_BATCHES
+
+    release = threading.Event()
+    entered = threading.Semaphore(0)
+
+    class Blocking(RecordingUseCase):
+        def execute(self, command: IngestEventsCommand) -> IngestEventsResult:
+            entered.release()
+            release.wait(timeout=10)
+            return super().execute(command)
+
+    test_client, _ = client(Blocking())
+    results: list[int] = []
+
+    def send() -> None:
+        results.append(test_client.post("/api/v1/events", json=[{}], headers=HEADERS).status_code)
+
+    threads = [threading.Thread(target=send) for _ in range(MAX_CONCURRENT_BATCHES)]
+    for thread in threads:
+        thread.start()
+    for _ in range(MAX_CONCURRENT_BATCHES):
+        assert entered.acquire(timeout=10)
+
+    refused = test_client.post("/api/v1/events", json=[{}], headers=HEADERS)
+    release.set()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert refused.status_code == 503
+    assert refused.json()["type"].endswith("/overloaded")
+    assert results == [200] * MAX_CONCURRENT_BATCHES

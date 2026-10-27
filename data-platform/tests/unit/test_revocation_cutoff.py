@@ -141,16 +141,49 @@ class TestACommandIsACommand:
         assert (result.consent_revoked, result.quarantined) == (0, 1)
         assert stored_ids(harness) == [EVENT_1]
 
-    def test_a_revocation_with_a_bad_event_id_is_only_quarantined(self) -> None:
+    def test_a_revocation_with_a_bad_event_id_still_erases_and_a_repeat_of_it_is_recognised(self) -> None:
         harness = Harness()
         harness.ingest(envelope(event_id=EVENT_1))
         broken = revoked(REVOKE)
         broken["event_id"] = "nope"
 
-        result = harness.ingest(broken)
+        first = harness.ingest(broken)
+        again = harness.ingest(broken)
 
-        assert (result.consent_revoked, result.quarantined) == (0, 1)
+        assert (first.consent_revoked, first.quarantined) == (1, 0)
+        assert (again.consent_revoked, again.duplicate) == (0, 1)
+        assert stored_ids(harness) == []
+
+    def test_a_revocation_with_too_many_values_still_erases(self) -> None:
+        harness = Harness()
+        harness.ingest(envelope(event_id=EVENT_1))
+        huge = revoked(REVOKE)
+        huge["payload"] = {"values": list(range(MAX_RECORD_NODES))}
+
+        result = harness.ingest(huge)
+
+        assert (result.consent_revoked, result.quarantined) == (1, 0)
+        assert stored_ids(harness) == []
+
+
+class TestLateAndFutureRevocations:
+    def test_an_older_revocation_that_arrives_late_is_audited_but_erases_nothing(self) -> None:
+        harness = Harness()
+        harness.ingest(revoked(REVOKE, at="2026-10-27T10:00:00Z"))
+        harness.ingest(envelope(event_id=EVENT_1, occurred_at="2026-10-27T10:30:00Z"))
+
+        late = harness.ingest(revoked(EVENT_2, at="2026-10-27T09:00:00Z"))
+
+        assert (late.consent_revoked, late.duplicate) == (1, 0)
         assert stored_ids(harness) == [EVENT_1]
+
+    def test_a_revocation_dated_far_ahead_does_not_leave_a_cutoff_that_drops_the_next_events(self) -> None:
+        harness = Harness()
+        harness.ingest(revoked(REVOKE, at="2099-01-01T00:00:00Z"))
+
+        result = harness.ingest(envelope(event_id=EVENT_1, occurred_at="2026-10-27T12:30:00Z"))
+
+        assert (result.accepted, result.superseded) == (1, 0)
 
 
 class TestWhatTheSenderCalledTheRecord:

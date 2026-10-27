@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from quancrypt_data.domain.events import (
     CONSENT_REVOKED,
@@ -69,17 +69,22 @@ class EventClassifier:
         return Classified(position, item, None, outcome, None, project_key, sort_at, digest, digest)
 
     def _revocation(self, item: object) -> Revocation | None:
-        """A consent_revoked record with a usable event id and project key is a command whatever its payload looks
+        """A consent_revoked record with a valid project key is a command whatever its payload or event id looks
         like: the
         schema is not allowed to decide whether an erasure happens (a newer schema version must not make it fail
         open)."""
         if not isinstance(item, Mapping) or item.get("event_type") != CONSENT_REVOKED:
             return None
         project_key = project_key_of(item)
-        event_id = _uuid(item.get("event_id"))
-        if project_key is None or event_id is None or has_unstorable_text(item) or exceeds_record_size(item):
+        if project_key is None:
             return None
-        valid = self._validator.knows(CONSENT_REVOKED) and not self._validator.violations(item)
+        event_id = _uuid(item.get("event_id"))
+        well_formed = event_id is not None and not has_unstorable_text(item) and not exceeds_record_size(item)
+        if event_id is None:
+            # A broken id must not stop the erasure (D-297c): the record's fingerprint stands in, so a repeat of it is
+            # still recognised.
+            event_id = uuid5(NAMESPACE_URL, fingerprint(item))
+        valid = well_formed and self._validator.knows(CONSENT_REVOKED) and not self._validator.violations(item)
         return Revocation(event_id, project_key, parse_timestamp(item.get("occurred_at")), schema_valid=valid)
 
     def _read(self, item: object) -> Event | Rejection:

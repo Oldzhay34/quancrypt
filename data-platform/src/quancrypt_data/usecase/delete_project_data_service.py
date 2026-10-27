@@ -49,9 +49,11 @@ class DeleteProjectDataService(DeleteProjectDataUseCase):
         self._locks.acquire([command.project_key])
         if self._audit.is_recorded(command.event_id):
             return DeleteProjectDataResult(erased=False)
-        deleted = {
-            table.qualified: self._eraser.delete(table, command.project_key) for table in self._registry.tables()
-        }
+        deleted = (
+            {table.qualified: self._eraser.delete(table, command.project_key) for table in self._registry.tables()}
+            if command.erase_rows
+            else {}
+        )
         self._audit.record(
             ErasureRecord(
                 id=self._ids.new_id(),

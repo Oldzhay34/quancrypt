@@ -18,6 +18,8 @@ class DeleteProjectDataCommand:
     event_id: UUID
     # When the revocation happened: records of the key that happened at or before it are never stored again (D-296).
     occurred_at: datetime
+    # False when an earlier revocation already covers this one: only the audit is written (D-297a).
+    erase_rows: bool = True
 
     def __post_init__(self) -> None:
         require_project_key(self.project_key)

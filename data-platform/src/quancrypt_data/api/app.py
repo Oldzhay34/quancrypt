@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import re
+import threading
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
@@ -43,6 +44,11 @@ def _parse(body: bytes) -> object:
 
 
 _PROBLEM_CODES = {404: "not-found", 405: "method-not-allowed"}
+
+# At most this many batches are worked on at once (each 8 MiB body is about 260 MB once parsed; D-297d). The limit is
+# enforced here, after the token check, so unauthenticated half-open connections cannot use it up; a further batch
+# gets 503.
+MAX_CONCURRENT_BATCHES = 4
 
 
 def create_app(
@@ -84,9 +90,18 @@ def create_app(
     )
     app.include_router(build_health_router(checks))
     app.add_middleware(GateMiddleware, token=token)
+    slots = threading.BoundedSemaphore(MAX_CONCURRENT_BATCHES)
 
     @app.post("/api/v1/events")
     async def ingest_events(request: Request) -> Response:
+        if not slots.acquire(blocking=False):
+            return problem(503, "overloaded", "Service Unavailable", "too many batches in flight; send it again")
+        try:
+            return await _ingest(request)
+        finally:
+            slots.release()
+
+    async def _ingest(request: Request) -> Response:
         try:
             # Parsing 8 MiB takes a third of a second of CPU: off the event loop, so the health endpoints keep
             # answering.

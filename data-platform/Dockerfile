@@ -27,6 +27,7 @@ USER 10001
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
     CMD ["python", "-c", "import os, sys, urllib.request as r; o = r.build_opener(r.ProxyHandler({})); sys.exit(0 if o.open('http://127.0.0.1:%s/health/liveness' % os.environ['UVICORN_PORT'], timeout=3).status == 200 else 1)"]
 
-# Exec form: Python is PID 1 and receives SIGTERM; uvicorn finishes running requests and stops within 30 seconds. At most 8 requests
-# run at once (each 8 MiB body is about 260 MB once parsed; a ninth gets 503 and the sender retries); the compose memory limit backs it.
-CMD ["python", "-m", "uvicorn", "quancrypt_data.api.ingest:app", "--no-access-log", "--timeout-graceful-shutdown", "30", "--limit-concurrency", "8"]
+# Exec form: Python is PID 1 and receives SIGTERM; uvicorn finishes running requests and stops within 30 seconds. At most 4 batches
+# are worked on at once (each 8 MiB body is about 260 MB once parsed; a fifth gets 503 and the sender retries); the limit is in the
+# endpoint, after the token check, and the compose memory limit backs it.
+CMD ["python", "-m", "uvicorn", "quancrypt_data.api.ingest:app", "--no-access-log", "--timeout-graceful-shutdown", "30"]

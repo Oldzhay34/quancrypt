@@ -58,6 +58,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Overloaded'
 components:
   securitySchemes:
     internalToken:
@@ -99,6 +101,15 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    Overloaded:
+      description: 'Aynı anda en çok 4 parti işlenir (`type`: `overloaded`); parti hiçbir şey yazılmadan reddedilmiştir ve yeniden gönderilebilir.'
+      headers:
+        X-Trace-Id:
+          $ref: '#/components/headers/TraceId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     InternalError:
       description: 'Beklenmeyen hata (`type`: `internal-error`); parti hiçbir şey yazmadan geri alınmıştır ve yeniden gönderilebilir.'
       headers:
@@ -112,7 +123,8 @@ components:
     Problem:
       type: object
       description: 'RFC 9457 problem details. `type` değeri `https://quancrypt.local/problems/<kod>` biçimindedir (kodlar:
-        validation-failed, unauthorized, internal-error).'
+        validation-failed, unauthorized, overloaded, internal-error; bilinmeyen yol için not-found, bilinmeyen yöntem için
+        method-not-allowed).'
       properties:
         type:
           type: string

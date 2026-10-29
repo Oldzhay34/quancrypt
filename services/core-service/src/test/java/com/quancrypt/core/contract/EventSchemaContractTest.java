@@ -28,10 +28,11 @@ class EventSchemaContractTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
-     * Events produced by agent-service (D-232): their schemas live in the shared catalog (D-17) but core never emits them,
+     * Events produced outside core-service (scope_decision by agent-service, D-232; corpus_analysis and benchmark_analysis
+     * by the data platform's corpus flows, D-298): their schemas live in the shared catalog (D-17) but core never emits them,
      * so there is no core sample to validate; the test asserts that core really does not produce them.
      */
-    private static final Set<String> AGENT_PRODUCED = Set.of("scope_decision");
+    private static final Set<String> NOT_PRODUCED_BY_CORE = Set.of("scope_decision", "corpus_analysis", "benchmark_analysis");
 
     @TestFactory
     Stream<DynamicTest> everyPayloadMatchesItsSchema() {
@@ -54,7 +55,7 @@ class EventSchemaContractTest {
         try (Stream<Path> files = Files.list(EVENTS)) {
             return files.map(p -> EVENTS.relativize(p).toString().replace(".json", ""))
                     .map(type -> DynamicTest.dynamicTest(type, () -> {
-                        if (AGENT_PRODUCED.contains(type)) {
+                        if (NOT_PRODUCED_BY_CORE.contains(type)) {
                             assertThat(sampled).doesNotContain(type);
                         } else {
                             assertThat(sampled).contains(type);

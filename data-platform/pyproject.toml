@@ -1,4 +1,13 @@
-# Tool settings only (D-28): dependencies live in requirements.in / requirements.txt. The package is src/quancrypt_data.
+# Tool settings only (D-28): dependencies live in requirements*.in / requirements*.txt. The package is src/quancrypt_data.
+[project]
+name = "quancrypt-data"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[project.scripts]
+# The corpus command line (P6.2); `make corpus ARGS="..."` runs it with the pinned requirements.
+quancrypt-data = "quancrypt_data.api.cli:main"
+
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
@@ -85,7 +94,8 @@ allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 # `api.ingest` is the bootstrap module of the ASGI entry point (`quancrypt_data.api.ingest:app`, like <Servis>Application.java):
-# it builds the application through the composition root and nothing else.
+# it builds the application through the composition root and nothing else. `api.cli` and `api.flows` are the same for the corpus
+# command line and its Prefect flows (they call `corpus_container.bootstrap` and then only the facade).
 name = "api imports only the facade"
 type = "forbidden"
 source_modules = ["quancrypt_data.api"]
@@ -93,7 +103,11 @@ forbidden_modules = [
     "quancrypt_data.usecase", "quancrypt_data.infrastructure", "quancrypt_data.port", "quancrypt_data.domain",
     "sqlalchemy", "psycopg", "alembic", "jsonschema",
 ]
-ignore_imports = ["quancrypt_data.api.ingest -> quancrypt_data.infrastructure.container"]
+ignore_imports = [
+    "quancrypt_data.api.ingest -> quancrypt_data.infrastructure.container",
+    "quancrypt_data.api.cli -> quancrypt_data.infrastructure.corpus_container",
+    "quancrypt_data.api.flows -> quancrypt_data.infrastructure.corpus_container",
+]
 unmatched_ignore_imports_alerting = "none"
 allow_indirect_imports = true
 
@@ -107,6 +121,9 @@ ignore_imports = [
     "quancrypt_data.infrastructure.container -> quancrypt_data.facade.**",
     "quancrypt_data.infrastructure.container -> quancrypt_data.api.**",
     "quancrypt_data.infrastructure.container -> quancrypt_data.port.inbound.**",
+    "quancrypt_data.infrastructure.corpus_container -> quancrypt_data.usecase.**",
+    "quancrypt_data.infrastructure.corpus_container -> quancrypt_data.facade.**",
+    "quancrypt_data.infrastructure.corpus_container -> quancrypt_data.port.inbound.**",
 ]
 unmatched_ignore_imports_alerting = "none"
 allow_indirect_imports = true

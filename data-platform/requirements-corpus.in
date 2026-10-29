@@ -1,0 +1,5 @@
+# Host-side corpus tooling (P6.2, D-22, D-298e): the `quancrypt-data` command line and its Prefect flows run on the developer machine
+# with `uv run`, never in the ingest-api image (which installs requirements.txt only). Versions come from docs/VERSIONS.md.
+typer==0.27.2
+prefect==3.8.7
+httpx==0.28.1

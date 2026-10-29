@@ -71,15 +71,21 @@ class TestStoring:
 
         result = ingest(stack, *items)
 
-        assert (result.received, result.accepted, result.duplicate, result.quarantined) == (7, 7, 0, 0)
+        stored_count = len(items)
+        assert (result.received, result.accepted, result.duplicate, result.quarantined) == (
+            stored_count,
+            stored_count,
+            0,
+            0,
+        )
         stored = rows(
             stack, "SELECT event_type, source, source_ref, schema_version, project_key FROM raw.event ORDER BY 1"
         )
         assert [row[0] for row in stored] == sorted(name for name in PAYLOADS if name != "consent_revoked")
-        assert {row[1] for row in stored} == {"core-service", "agent-service"}
+        assert {row[1] for row in stored} == {"core-service", "agent-service", "corpus", "benchmark"}
         assert {row[2] for row in stored} == {None}
         assert {(row[3], row[4]) for row in stored} == {(1, KEY_A)}
-        assert rows(stack, "SELECT received_count, duplicate_count FROM ingest.ingest_batch") == [(7, 0)]
+        assert rows(stack, "SELECT received_count, duplicate_count FROM ingest.ingest_batch") == [(stored_count, 0)]
 
     def test_the_payload_and_the_event_time_are_kept(self, stack: Stack) -> None:
         item = envelope("scan_completed", occurred_at="2026-10-09T10:00:00.5Z")

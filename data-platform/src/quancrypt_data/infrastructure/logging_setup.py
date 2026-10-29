@@ -16,11 +16,15 @@ SERVICE = "ingest-api"
 
 
 class JsonFormatter(logging.Formatter):
+    def __init__(self, service: str = SERVICE) -> None:
+        super().__init__()
+        self._service = service
+
     def format(self, record: logging.LogRecord) -> str:
         entry = {
             "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname,
-            "service": SERVICE,
+            "service": self._service,
             "traceId": trace_id_var.get(),
             "message": record.getMessage(),
         }
@@ -30,9 +34,9 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
-def configure_logging(level: str) -> None:
+def configure_logging(level: str, service: str = SERVICE) -> None:
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(JsonFormatter(service))
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
@@ -45,3 +49,6 @@ def configure_logging(level: str) -> None:
     access = logging.getLogger("uvicorn.access")
     access.handlers[:] = []
     access.propagate = False
+    # The HTTP client logs every request line (method and address) at INFO; the corpus tooling reports its own progress.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)

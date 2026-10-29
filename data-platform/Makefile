@@ -6,11 +6,14 @@ PYTHON ?= 3.12
 UV ?= uv
 IMAGE ?= ingest-api:1.0.0
 PORT ?= 8084
+# The environment file the corpus command line reads (the user's own .env; Claude Code never reads it, D-55).
+ENV_FILE ?= ../.env
+ARGS ?= --help
 
 # Tools come from the pinned requirements (D-28); nothing is installed into the system Python. The package lives in src/.
 RUN := PYTHONPATH=src $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-dev.txt
 
-.PHONY: help compile verify run image e2e
+.PHONY: help compile verify run image e2e corpus
 
 help: ## Hedefleri listeler
 	@echo "data-platform Makefile"
@@ -34,6 +37,11 @@ run: ## ingest-api'yi yerelde çalıştırır (127.0.0.1:$(PORT)); ortamda WAREH
 
 image: ## Docker imajını üretir; build bağlamı depo kökü (olay şemaları contracts/ altından), sır girmez
 	docker build -f Dockerfile -t $(IMAGE) ..
+
+corpus: ## Korpus komut satırı (host'ta; ENV_FILE içindeki değişkenlerle): make corpus ARGS="corpus clone --offset 0 --limit 25"
+	@test -f "$(ENV_FILE)" || { echo "HATA: $(ENV_FILE) yok (ENV_FILE=... ile başka dosya verilebilir)"; exit 1; }
+	set -a && . "$(ENV_FILE)" && set +a && PYTHONPATH=src $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-corpus.txt \
+		python -m quancrypt_data.api.cli $(ARGS)
 
 e2e: ## Uçtan uca test (P6.1): çalışan yığın ister (postgres, core-service, ingest-api; geçici compose, bkz. README); make verify dışında
 	$(RUN) pytest -m e2e -p no:cacheprovider

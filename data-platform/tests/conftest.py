@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+import os
+import tempfile
+
+# Prefect keeps its local state (a SQLite file) under PREFECT_HOME: the tests that run a flow must not touch the real one.
+# Set before Prefect is imported anywhere.
+os.environ.setdefault("PREFECT_HOME", tempfile.mkdtemp(prefix="prefect-home-"))
+
+from collections.abc import Iterator  # noqa: E402
 from dataclasses import dataclass
 
 import pytest

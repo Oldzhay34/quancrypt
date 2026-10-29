@@ -2,7 +2,8 @@ openapi: 3.1.0
 info:
   title: Quancrypt ingest-api
   version: 1.0.0
-  description: 'ingest-api (data-platform, P6.1) core-service ve agent-service outbox relay''lerinin gönderdiği olayları `warehouse_db`
+  description: 'ingest-api (data-platform, P6.1) core-service ve agent-service outbox relay''lerinin ve (P6.2) data-platform''un korpus ve
+    benchmark akışlarının (`corpus_analysis`, `benchmark_analysis`) gönderdiği olayları `warehouse_db`
     iniş katmanına (`raw`) yazar. Her olay zarfı `contracts/schemas/events/<event_type>.json` şemasına göre doğrulanır; uymayan
     olay reddedilmez, `quarantine`''e yazılır ve parti işlenmiş sayılır (D-295f). Yazma `event_id` ile idempotenttir (aynı olay
     iki kez gelirse tek satır kalır); bu yüzden `Idempotency-Key` kabul edilmez (hexagonal-service §5''ten bilinçli sapma, D-145a

@@ -1,5 +1,6 @@
 # Development and verification tools (hand-pinned; versions come from docs/VERSIONS.md). Runtime packages are included.
 -r requirements.txt
+-r requirements-corpus.txt
 pytest==9.1.1
 ruff==0.16.10
 mypy==2.4.0
@@ -10,3 +11,5 @@ httpx==0.28.1
 PyYAML==6.0.3
 types-PyYAML==6.0.12.20260906
 types-jsonschema==4.26.0.20261006
+# Fakes for the httpx adapters of the corpus tooling (P6.2).
+respx==0.23.1

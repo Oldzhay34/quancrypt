@@ -90,6 +90,9 @@ services:
       # The analyzed project, read-only: the analyzer never writes (docker-local, section 2). PROJECT_ROOT must be set in .env
       # for this service; the /dev/null default only keeps the file valid for the other profiles and fails clearly here.
       - ${PROJECT_ROOT:-/dev/null}:/workspace:ro
+      # The corpus clones (and the benchmark copies below _benchmarks/), read-only, for the corpus flows of data-platform (P6.2).
+      # The analyzer only accepts roots below /workspace and /corpus (contracts/openapi/analyzer-service.yaml).
+      - ${CORPUS_ROOT:-/dev/null}:/corpus:ro
     networks:
       - quancrypt
     # JavaParser needs memory in proportion to the largest source file; the JVM takes 75 % of this limit (MaxRAMPercentage).

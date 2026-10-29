@@ -47,6 +47,44 @@ class Settings:
     log_level: str
 
 
+def database_url_problems(name: str, value: str, role: str) -> list[str]:
+    """What is wrong with a warehouse_db URL (empty when it is fine). Values are never repeated."""
+    try:
+        url = make_url(value)
+    except ArgumentError:
+        return [f"{name}: not a database URL"]
+    reasons = []
+    if url.drivername != "postgresql+psycopg":
+        reasons.append("the driver must be postgresql+psycopg")
+    if url.host not in LOCAL_DB_HOSTS:
+        reasons.append("the host must be one of: " + ", ".join(sorted(LOCAL_DB_HOSTS)))
+    if url.port is not None and not 1 <= url.port <= 65535:
+        reasons.append("the port must be between 1 and 65535")
+    if url.database != WAREHOUSE_DB_NAME:
+        reasons.append(f"the database must be {WAREHOUSE_DB_NAME}")
+    if url.username != role:
+        reasons.append(f"the role must be {role}")
+    if url.password is not None:
+        reasons.append("the URL must not carry the password (it has its own variable)")
+    if url.query:
+        # The driver lets a query string override the very fields checked above (host, dbname, password).
+        reasons.append("the URL must not carry a query string")
+    return [f"{name}: " + "; ".join(reasons)] if reasons else []
+
+
+def load_database_settings(source: Mapping[str, str]) -> DatabaseSettings:
+    """The application role's connection only (the corpus command line writes labels; it never migrates)."""
+    problems = database_url_problems("WAREHOUSE_DB_URL", source.get("WAREHOUSE_DB_URL", ""), WAREHOUSE_DB_APP_ROLE)
+    password = source.get("WAREHOUSE_DB_APP_PASSWORD", "")
+    if not password or "CHANGE_ME" in password:
+        problems.append("WAREHOUSE_DB_APP_PASSWORD: missing or still the placeholder")
+    if problems:
+        raise ConfigError("Invalid configuration: " + " | ".join(problems))
+    return DatabaseSettings(
+        url=source["WAREHOUSE_DB_URL"], migrator_url="", app_password=password, migrator_password=""
+    )
+
+
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     source = os.environ if env is None else env
     problems: list[str] = []
@@ -59,29 +97,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
 
     def database_url(name: str, role: str) -> str:
         value = source.get(name, "")
-        try:
-            url = make_url(value)
-        except ArgumentError:
-            problems.append(f"{name}: not a database URL")
-            return ""
-        reasons = []
-        if url.drivername != "postgresql+psycopg":
-            reasons.append("the driver must be postgresql+psycopg")
-        if url.host not in LOCAL_DB_HOSTS:
-            reasons.append("the host must be one of: " + ", ".join(sorted(LOCAL_DB_HOSTS)))
-        if url.port is not None and not 1 <= url.port <= 65535:
-            reasons.append("the port must be between 1 and 65535")
-        if url.database != WAREHOUSE_DB_NAME:
-            reasons.append(f"the database must be {WAREHOUSE_DB_NAME}")
-        if url.username != role:
-            reasons.append(f"the role must be {role}")
-        if url.password is not None:
-            reasons.append("the URL must not carry the password (it has its own variable)")
-        if url.query:
-            # The driver lets a query string override the very fields checked above (host, dbname, password).
-            reasons.append("the URL must not carry a query string")
-        if reasons:
-            problems.append(f"{name}: " + "; ".join(reasons))
+        problems.extend(database_url_problems(name, value, role))
         return value
 
     url = database_url("WAREHOUSE_DB_URL", WAREHOUSE_DB_APP_ROLE)

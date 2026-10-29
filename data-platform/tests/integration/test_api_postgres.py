@@ -44,19 +44,20 @@ def test_the_service_is_ready_once_the_database_answers(client: TestClient) -> N
 
 def test_a_relay_batch_of_every_event_type_is_stored_and_counted(client: TestClient, stack: Stack) -> None:
     batch: list[dict[str, Any]] = [envelope(name) for name in PAYLOADS if name != "consent_revoked"]
+    stored = len(batch)  # every type but the command: 7 of the services, the corpus and the benchmark one (P6.2)
 
     response = client.post("/api/v1/events", json=batch, headers=HEADERS)
 
     assert response.status_code == 200
     assert response.json() == {
-        "received": 7,
-        "accepted": 7,
+        "received": stored,
+        "accepted": stored,
         "duplicate": 0,
         "quarantined": 0,
         "consent_revoked": 0,
         "superseded": 0,
     }
-    assert count(stack, "raw.event") == 7
+    assert count(stack, "raw.event") == stored
 
 
 def test_the_same_request_sent_again_by_the_relay_changes_nothing(client: TestClient, stack: Stack) -> None:

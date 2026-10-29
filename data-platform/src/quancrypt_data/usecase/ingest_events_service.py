@@ -34,16 +34,13 @@ FUTURE_TOLERANCE = timedelta(minutes=5)
 class IngestEventsService(IngestEventsUseCase):
     """Writes a batch of event envelopes to the landing layer in one transaction (D-295, D-296).
 
-    Every item is checked against its schema; an item that fails is quarantined, not refused, so the sender's retry loop
-    ends. Storing is idempotent on `event_id`. A `consent_revoked` record is a command: it is not stored, it erases the
-    key's rows (DeleteProjectData) at its place in the batch order and it sets the cut-off of the key: a record of
-    the same
-    project that happened at or before the latest revocation is dropped (`superseded`), so neither a retried batch
-    nor a late
-    one can bring erased data back. The constructor takes ten collaborators because each is a separate narrow port
-    (ISP) and
-    `_write` follows the steps of the transaction plan in order (docs/data/warehouse_raw-erd.md section 6).
-    """
+    Every item is checked against its schema; an item that fails is quarantined, not refused, so the sender's retry
+    loop ends. Storing is idempotent on `event_id`. A `consent_revoked` record is a command: it is not stored, it
+    erases the key's rows (DeleteProjectData) at its place in the batch order and it sets the cut-off of the key: a
+    record of the same project that happened at or before the latest revocation is dropped (`superseded`), so neither
+    a retried batch nor a late one can bring erased data back. The constructor takes ten collaborators because each is
+    a separate narrow port (ISP) and `_write` follows the steps of the transaction plan in order
+    (docs/data/warehouse_raw-erd.md section 6)."""
 
     def __init__(
         self,
@@ -150,9 +147,8 @@ class IngestEventsService(IngestEventsUseCase):
 
 
 def _sender_event_id(item: object) -> str | None:
-    """What the sender called the record, when that text can be stored: a NUL character or a lone surrogate would
-    make the
-    database refuse the row, and with it the whole batch for ever."""
+    """What the sender called the record, when that text can be stored: a NUL character or a lone surrogate would make
+    the database refuse the row, and with it the whole batch for ever."""
     value = item.get("event_id") if isinstance(item, Mapping) else None
     if isinstance(value, str) and len(value) <= 64 and not has_unstorable_text(value):
         return value

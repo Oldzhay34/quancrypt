@@ -39,3 +39,9 @@ def test_an_exception_is_logged_by_class_name_only() -> None:
 
     assert json.loads(line)["exception"] == "ValueError"
     assert "secret-record-data" not in line
+
+
+def test_the_service_name_of_a_line_is_the_one_the_process_was_configured_with() -> None:
+    entry = json.loads(JsonFormatter("quancrypt-data").format(record()))
+
+    assert entry["service"] == "quancrypt-data"

@@ -21,8 +21,7 @@ class DeleteProjectDataService(DeleteProjectDataUseCase):
 
     Called from IngestEvents it joins the batch's transaction; called alone it runs in its own. A repeat of the same
     consent_revoked event (same `event_id`) is recognised by the audit and does nothing: a late repeat must not delete
-    rows of a consent given again since.
-    """
+    rows of a consent given again since."""
 
     def __init__(
         self,

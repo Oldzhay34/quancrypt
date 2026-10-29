@@ -99,10 +99,11 @@ def test_an_event_type_without_a_schema_is_unknown_to_the_classifier(catalog: Js
     assert classified.rejection.reason is QuarantineReason.UNKNOWN_EVENT_TYPE
 
 
-def test_a_date_time_the_schema_library_does_not_check_is_checked_by_the_domain(catalog: JsonSchemaCatalog) -> None:
+def test_a_date_time_is_checked_whether_or_not_the_schema_library_checks_it(catalog: JsonSchemaCatalog) -> None:
     item = envelope("finding_detected", occurred_at="last tuesday")
 
-    assert catalog.violations(item) == []  # date-time needs an extra package; the classifier reads the timestamp itself
+    # Whether the schema library flags it depends on an optional package (the development environment has it through
+    # Prefect, the image does not); the classifier reads the timestamp itself, so the record is quarantined either way.
     classified = EventClassifier(catalog).classify(0, item)
     assert classified.rejection is not None
     assert classified.rejection.reason is QuarantineReason.SCHEMA_VIOLATION

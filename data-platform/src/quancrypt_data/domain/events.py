@@ -37,6 +37,8 @@ class EventSource(StrEnum):
 
     CORE_SERVICE = "core-service"
     AGENT_SERVICE = "agent-service"
+    CORPUS = "corpus"
+    BENCHMARK = "benchmark"
 
 
 # `scope_decision` is the only agent event; core-service produces the other seven.
@@ -50,6 +52,8 @@ SOURCE_BY_EVENT_TYPE: Mapping[str, EventSource] = MappingProxyType(
         "project_runtime_changed": EventSource.CORE_SERVICE,
         CONSENT_REVOKED: EventSource.CORE_SERVICE,
         "scope_decision": EventSource.AGENT_SERVICE,
+        "corpus_analysis": EventSource.CORPUS,
+        "benchmark_analysis": EventSource.BENCHMARK,
     }
 )
 

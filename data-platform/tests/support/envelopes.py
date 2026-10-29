@@ -9,6 +9,39 @@ from typing import Any
 KEY_A = "a" * 64
 KEY_B = "b" * 64
 
+_ANALYSIS_PAYLOAD: dict[str, Any] = {
+    "analysis_unit": ".",
+    "chunk_index": 0,
+    "chunk_count": 1,
+    "runtime": {"java_version": "21", "spring_boot_version": "3.3.1"},
+    "findings": [
+        {
+            "file": "src/main/java/app/Crypto.java",
+            "line_start": 12,
+            "line_end": 12,
+            "raw_name": "RSA/ECB/PKCS1Padding",
+            "algorithm_family": "RSA",
+            "usage_context": "ENCRYPTION",
+            "location_kind": "CODE",
+            "priority": "P0",
+            "key_size_bits": 1024,
+            "mode": "NONE",
+            "padding": "PKCS1_V1_5",
+            "hash": None,
+            "library": "JCA",
+            "confidence": 0.9,
+        }
+    ],
+    "topology": {
+        "node_count": 3,
+        "edge_count": 2,
+        "tls_edge_count": 1,
+        "mtls_edge_count": 0,
+        "protocol_counts": {"HTTP": 2, "GRPC": 0, "MQTT": 0, "AMQP": 0, "KAFKA": 0, "OTHER": 0},
+    },
+    "stats": {"files_scanned": 40, "findings_total": 1, "duration_ms": 1200},
+}
+
 PAYLOADS: dict[str, dict[str, Any]] = {
     "finding_detected": {
         "algorithm_family": "RSA",
@@ -51,6 +84,8 @@ PAYLOADS: dict[str, dict[str, Any]] = {
         "latency_ms": 41,
         "language": "tr",
     },
+    "corpus_analysis": _ANALYSIS_PAYLOAD,
+    "benchmark_analysis": {"benchmark": "owasp-benchmark", **_ANALYSIS_PAYLOAD},
 }
 
 

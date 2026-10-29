@@ -69,9 +69,8 @@ class EventClassifier:
         return Classified(position, item, None, outcome, None, project_key, sort_at, digest, digest)
 
     def _revocation(self, item: object) -> Revocation | None:
-        """A consent_revoked record with a valid project key is a command whatever its payload or event id looks
-        like: the
-        schema is not allowed to decide whether an erasure happens (a newer schema version must not make it fail
+        """A consent_revoked record with a valid project key is a command whatever its payload or event id looks like:
+        the schema is not allowed to decide whether an erasure happens (a newer schema version must not make it fail
         open)."""
         if not isinstance(item, Mapping) or item.get("event_type") != CONSENT_REVOKED:
             return None

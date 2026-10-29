@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quancrypt.local/schemas/events/corpus_analysis.json",
+  "title": "corpus_analysis",
+  "description": "Korpus projesinin (veya bir analiz biriminin) statik analiz sonucu (P6.2). Yük yalnız kodlu alanlar, sayılar ve analiz köküne göre göreli yoldur; repo adresi, yerel yol, commit kimliği, sembol ve kod parçası yoktur. Bir proje birden çok olay (analiz birimi ve parça başına) üretebilir; event_id deterministiktir, tekrar koşu duplicate sayılır.",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "corpus_analysis"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Repo adresinin HMAC-SHA256 özeti (QUANCRYPT_ANON_SALT); korpus akışı hesaplar (D-298a)."
+    },
+    "payload": {
+      "type": "object",
+      "properties": {
+        "analysis_unit": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(\\.|[A-Za-z0-9._-]{1,80}(/[A-Za-z0-9._-]{1,80}){0,1})$",
+          "description": "Analiz birimi: '.' (kök) veya en çok iki bölümlü göreli dizin."
+        },
+        "chunk_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chunk_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "java_version": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+            },
+            "spring_boot_version": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+            }
+          },
+          "required": [
+            "java_version",
+            "spring_boot_version"
+          ],
+          "additionalProperties": false
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 800,
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Analiz köküne göre göreli yol (yerel mutlak yol ve repo adresi yoktur).",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*//)(?!(.*/)?\\.{1,2}(/|$))(?!.*/$)[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb\\\\]+$"
+              },
+              "line_start": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "line_end": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "raw_name": {
+                "type": "string",
+                "description": "Kodda veya yapılandırmada geçen ham ad (örn. `RSA/ECB/OAEPWithSHA-256AndMGF1Padding`, `SHA1withRSA`, `RS256`).",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u061c\\u180e\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u206f\\ufeff\\ufff9-\\ufffb]+$"
+              },
+              "algorithm_family": {
+                "type": "string",
+                "enum": [
+                  "RSA",
+                  "ECDSA",
+                  "ECDH",
+                  "EDDSA",
+                  "DH",
+                  "DSA",
+                  "ML_KEM",
+                  "ML_DSA",
+                  "SLH_DSA",
+                  "AES",
+                  "DES",
+                  "TRIPLE_DES",
+                  "CHACHA20",
+                  "SHA1",
+                  "SHA2",
+                  "SHA3",
+                  "MD5",
+                  "HMAC",
+                  "X25519",
+                  "HYBRID_X25519_MLKEM768",
+                  "UNKNOWN"
+                ]
+              },
+              "usage_context": {
+                "type": "string",
+                "enum": [
+                  "TLS_KEY_EXCHANGE",
+                  "TLS_SERVER_AUTH",
+                  "MTLS_CLIENT_AUTH",
+                  "CERTIFICATE",
+                  "ENCRYPTION",
+                  "KEY_WRAP",
+                  "SIGNATURE",
+                  "TOKEN_SIGNATURE",
+                  "KEY_AGREEMENT",
+                  "HASH",
+                  "SYMMETRIC_ENCRYPTION",
+                  "KEYSTORE",
+                  "UNKNOWN"
+                ]
+              },
+              "location_kind": {
+                "type": "string",
+                "enum": [
+                  "CODE",
+                  "CONFIG",
+                  "CERTIFICATE_FILE",
+                  "KEYSTORE_FILE",
+                  "BUILD_FILE",
+                  "TEST_CODE"
+                ]
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "P0",
+                  "P1",
+                  "P2",
+                  "P3"
+                ]
+              },
+              "key_size_bits": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "mode": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._/+()#-]+$"
+              },
+              "padding": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._/+()#-]+$"
+              },
+              "hash": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._/+()#-]+$"
+              },
+              "library": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._/+()#-]+$"
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "file",
+              "line_start",
+              "line_end",
+              "raw_name",
+              "algorithm_family",
+              "usage_context",
+              "location_kind",
+              "priority",
+              "key_size_bits",
+              "mode",
+              "padding",
+              "hash",
+              "library",
+              "confidence"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Bir olayda en çok 800 bulgu: ingest-api bir kaydı 20.000 değerle sınırlar (D-296i); fazlası ardışık parçalara bölünür."
+        },
+        "topology": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Yalnız ilk parçada ve yalnız kök analiz edildiyse; kenar listesi yoktur, yalnız sayılar.",
+          "properties": {
+            "node_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edge_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tls_edge_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "mtls_edge_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "protocol_counts": {
+              "type": "object",
+              "properties": {
+                "HTTP": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "GRPC": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "MQTT": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "AMQP": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "KAFKA": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "OTHER": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "HTTP",
+                "GRPC",
+                "MQTT",
+                "AMQP",
+                "KAFKA",
+                "OTHER"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "node_count",
+            "edge_count",
+            "tls_edge_count",
+            "mtls_edge_count",
+            "protocol_counts"
+          ],
+          "additionalProperties": false
+        },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "files_scanned": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "findings_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "files_scanned",
+            "findings_total",
+            "duration_ms"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "analysis_unit",
+        "chunk_index",
+        "chunk_count",
+        "runtime",
+        "findings",
+        "topology",
+        "stats"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "occurred_at",
+    "project_key",
+    "payload"
+  ],
+  "additionalProperties": false
+}

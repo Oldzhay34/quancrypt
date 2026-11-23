@@ -382,7 +382,17 @@ class TestTheWholePath:
         make_repository(samples, "acme__shop", license_text=MIT)
         make_repository(samples, "acme__locked", license_text="All rights reserved.")
         dataset = tmp_path / "msr.csv"
-        dataset.write_text("repo_url\nhttps://github.com/acme/shop\nhttps://github.com/acme/locked\n", encoding="utf-8")
+        dataset.write_text(
+            "\n".join(
+                [
+                    "URL;languages;n_microservices;Archived;WIP/Incomplete;Application Type",
+                    "https://github.com/acme/shop;['java', 'javascript'];4;No;No;Software System",
+                    "https://github.com/acme/locked;['java', 'javascript'];4;No;No;Software System",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         listing = CsvCorpusListStore(tmp_path / "reference" / "corpus_projects.csv")
         manifest = CsvManifestStore(tmp_path / "reports" / "corpus_manifest.csv")
         files = LocalCorpusFiles(corpus)

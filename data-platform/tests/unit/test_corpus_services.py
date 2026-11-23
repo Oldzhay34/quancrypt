@@ -217,8 +217,8 @@ def clone(service: CloneCorpusService, offset: int = 0, limit: int = 100, gib: i
 class TestBuildList:
     def test_the_list_is_what_the_policy_selects_and_the_result_counts_what_was_turned_away(self) -> None:
         candidates = [
-            Candidate(repo("a"), None, None, "Java", 4),
-            Candidate(repo("b"), None, None, "Python", None),
+            Candidate(repo("a"), None, None, frozenset({"java"}), 4),
+            Candidate(repo("b"), None, None, frozenset({"python"}), None),
         ]
         listing = FakeListing()
 
@@ -589,7 +589,7 @@ class TestReport:
         assert "| Toplam bulgu (analiz edilenlerde) | 7 |" in text
         assert "| license-unverified | 1 |" in text
         assert repo("d").url in text
-        assert "KARŞILANMADI" in text  # one analysed project is far below the minimum of 50
+        assert "KARŞILANMADI" in text  # one analysed project is far below the minimum of 40
 
     def test_writing_the_report_twice_gives_the_same_text(self) -> None:
         manifest = FakeManifest()

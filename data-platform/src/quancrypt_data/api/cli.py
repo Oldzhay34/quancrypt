@@ -138,6 +138,22 @@ def benchmarks_load(
     _guarded(action)
 
 
+@app.command("profile")
+def profile() -> None:
+    """Profile raw without changing it (P6.3): reports/profiling_report.md, reports/figures/*.png and
+    reports/unmapped_values.csv."""
+
+    def action() -> None:
+        container = bootstrap(need_database=True)
+        try:
+            assert container.profiling is not None  # noqa: S101 (need_database=True builds it)
+            _show(container.profiling.profile())
+        finally:
+            container.close()
+
+    _guarded(action)
+
+
 def main() -> None:
     app()
 

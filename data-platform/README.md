@@ -66,8 +66,27 @@ make corpus ARGS="benchmarks load owasp-benchmark <klasör>"             # etike
   bağımlılığı yoksa (`no-spring-boot`) ya da en az 3 servis dizini yoksa (`fewer-than-3-services`) proje diskten silinir ve raporlanır.
 - **Kimlik:** `project_key` korpus akışında HMAC ile hesaplanır; repo adresi, yerel yol ve commit kimliği olaya girmez (commit yalnız
   manifestte). Bulgu dosya yolları analiz köküne göredir ve **proje içi modül adlarını taşıyabilir** (bkz. docs/data/corpus-selection.md).
-- **Bilinen eksikler:** `TODO(P6.2-1)` MSR veri setinin sütun eşlemesi (`ColumnMap`), `TODO(P6.2-2)` CryptoAPI-Bench ve OWASP Benchmark
+- **MSR dosyası (D-304):** `;` ayırıcılı proje listesi; okunan sütunlar `URL`, `languages` (listede Java olmalı), `n_microservices`,
+  `Archived`, `WIP/Incomplete`, `Application Type` (arşivli, yarım ve kütüphane projeleri elenir). Listeden sonra hedefe ulaşılamazsa
+  `--size` büyütülür: uzun liste kısa olanla başlar.
+- **Bilinen eksikler:** `TODO(P6.2-2)` CryptoAPI-Bench ve OWASP Benchmark
   etiket okuyucuları: dosya biçimleri görülmeden yazılmadı (D-191, D-298h).
+
+## Veri profilleme (P6.3)
+
+```bash
+make corpus ARGS="profile"   # reports/profiling_report.md, reports/figures/*.png, reports/unmapped_values.csv
+```
+
+- raw'u **yalnız okur**: uygulama rolü (`WAREHOUSE_DB_URL`, `WAREHOUSE_DB_APP_PASSWORD`) ve her sorgu `READ ONLY` transaction'da
+  (D-302c). Tabloların satır sayısı ve özeti profilden önce ve sonra alınır; rapor ekinde ikisi karşılaştırılır. Değişmişse komut
+  hata verir.
+- Rapor bölümleri: kaynaklar ve zaman aralığı, kolon profilleri, ham yazım çeşitliliği, tekrarlar, proje başına bulgu dağılımı ve
+  aykırı adaylar (Q3 + 3×IQR, en az 4 proje), şema ihlalleri, kişisel veri ve sır taraması (`contracts/redaction-rules.yaml`, yalnız
+  sayı), öneriler (her biri bir ön işleme filtresi ve kanıt sayısıyla; kanıtsız öneri yok).
+- Rapora dosya yolu, karantina kaydı ve tam proje anahtarı yazılmaz (anahtarın ilk 12 hanesi); redaksiyon kuralının eşleştiği
+  yazım gizlenir. `unmapped_values.csv`: `contracts/canonical_dictionary.csv`'de olmayan yazımlar (`kind, raw, frequency, projects`).
+- Anlamlı rapor için önce korpus koşusu gerekir (D-302a).
 
 ## Mimari
 

@@ -12,9 +12,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
-# D-25: the prototype corpus targets 100 projects and must reach at least 50.
+# D-25: the prototype corpus targets 100 projects. D-306 set its minimum to 40: what the MSR dataset yields under
+# the selection rules.
 CORPUS_TARGET = 100
-CORPUS_MINIMUM = 50
+CORPUS_MINIMUM = 40
 # A fixed seed: the same dataset always gives the same list, and a longer list starts with the shorter one.
 SELECTION_SEED = 42
 # MSR criterion (the dataset keeps projects with at least three microservices) and the license allow-list of the task.
@@ -80,8 +81,11 @@ class Candidate:
     repo: RepoRef
     default_branch: str | None
     license_spdx: str | None
-    language: str | None
+    languages: frozenset[str] | None  # lower case
     service_count: int | None
+    archived: bool | None = None
+    work_in_progress: bool | None = None
+    application_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +100,9 @@ class Rejection(StrEnum):
     NOT_JAVA = "not-java"
     TOO_FEW_SERVICES = "fewer-than-3-services"
     LICENSE_NOT_ALLOWED = "license-not-allowed"
+    ARCHIVED = "archived"
+    WORK_IN_PROGRESS = "work-in-progress"
+    LIBRARY = "library"
     DUPLICATE = "duplicate"
 
 
@@ -107,12 +114,20 @@ class SelectionPolicy:
         self._seed = seed
 
     def rejection(self, candidate: Candidate) -> Rejection | None:
-        if candidate.language is not None and candidate.language.strip().casefold() != "java":
+        # Java among the project's languages is enough (D-304a): Spring Boot and the services are checked after cloning.
+        if candidate.languages is not None and "java" not in candidate.languages:
             return Rejection.NOT_JAVA
         if candidate.service_count is not None and candidate.service_count < MIN_SERVICES:
             return Rejection.TOO_FEW_SERVICES
         if candidate.license_spdx is not None and candidate.license_spdx not in ALLOWED_LICENSES:
             return Rejection.LICENSE_NOT_ALLOWED
+        # The dataset's own labels (D-304b): abandoned, unfinished and library projects are not systems to plan for.
+        if candidate.archived:
+            return Rejection.ARCHIVED
+        if candidate.work_in_progress:
+            return Rejection.WORK_IN_PROGRESS
+        if candidate.application_type is not None and candidate.application_type.strip().casefold() == "library":
+            return Rejection.LIBRARY
         return None
 
     def select(self, candidates: Sequence[Candidate], size: int) -> tuple[list[SelectedProject], dict[Rejection, int]]:
@@ -135,7 +150,7 @@ class SelectionPolicy:
 
 
 def _reason(candidate: Candidate) -> str:
-    language = "java" if candidate.language else "language: to verify"
+    language = "java" if candidate.languages else "language: to verify"
     services = f"services>={MIN_SERVICES}" if candidate.service_count is not None else "services: to verify"
     license_text = f"license {candidate.license_spdx}" if candidate.license_spdx else "license: to verify"
     return f"{language}; {services}; {license_text}"

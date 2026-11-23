@@ -69,13 +69,14 @@ BSD_4 = (
     + " acknowledgement.\n"
 )
 MIT_COMMONS_CLAUSE = MIT + "\nCommons Clause License Condition v1.0: the Software may not be sold.\n"
+JAVA = frozenset({"java"})
 
 
 def candidate(url: str = "https://github.com/acme/shop", **kwargs: object) -> Candidate:
     fields: dict[str, object] = {
         "default_branch": None,
         "license_spdx": None,
-        "language": None,
+        "languages": None,
         "service_count": None,
     }
     fields.update(kwargs)
@@ -143,11 +144,14 @@ class TestSelection:
     def test_what_the_dataset_rules_out_is_left_out_and_counted(self) -> None:
         policy = SelectionPolicy()
         candidates = [
-            candidate("https://github.com/a/ok", language="Java", service_count=5, license_spdx="MIT"),
-            candidate("https://github.com/a/python", language="Python"),
-            candidate("https://github.com/a/small", language="Java", service_count=2),
-            candidate("https://github.com/a/gpl", language="Java", license_spdx="GPL-3.0"),
-            candidate("https://github.com/a/ok", language="Java"),  # the same repository twice
+            candidate("https://github.com/a/ok", languages=JAVA, service_count=5, license_spdx="MIT"),
+            candidate("https://github.com/a/python", languages=frozenset({"python"})),
+            candidate("https://github.com/a/small", languages=JAVA, service_count=2),
+            candidate("https://github.com/a/gpl", languages=JAVA, license_spdx="GPL-3.0"),
+            candidate("https://github.com/a/old", languages=JAVA, archived=True),
+            candidate("https://github.com/a/wip", languages=JAVA, work_in_progress=True),
+            candidate("https://github.com/a/lib", languages=JAVA, application_type="Library"),
+            candidate("https://github.com/a/ok", languages=JAVA),  # the same repository twice
         ]
 
         selected, turned_away = policy.select(candidates, 10)
@@ -157,8 +161,18 @@ class TestSelection:
             Rejection.NOT_JAVA: 1,
             Rejection.TOO_FEW_SERVICES: 1,
             Rejection.LICENSE_NOT_ALLOWED: 1,
+            Rejection.ARCHIVED: 1,
+            Rejection.WORK_IN_PROGRESS: 1,
+            Rejection.LIBRARY: 1,
             Rejection.DUPLICATE: 1,
         }
+
+    def test_java_among_the_languages_is_enough_and_a_demo_or_unarchived_project_stays(self) -> None:
+        kept = candidate(
+            languages=frozenset({"java", "javascript"}), archived=False, work_in_progress=False, application_type="Demo"
+        )
+
+        assert SelectionPolicy().rejection(kept) is None
 
     def test_what_the_dataset_does_not_say_is_not_held_against_a_project(self) -> None:
         selected, turned_away = SelectionPolicy().select([candidate()], 5)

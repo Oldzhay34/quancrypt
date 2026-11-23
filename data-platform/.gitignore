@@ -10,3 +10,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# Generated corpus and profiling outputs (P6.2, P6.3): rebuilt by every run, not code (D-36, D-309).
+reports/
+reference/

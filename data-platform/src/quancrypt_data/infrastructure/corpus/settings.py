@@ -32,6 +32,8 @@ class CorpusSettings:
     corpus_root: Path
     reference_dir: Path
     reports_dir: Path
+    # contracts/ (canonical dictionary and redaction rules of the profiling, P6.3).
+    contracts_dir: Path
     datasets_root: Path | None
     analyzer_url: str
     ingest_url: str
@@ -117,6 +119,7 @@ def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database:
         corpus_root=corpus_root,
         reference_dir=Path(source.get("CORPUS_REFERENCE_DIR") or _ROOT / "reference"),
         reports_dir=Path(source.get("CORPUS_REPORTS_DIR") or _ROOT / "reports"),
+        contracts_dir=Path(source.get("CONTRACTS_DIR") or _ROOT.parent / "contracts"),
         datasets_root=datasets_root,
         analyzer_url=analyzer_url,
         ingest_url=ingest_url,

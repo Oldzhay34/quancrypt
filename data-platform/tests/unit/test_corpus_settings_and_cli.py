@@ -9,9 +9,12 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from quancrypt_data.api import cli
 from quancrypt_data.api.cli import app
+from quancrypt_data.facade.profiling_facade import ProfilingFacade
 from quancrypt_data.infrastructure.corpus.settings import load_corpus_settings
 from quancrypt_data.infrastructure.settings import ConfigError
+from quancrypt_data.port.inbound.profiling import ProfileRawDataResult
 
 TOKEN = "t" * 40
 SALT = "s" * 40
@@ -115,7 +118,15 @@ class TestCommandLine:
         datasets = tmp_path / "datasets"
         datasets.mkdir()
         (datasets / "msr.csv").write_text(
-            "repo_url\nhttps://github.com/acme/one\nhttps://github.com/acme/two\nhttps://github.com/acme/one\n",
+            "\n".join(
+                [
+                    "URL;languages;n_microservices;Archived;WIP/Incomplete;Application Type",
+                    "https://github.com/acme/one;['java', 'javascript'];4;No;No;Software System",
+                    "https://github.com/acme/two;['java', 'javascript'];4;No;No;Software System",
+                    "https://github.com/acme/one;['java', 'javascript'];4;No;No;Software System",
+                ]
+            )
+            + "\n",
             encoding="utf-8",
         )
         for key, value in environment(tmp_path, DATASETS_ROOT=str(datasets)).items():
@@ -140,7 +151,7 @@ class TestCommandLine:
         result = CliRunner().invoke(app, ["corpus", "list", "--dataset", str(tmp_path / "bad.csv")])
 
         assert result.exit_code == 1
-        assert "columns not found: repo_url" in result.output and "name, stars" in result.output
+        assert "columns not found: URL" in result.output and "name, stars" in result.output
 
     def test_a_missing_setting_ends_with_its_name_and_never_a_traceback(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for name in ("CORPUS_ROOT", "INTERNAL_SERVICE_TOKEN", "QUANCRYPT_ANON_SALT"):
@@ -163,6 +174,40 @@ class TestCommandLine:
         assert result.exit_code == 0, result.output
         text = (tmp_path / "reports" / "corpus_run.md").read_text(encoding="utf-8")
         assert "KARŞILANMADI" in text and "| Analiz edilen | 0 |" in text
+
+    def test_the_profile_command_needs_the_database_and_names_it(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for key, value in environment(tmp_path).items():
+            monkeypatch.setenv(key, value)
+        monkeypatch.delenv("WAREHOUSE_DB_URL", raising=False)
+
+        result = CliRunner().invoke(app, ["profile"])
+
+        assert result.exit_code == 1
+        assert "WAREHOUSE_DB_URL" in result.output
+        assert "Traceback" not in result.output
+
+    @pytest.mark.parametrize(("unchanged", "exit_code"), [(True, 0), (False, 1)])
+    def test_the_profile_command_fails_when_raw_changed_while_it_was_profiled(
+        self, monkeypatch: pytest.MonkeyPatch, unchanged: bool, exit_code: int
+    ) -> None:
+        class UseCase:
+            def execute(self) -> ProfileRawDataResult:
+                return ProfileRawDataResult(("reports/profiling_report.md",), 1, 2, 1, 0, 0, unchanged)
+
+        class Container:
+            profiling = ProfilingFacade(UseCase())
+
+            def close(self) -> None:
+                pass
+
+        monkeypatch.setattr(cli, "bootstrap", lambda **_: Container())
+
+        result = CliRunner().invoke(app, ["profile"])
+
+        assert result.exit_code == exit_code, result.output
+        assert ("RawDataChangedError" in result.output) is not unchanged
 
     def test_a_window_with_nothing_to_clone_does_nothing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         for key, value in environment(tmp_path).items():
@@ -194,7 +239,10 @@ class TestCommandLine:
     ) -> None:
         datasets = tmp_path / "datasets"
         datasets.mkdir()
-        (datasets / "msr.csv").write_text("repo_url\nhttps://github.com/acme/one\n", encoding="utf-8")
+        (datasets / "msr.csv").write_text(
+            "URL;languages;n_microservices;Archived;WIP/Incomplete;Application Type\nhttps://github.com/acme/one;['java', 'javascript'];4;No;No;Software System\n",
+            encoding="utf-8",
+        )
         for key, value in environment(tmp_path, DATASETS_ROOT=str(datasets)).items():
             monkeypatch.setenv(key, value)
 

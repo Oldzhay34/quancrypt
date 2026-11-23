@@ -18,7 +18,10 @@ from quancrypt_data.infrastructure.persistence.database import apply_migrations
 from quancrypt_data.infrastructure.settings import Settings
 from tests.support.postgres import MIGRATIONS_DIR, SCHEMAS_DIR, PostgresInstance, start_postgres, stop_postgres
 
-_ENTITY_TABLES = "ingest.ingest_audit_table, ingest.ingest_audit, raw.event, quarantine.event, ingest.ingest_batch"
+_ENTITY_TABLES = (
+    "ingest.ingest_audit_table, ingest.ingest_audit, raw.event, quarantine.event, ingest.ingest_batch, "
+    "raw.benchmark_label, raw.benchmark_load"
+)
 
 
 @pytest.fixture(scope="session")

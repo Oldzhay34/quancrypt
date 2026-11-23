@@ -297,7 +297,9 @@ class TestCsvStores:
     def test_the_list_has_exactly_the_four_columns_of_the_task_and_reads_back_in_order(self, tmp_path: Path) -> None:
         store = CsvCorpusListStore(tmp_path / "reference" / "corpus_projects.csv")
         projects = [
-            SelectedProject(Candidate(repo("b"), "main", "MIT", "Java", 4), "java; services>=3; license MIT"),
+            SelectedProject(
+                Candidate(repo("b"), "main", "MIT", frozenset({"java"}), 4), "java; services>=3; license MIT"
+            ),
             SelectedProject(Candidate(repo("a"), None, None, None, None), "to verify, with a comma"),
         ]
 
@@ -376,19 +378,63 @@ class TestDatasetReader:
             "not-a-url,Java,5,MIT",
         )
         reader = CsvMsrDatasetReader(
-            ColumnMap(repo_url="url", language="lang", service_count="services", license_spdx="lic")
+            ColumnMap(
+                repo_url="url",
+                languages="lang",
+                service_count="services",
+                license_spdx="lic",
+                archived=None,
+                work_in_progress=None,
+                application_type=None,
+            )
         )
 
         candidates = reader.read(path)
 
         assert [c.repo.name for c in candidates] == ["shop", "other"]
-        assert (candidates[0].language, candidates[0].service_count, candidates[0].license_spdx) == ("Java", 5, "MIT")
-        assert (candidates[1].language, candidates[1].service_count, candidates[1].license_spdx) == (None, None, None)
+        assert (candidates[0].languages, candidates[0].service_count, candidates[0].license_spdx) == (
+            frozenset({"java"}),
+            5,
+            "MIT",
+        )
+        assert (candidates[1].languages, candidates[1].service_count, candidates[1].license_spdx) == (None, None, None)
+
+    def test_the_msr_file_is_read_with_its_own_header_separator_and_spellings(self, tmp_path: Path) -> None:
+        big = "x" * 300_000  # the dataset has JSON cells of about 290 KB
+        path = self._write(
+            tmp_path / "msr.csv",
+            "URL;FileInfo;languages;n_microservices;Archived;WIP/Incomplete;Application Type",
+            f"https://github.com/acme/shop;{big};['java', 'javascript'];5;No;No;Software System",
+            "https://github.com/acme/lib;{};['Java'];3;Yes;Yes;Library",
+            "https://github.com/acme/quiet;{};[];;;;",
+        )
+
+        shop, lib, quiet = CsvMsrDatasetReader().read(path)
+
+        assert (shop.languages, shop.service_count, shop.archived, shop.work_in_progress, shop.application_type) == (
+            frozenset({"java", "javascript"}),
+            5,
+            False,
+            False,
+            "Software System",
+        )
+        assert (lib.languages, lib.archived, lib.work_in_progress, lib.application_type) == (
+            frozenset({"java"}),
+            True,
+            True,
+            "Library",
+        )
+        assert (quiet.languages, quiet.service_count, quiet.archived, quiet.application_type) == (
+            None,
+            None,
+            None,
+            None,
+        )
 
     def test_a_missing_column_is_an_error_that_lists_the_header_and_guesses_nothing(self, tmp_path: Path) -> None:
         path = self._write(tmp_path / "d.csv", "repository,language", "https://github.com/a/b,Java")
 
-        with pytest.raises(DatasetError, match="repo_url.*repository, language"):
+        with pytest.raises(DatasetError, match="URL.*repository, language"):
             CsvMsrDatasetReader().read(path)
 
     def test_an_unreadable_file_is_an_error_without_the_path(self, tmp_path: Path) -> None:
@@ -397,11 +443,31 @@ class TestDatasetReader:
 
         assert "secret-missing" not in str(raised.value)
 
+    def test_a_count_cell_that_is_no_plain_whole_number_says_nothing_and_ends_nothing(self, tmp_path: Path) -> None:
+        path = self._write(
+            tmp_path / "msr.csv",
+            "URL;languages;n_microservices;Archived;WIP/Incomplete;Application Type",
+            "https://github.com/acme/sup;['java'];²;No;No;Software System",
+            "https://github.com/acme/huge;['java'];" + "9" * 5000 + ";No;No;Software System",
+            "https://github.com/acme/ok;['java'];7;No;No;Software System",
+        )
+
+        candidates = CsvMsrDatasetReader().read(path)
+
+        assert [(c.repo.name, c.service_count) for c in candidates] == [("sup", None), ("huge", None), ("ok", 7)]
+
     def test_a_byte_order_mark_does_not_hide_the_first_column(self, tmp_path: Path) -> None:
         path = tmp_path / "d.csv"
-        path.write_bytes(b"\xef\xbb\xbfrepo_url\nhttps://github.com/a/b\n")
+        path.write_bytes(b"\xef\xbb\xbfURL\nhttps://github.com/a/b\n")
 
-        assert [c.repo.name for c in CsvMsrDatasetReader().read(path)] == ["b"]
+        assert [
+            c.repo.name
+            for c in CsvMsrDatasetReader(
+                ColumnMap(
+                    languages=None, service_count=None, archived=None, work_in_progress=None, application_type=None
+                )
+            ).read(path)
+        ] == ["b"]
 
 
 class TestHasher:

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from quancrypt_data.domain.corpus import SelectionPolicy
 from quancrypt_data.facade.corpus_facade import CorpusFacade
+from quancrypt_data.facade.profiling_facade import ProfilingFacade
 from quancrypt_data.infrastructure.corpus.corpus_files import LocalCorpusFiles
 from quancrypt_data.infrastructure.corpus.csv_stores import CsvCorpusListStore, CsvManifestStore, MarkdownReportWriter
 from quancrypt_data.infrastructure.corpus.git_repository import SubprocessGitRepository
@@ -20,6 +21,10 @@ from quancrypt_data.infrastructure.corpus.settings import CorpusSettings, load_c
 from quancrypt_data.infrastructure.logging_setup import configure_logging
 from quancrypt_data.infrastructure.persistence.benchmark_labels import PostgresBenchmarkLabelStore
 from quancrypt_data.infrastructure.persistence.database import Database
+from quancrypt_data.infrastructure.persistence.raw_reader import PostgresRawDataReader
+from quancrypt_data.infrastructure.profiling.dictionary_csv import CsvCanonicalDictionary
+from quancrypt_data.infrastructure.profiling.report_files import FileProfileReportWriter
+from quancrypt_data.infrastructure.redaction.redactor import Redactor
 from quancrypt_data.infrastructure.settings import ConfigError
 from quancrypt_data.infrastructure.system import SystemClock
 from quancrypt_data.port.outbound.corpus import BenchmarkLabel, BenchmarkLabelReader
@@ -27,6 +32,7 @@ from quancrypt_data.usecase.analyze_corpus_service import AnalyzeCorpusService
 from quancrypt_data.usecase.build_corpus_list_service import BuildCorpusListService
 from quancrypt_data.usecase.clone_corpus_service import CloneCorpusService
 from quancrypt_data.usecase.load_benchmarks_service import LoadBenchmarksService
+from quancrypt_data.usecase.profile_raw_data_service import ProfileRawDataService
 from quancrypt_data.usecase.project_analysis import ProjectAnalyzer
 from quancrypt_data.usecase.report_corpus_service import ReportCorpusService
 
@@ -48,6 +54,8 @@ class CorpusContainer:
     close: Callable[[], None]
     # A dataset path as the user typed it: a relative one is read below DATASETS_ROOT.
     resolve_dataset: Callable[[str], str]
+    # The profiling of raw (P6.3); None when the command was started without the database settings.
+    profiling: ProfilingFacade | None = None
 
 
 def label_readers() -> Mapping[str, BenchmarkLabelReader]:
@@ -92,7 +100,19 @@ def build_corpus_container(settings: CorpusSettings, *, configure_logs: bool = T
             return raw
         return str(settings.datasets_root / raw)
 
-    return CorpusContainer(facade=facade, close=close, resolve_dataset=resolve_dataset)
+    profiling = None
+    if database is not None:
+        redactor = Redactor.from_file(settings.contracts_dir / "redaction-rules.yaml")
+        profiling = ProfilingFacade(
+            ProfileRawDataService(
+                PostgresRawDataReader(database),
+                CsvCanonicalDictionary(settings.contracts_dir / "canonical_dictionary.csv"),
+                redactor,
+                FileProfileReportWriter(settings.reports_dir, lambda text: not redactor.scan([text])),
+                clock,
+            )
+        )
+    return CorpusContainer(facade=facade, close=close, resolve_dataset=resolve_dataset, profiling=profiling)
 
 
 def bootstrap(*, need_database: bool = False, configure_logs: bool = True) -> CorpusContainer:

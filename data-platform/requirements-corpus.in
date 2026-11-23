@@ -3,3 +3,9 @@
 typer==0.27.2
 prefect==3.8.7
 httpx==0.28.1
+# Charts of the profiling report (P6.3, D-302b); host tooling only.
+matplotlib==3.11.2
+# The redaction rules (contracts/redaction-rules.yaml) the profiling scan reads (P6.3); VERSIONS.md 6.0.3.
+PyYAML==6.0.3
+# The PostgreSQL driver of `profile` and `benchmarks load` (postgresql+psycopg://); the same pin as requirements.txt.
+psycopg[binary]==3.3.6

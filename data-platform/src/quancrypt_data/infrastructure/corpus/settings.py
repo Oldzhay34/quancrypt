@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from quancrypt_data.domain.prep import FILTER_ORDER
 from quancrypt_data.infrastructure.settings import (
     LOG_LEVELS,
     MIN_TOKEN_CHARS,
@@ -45,6 +46,9 @@ class CorpusSettings:
     ingest_timeout_s: int
     log_level: str
     database: DatabaseSettings | None
+    # The preprocessing filters in their order (PREP_FILTER_ORDER, comma-separated; default: data-preprocessing
+    # section 3).
+    prep_filter_order: tuple[str, ...] = FILTER_ORDER
 
 
 def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database: bool = False) -> CorpusSettings:
@@ -104,6 +108,9 @@ def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database:
     salt = source.get("QUANCRYPT_ANON_SALT", "")
     if len(salt) < MIN_TOKEN_CHARS or "CHANGE_ME" in salt:
         problems.append(f"QUANCRYPT_ANON_SALT: at least {MIN_TOKEN_CHARS} characters, not the placeholder")
+    order = tuple(name.strip() for name in source.get("PREP_FILTER_ORDER", ",".join(FILTER_ORDER)).split(","))
+    if set(order) != set(FILTER_ORDER) or len(order) != len(FILTER_ORDER):
+        problems.append("PREP_FILTER_ORDER: every filter of the pipeline exactly once: " + ", ".join(FILTER_ORDER))
     level = source.get("LOG_LEVEL", "INFO")
     if level not in LOG_LEVELS:
         problems.append("LOG_LEVEL: one of " + ", ".join(sorted(LOG_LEVELS)))
@@ -131,4 +138,5 @@ def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database:
         ingest_timeout_s=60,
         log_level=level,
         database=database,
+        prep_filter_order=order,
     )

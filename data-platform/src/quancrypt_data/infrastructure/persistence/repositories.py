@@ -15,9 +15,21 @@ from quancrypt_data.infrastructure.persistence.database import Database
 from quancrypt_data.port.outbound.erasure import ErasureRecord, ProjectKeyTableRegistry
 from quancrypt_data.port.outbound.storage import QuarantineEntry
 
-_LOCK_NAMESPACE = "quancrypt-ingest:"
+LOCK_NAMESPACE = "quancrypt-ingest:"
 # What a project-key erasure covers in P6.1; P6.4 (prep) and P6.6 (warehouse) extend the list (D-295d).
-_REGISTERED_TABLES = (ProjectKeyTable("raw", "event"), ProjectKeyTable("quarantine", "event"))
+# Every table with rows of a project key (D-295d, P6.4).
+_REGISTERED_TABLES = (
+    ProjectKeyTable("raw", "event"),
+    ProjectKeyTable("quarantine", "event"),
+    # Children first, so that the audit counts each table's own rows (the snapshot would take them along otherwise).
+    ProjectKeyTable("prep", "service_link"),
+    ProjectKeyTable("prep", "topology_summary"),
+    ProjectKeyTable("prep", "finding"),
+    ProjectKeyTable("prep", "analysis_unit"),
+    ProjectKeyTable("prep", "scope_decision"),
+    ProjectKeyTable("prep", "project_snapshot"),
+    ProjectKeyTable("quarantine", "prep_record"),
+)
 
 
 def _json(value: object) -> str:
@@ -175,5 +187,5 @@ class PostgresProjectKeyLock:
         # Sorted, so two transactions that lock several keys take them in the same order (no deadlock).
         for key in sorted(set(project_keys)):
             connection.execute(
-                text("SELECT pg_advisory_xact_lock(hashtextextended(:name, 0))"), {"name": _LOCK_NAMESPACE + key}
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:name, 0))"), {"name": LOCK_NAMESPACE + key}
             )

@@ -225,7 +225,7 @@ class TestErasure:
 
     def test_the_eraser_refuses_a_table_that_is_not_registered(self, adapters: Adapters) -> None:
         with pytest.raises(ValueError, match="registry"):
-            adapters.in_transaction(lambda: adapters.eraser.delete(ProjectKeyTable("prep", "finding"), KEY_A))
+            adapters.in_transaction(lambda: adapters.eraser.delete(ProjectKeyTable("prep", "benchmark_label"), KEY_A))
 
     def test_the_audit_remembers_an_erasure_and_its_cutoff(self, adapters: Adapters) -> None:
         first, second = uuid.uuid4(), uuid.uuid4()

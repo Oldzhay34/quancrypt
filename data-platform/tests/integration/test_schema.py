@@ -10,6 +10,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 from quancrypt_data.domain.events import SOURCE_BY_EVENT_TYPE, QuarantineReason
+from quancrypt_data.domain.prep import PREP_ERROR_CODES
 from quancrypt_data.infrastructure.persistence.database import apply_migrations
 from quancrypt_data.infrastructure.persistence.repositories import StaticProjectKeyTableRegistry
 from tests.support.envelopes import KEY_A
@@ -87,6 +88,24 @@ class TestShape:
             "ingest.benchmark",
             "raw.benchmark_label",
             "raw.benchmark_load",
+            "quarantine.prep_filter",
+            "quarantine.prep_record",
+            "prep.algorithm_family",
+            "prep.usage_context",
+            "prep.location_kind",
+            "prep.priority",
+            "prep.protocol",
+            "prep.decision",
+            "prep.deciding_ring",
+            "prep.language",
+            "prep.project_origin",
+            "prep.project_snapshot",
+            "prep.analysis_unit",
+            "prep.finding",
+            "prep.topology_summary",
+            "prep.service_link",
+            "prep.scope_decision",
+            "prep.benchmark_label",
         }
 
     def test_json_columns_exist_only_in_raw_and_quarantine(self, migrated: PostgresInstance) -> None:
@@ -109,7 +128,7 @@ class TestShape:
         }
         assert {code for (code,) in rows(engine, "SELECT code FROM quarantine.error_code")} == {
             reason.value for reason in QuarantineReason
-        }
+        } | PREP_ERROR_CODES
         assert {code for (code,) in rows(engine, "SELECT code FROM ingest.project_key_table")} == {
             table.qualified for table in StaticProjectKeyTableRegistry().tables()
         }
@@ -120,7 +139,7 @@ class TestShape:
 
         apply_migrations(migrated.settings(), MIGRATIONS_DIR)
 
-        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0002",)]
+        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0003",)]
 
 
 class TestConstraints:

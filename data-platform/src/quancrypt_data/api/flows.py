@@ -81,3 +81,16 @@ def benchmark_flow(benchmark: str, source: str) -> None:
         _step("benchmark", lambda: container.facade.load_benchmark(benchmark, source))
     finally:
         container.close()
+
+
+@flow(name="preprocess_flow", log_prints=True)
+def preprocess_flow() -> None:
+    """raw -> filters -> prep and the prep quarantine, then reports/preprocessing_report.md (P6.4)."""
+    _require_local_mode()
+    container = bootstrap(need_database=True, configure_logs=False)
+    try:
+        preprocessing = container.preprocessing
+        assert preprocessing is not None  # noqa: S101 (need_database=True builds it)
+        _step("preprocess", preprocessing.preprocess)
+    finally:
+        container.close()

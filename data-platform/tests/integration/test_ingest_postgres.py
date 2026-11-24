@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
+from quancrypt_data.infrastructure.persistence.repositories import StaticProjectKeyTableRegistry
 from quancrypt_data.port.inbound.delete_project_data import DeleteProjectDataCommand
 from quancrypt_data.port.inbound.ingest_events import IngestEventsCommand, IngestEventsResult, InvalidBatchError
 from tests.conftest import Stack
@@ -187,7 +188,12 @@ class TestErasure:
         detail = rows(
             stack, "SELECT table_name, deleted_rows FROM ingest.ingest_audit_table WHERE audit_id = :id", id=audit[0][0]
         )
-        assert sorted(detail) == [("quarantine.event", 1), ("raw.event", 2)]
+        deleted = dict(detail)
+        assert (deleted["quarantine.event"], deleted["raw.event"]) == (1, 2)
+        # The prep tables are in the registry too; this key has no rows there.
+        assert {t: n for t, n in deleted.items() if t.startswith(("prep.", "quarantine.prep"))} == {
+            t: 0 for t in deleted if t.startswith(("prep.", "quarantine.prep"))
+        } and len(deleted) == 9
 
     def test_an_event_that_follows_the_revocation_in_the_same_batch_survives_it(self, stack: Stack) -> None:
         before = envelope(occurred_at="2026-10-27T10:00:00Z")
@@ -218,7 +224,9 @@ class TestErasure:
         )
 
         assert result.erased
-        assert dict(result.deleted) == {"raw.event": 1, "quarantine.event": 0}
+        assert dict(result.deleted) == {"raw.event": 1, "quarantine.event": 0} | {
+            table.qualified: 0 for table in StaticProjectKeyTableRegistry().tables()[2:]
+        }
         assert count(stack, "raw.event") == 1
 
 

@@ -20,7 +20,7 @@ from tests.support.postgres import MIGRATIONS_DIR, SCHEMAS_DIR, PostgresInstance
 
 _ENTITY_TABLES = (
     "ingest.ingest_audit_table, ingest.ingest_audit, raw.event, quarantine.event, ingest.ingest_batch, "
-    "raw.benchmark_label, raw.benchmark_load"
+    "raw.benchmark_label, raw.benchmark_load, prep.project_snapshot, prep.benchmark_label, quarantine.prep_record"
 )
 
 
@@ -47,7 +47,7 @@ class Stack:
 def stack(migrated: PostgresInstance) -> Iterator[Stack]:
     """The real service wired to the real database, with empty entity tables."""
     with migrated.migrator_engine().begin() as connection:
-        connection.execute(text(f"TRUNCATE {_ENTITY_TABLES}"))
+        connection.execute(text(f"TRUNCATE {_ENTITY_TABLES} CASCADE"))
     settings = Settings(
         database=migrated.settings(),
         internal_token="t" * 40,

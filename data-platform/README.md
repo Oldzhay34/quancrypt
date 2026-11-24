@@ -76,6 +76,7 @@ make corpus ARGS="benchmarks load owasp-benchmark <klasör>"             # etike
 
 ```bash
 make corpus ARGS="profile"   # reports/profiling_report.md, reports/figures/*.png, reports/unmapped_values.csv
+make corpus ARGS="preprocess" # raw -> prep + quarantine; reports/preprocessing_report.md (sızıntı varsa çıkış kodu 1)
 ```
 
 - raw'u **yalnız okur**: uygulama rolü (`WAREHOUSE_DB_URL`, `WAREHOUSE_DB_APP_PASSWORD`) ve her sorgu `READ ONLY` transaction'da

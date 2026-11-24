@@ -154,6 +154,22 @@ def profile() -> None:
     _guarded(action)
 
 
+@app.command("preprocess")
+def preprocess() -> None:
+    """Raw to prep (P6.4): filters, prep tables, reports/preprocessing_report.md and reports/figures/prep_funnel.png.
+    Ends with a non-zero exit code when the leak check finds anything in prep."""
+
+    def action() -> None:
+        container = bootstrap(need_database=True)
+        try:
+            assert container.preprocessing is not None  # noqa: S101 (need_database=True builds it)
+            _show(container.preprocessing.preprocess())
+        finally:
+            container.close()
+
+    _guarded(action)
+
+
 def main() -> None:
     app()
 

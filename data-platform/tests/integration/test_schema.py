@@ -139,7 +139,7 @@ class TestShape:
 
         apply_migrations(migrated.settings(), MIGRATIONS_DIR)
 
-        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0003",)]
+        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0004",)]
 
 
 class TestConstraints:
@@ -405,7 +405,13 @@ class TestReviewFindings:
             )
         }
 
-        registered = {table.qualified for table in StaticProjectKeyTableRegistry().tables()}
+        # The warehouse tables exist only after dbt built them; tests/integration/test_warehouse_postgres.py checks that
+        # the tables dbt builds with a project_key are exactly the registered ones.
+        registered = {
+            table.qualified
+            for table in StaticProjectKeyTableRegistry().tables()
+            if table.schema not in {"core", "snapshots", "marts"}
+        }
 
         # The audit keeps the key on purpose (D-127: the HMAC key and the action, nothing else); everything else is erased.
         # A table a later phase adds (prep.*, a warehouse table) fails this test until it is registered.

@@ -13,7 +13,7 @@ ARGS ?= --help
 # Tools come from the pinned requirements (D-28); nothing is installed into the system Python. The package lives in src/.
 RUN := PYTHONPATH=src $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-dev.txt
 
-.PHONY: help compile verify run image e2e corpus
+.PHONY: help compile verify run image e2e corpus warehouse warehouse-deps
 
 help: ## Hedefleri listeler
 	@echo "data-platform Makefile"
@@ -23,7 +23,7 @@ help: ## Hedefleri listeler
 compile: ## requirements.in dosyasından requirements.txt dosyasını derler (uv pip compile)
 	$(UV) pip compile requirements.in -o requirements.txt --python-version 3.12 --no-header
 
-verify: ## ruff, mypy --strict, import-linter, pytest (birim, sözleşme ve gerçek PostgreSQL entegrasyonu; Docker kapalıysa başarısız olur) ve domain+usecase kapsamı >= %75
+verify: warehouse-deps ## ruff, mypy --strict, import-linter, pytest (birim, sözleşme ve gerçek PostgreSQL entegrasyonu; Docker kapalıysa başarısız olur) ve domain+usecase kapsamı >= %75
 	$(RUN) ruff check .
 	$(RUN) ruff format --check .
 	$(RUN) mypy
@@ -42,6 +42,20 @@ corpus: ## Korpus komut satırı (host'ta; ENV_FILE içindeki değişkenlerle): 
 	@test -f "$(ENV_FILE)" || { echo "HATA: $(ENV_FILE) yok (ENV_FILE=... ile başka dosya verilebilir)"; exit 1; }
 	set -a && . "$(ENV_FILE)" && set +a && PYTHONPATH=src $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-corpus.txt \
 		python -m quancrypt_data.api.cli $(ARGS)
+
+DBT_PROJECT := dbt/quancrypt_dw
+
+warehouse-deps: ## dbt_utils kurar (bir kez, dbt deps; ağ yalnız geliştirme zamanında)
+	@test -d $(DBT_PROJECT)/dbt_packages/dbt_utils || { \
+		tmp=$$(mktemp -d) && cp $(DBT_PROJECT)/profiles.yml.example $$tmp/profiles.yml && \
+		( cd $(DBT_PROJECT) && DBT_USER=deps DBT_PASSWORD=deps DBT_SEND_ANONYMOUS_USAGE_STATS=false DO_NOT_TRACK=1 \
+			$(UV) run --python $(PYTHON) --no-project --with-requirements ../../requirements-dbt.txt dbt deps --profiles-dir $$tmp ); \
+		status=$$?; rm -rf $$tmp; exit $$status; }
+
+warehouse: warehouse-deps ## Warehouse'u dbt ile kurar (prep -> staging, snapshots, core, marts; testler dahil); build kilidi tutulur
+	@test -f "$(ENV_FILE)" || { echo "HATA: $(ENV_FILE) yok (ENV_FILE=... ile başka dosya verilebilir)"; exit 1; }
+	set -a && . "$(ENV_FILE)" && set +a && PYTHONPATH=src $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-corpus.txt \
+		python -m quancrypt_data.api.cli warehouse build
 
 e2e: ## Uçtan uca test (P6.1): çalışan yığın ister (postgres, core-service, ingest-api; geçici compose, bkz. README); make verify dışında
 	$(RUN) pytest -m e2e -p no:cacheprovider

@@ -19,6 +19,7 @@ from quancrypt_data.domain.prep import RecordFilter
 from quancrypt_data.facade.corpus_facade import CorpusFacade
 from quancrypt_data.facade.preprocess_facade import PreprocessFacade
 from quancrypt_data.facade.profiling_facade import ProfilingFacade
+from quancrypt_data.facade.warehouse_facade import WarehouseFacade
 from quancrypt_data.infrastructure.corpus.corpus_files import LocalCorpusFiles
 from quancrypt_data.infrastructure.corpus.csv_stores import CsvCorpusListStore, CsvManifestStore, MarkdownReportWriter
 from quancrypt_data.infrastructure.corpus.git_repository import SubprocessGitRepository
@@ -38,6 +39,7 @@ from quancrypt_data.infrastructure.persistence.prep_store import (
     PostgresRawEventSource,
 )
 from quancrypt_data.infrastructure.persistence.raw_reader import PostgresRawDataReader
+from quancrypt_data.infrastructure.persistence.warehouse_lock import PostgresWarehouseBuildLock
 from quancrypt_data.infrastructure.prep.report_files import FilePrepReportWriter
 from quancrypt_data.infrastructure.profiling.dictionary_csv import CsvCanonicalDictionary
 from quancrypt_data.infrastructure.profiling.report_files import FileProfileReportWriter
@@ -45,9 +47,11 @@ from quancrypt_data.infrastructure.redaction.redactor import Redactor
 from quancrypt_data.infrastructure.schema.json_schema_catalog import JsonSchemaCatalog
 from quancrypt_data.infrastructure.settings import ConfigError
 from quancrypt_data.infrastructure.system import SystemClock
+from quancrypt_data.infrastructure.warehouse.dbt_cli_builder import DbtCliBuilder, DbtConnection
 from quancrypt_data.port.outbound.corpus import BenchmarkLabel, BenchmarkLabelReader
 from quancrypt_data.usecase.analyze_corpus_service import AnalyzeCorpusService
 from quancrypt_data.usecase.build_corpus_list_service import BuildCorpusListService
+from quancrypt_data.usecase.build_warehouse_service import BuildWarehouseService
 from quancrypt_data.usecase.clone_corpus_service import CloneCorpusService
 from quancrypt_data.usecase.load_benchmarks_service import LoadBenchmarksService
 from quancrypt_data.usecase.preprocess_service import PreprocessService
@@ -77,6 +81,8 @@ class CorpusContainer:
     profiling: ProfilingFacade | None = None
     # The preprocessing of raw into prep (P6.4); None without the database settings.
     preprocessing: PreprocessFacade | None = None
+    # The dbt build of the warehouse (P6.6); None unless the command asked for it (need_warehouse_build).
+    warehouse: WarehouseFacade | None = None
 
 
 def label_readers() -> Mapping[str, BenchmarkLabelReader]:
@@ -146,12 +152,27 @@ def build_corpus_container(settings: CorpusSettings, *, configure_logs: bool = T
                 clock,
             )
         )
+    warehouse_facade = None
+    if database is not None and settings.database is not None and settings.warehouse is not None:
+        w = settings.warehouse
+        warehouse_facade = WarehouseFacade(
+            BuildWarehouseService(
+                PostgresWarehouseBuildLock(settings.database),
+                DbtCliBuilder(
+                    w.dbt_project_dir,
+                    w.dbt_command,
+                    DbtConnection(w.host, w.port, w.user, w.password, w.dbname),
+                    w.timeout_s,
+                ),
+            )
+        )
     return CorpusContainer(
         facade=facade,
         close=close,
         resolve_dataset=resolve_dataset,
         profiling=profiling,
         preprocessing=preprocessing,
+        warehouse=warehouse_facade,
     )
 
 
@@ -172,7 +193,12 @@ def _filters(settings: CorpusSettings, redactor: Redactor, dictionary: CsvCanoni
     return [available[name] for name in settings.prep_filter_order]
 
 
-def bootstrap(*, need_database: bool = False, configure_logs: bool = True) -> CorpusContainer:
+def bootstrap(
+    *, need_database: bool = False, need_warehouse_build: bool = False, configure_logs: bool = True
+) -> CorpusContainer:
     """The container for the process environment (the command line and the flows call this and nothing else). A flow
     passes `configure_logs=False`: Prefect owns the logging of a flow run."""
-    return build_corpus_container(load_corpus_settings(need_database=need_database), configure_logs=configure_logs)
+    settings = load_corpus_settings(
+        need_database=need_database or need_warehouse_build, need_warehouse_build=need_warehouse_build
+    )
+    return build_corpus_container(settings, configure_logs=configure_logs)

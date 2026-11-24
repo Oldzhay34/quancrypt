@@ -9,12 +9,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from sqlalchemy.engine import make_url
+
 from quancrypt_data.domain.prep import FILTER_ORDER
 from quancrypt_data.infrastructure.settings import (
     LOG_LEVELS,
     MIN_TOKEN_CHARS,
+    WAREHOUSE_DB_MIGRATOR_ROLE,
     ConfigError,
     DatabaseSettings,
+    database_url_problems,
     load_database_settings,
 )
 
@@ -26,6 +30,21 @@ ANALYZER_HOSTS = LOOPBACK_HOSTS
 INGEST_HOSTS = LOOPBACK_HOSTS
 # data-platform/src/quancrypt_data/infrastructure/corpus/settings.py -> data-platform
 _ROOT = Path(__file__).resolve().parents[4]
+
+
+@dataclass(frozen=True)
+class WarehouseBuildSettings:
+    """What `warehouse build` needs besides the application role: the migrator role (dbt creates the schemas and tables)
+    and the dbt command. The migrator password stays out of repr and logs."""
+
+    dbt_project_dir: Path
+    dbt_command: tuple[str, ...]
+    host: str
+    port: int
+    user: str
+    password: str = field(repr=False)
+    dbname: str
+    timeout_s: int = 1800
 
 
 @dataclass(frozen=True)
@@ -49,9 +68,13 @@ class CorpusSettings:
     # The preprocessing filters in their order (PREP_FILTER_ORDER, comma-separated; default: data-preprocessing
     # section 3).
     prep_filter_order: tuple[str, ...] = FILTER_ORDER
+    # The warehouse build (P6.6); None unless the command asked for it.
+    warehouse: WarehouseBuildSettings | None = None
 
 
-def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database: bool = False) -> CorpusSettings:
+def load_corpus_settings(
+    env: Mapping[str, str] | None = None, *, need_database: bool = False, need_warehouse_build: bool = False
+) -> CorpusSettings:
     source = os.environ if env is None else env
     problems: list[str] = []
 
@@ -120,6 +143,9 @@ def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database:
             database = load_database_settings(source)
         except ConfigError as exc:
             problems.append(str(exc).removeprefix("Invalid configuration: "))
+    warehouse: WarehouseBuildSettings | None = None
+    if need_warehouse_build:
+        warehouse = _warehouse_settings(source, problems)
     if problems or corpus_root is None:
         raise ConfigError("Invalid configuration: " + " | ".join(problems))
     return CorpusSettings(
@@ -139,4 +165,54 @@ def load_corpus_settings(env: Mapping[str, str] | None = None, *, need_database:
         log_level=level,
         database=database,
         prep_filter_order=order,
+        warehouse=warehouse,
+    )
+
+
+def _warehouse_settings(source: Mapping[str, str], problems: list[str]) -> WarehouseBuildSettings | None:
+    """The connection of the migrator role for dbt (the services' URL and password variables) and the command."""
+    url_problems = database_url_problems(
+        "WAREHOUSE_DB_MIGRATOR_URL", source.get("WAREHOUSE_DB_MIGRATOR_URL", ""), WAREHOUSE_DB_MIGRATOR_ROLE
+    )
+    migrator_host = make_url(source.get("WAREHOUSE_DB_MIGRATOR_URL") or "postgresql+psycopg://x@x/x").host
+    if migrator_host not in {"localhost", "127.0.0.1", "::1"}:
+        # The command line runs on the host: a compose name does not resolve there, and a search domain could resolve it
+        # elsewhere and receive the password (D-301c).
+        url_problems.append("WAREHOUSE_DB_MIGRATOR_URL: the host must be one of: ::1, 127.0.0.1, localhost")
+    project_dir = source.get("DBT_PROJECT_DIR", "")
+    if project_dir and not (Path(project_dir).is_absolute() and (Path(project_dir) / "dbt_project.yml").is_file()):
+        url_problems.append("DBT_PROJECT_DIR: an absolute path of a directory with dbt_project.yml")
+    password = source.get("WAREHOUSE_DB_MIGRATOR_PASSWORD", "")
+    if not password or "CHANGE_ME" in password:
+        url_problems.append("WAREHOUSE_DB_MIGRATOR_PASSWORD: missing or still the placeholder")
+    executable = source.get("DBT_EXECUTABLE", "")
+    if executable and not Path(executable).is_absolute():
+        url_problems.append("DBT_EXECUTABLE: must be an absolute path")
+    problems.extend(url_problems)
+    if url_problems:
+        return None
+    parsed = make_url(source["WAREHOUSE_DB_MIGRATOR_URL"])
+    command = (
+        (executable,)
+        if executable
+        else (
+            "uv",
+            "run",
+            "--offline",
+            "--python",
+            "3.12",
+            "--no-project",
+            "--with-requirements",
+            str(_ROOT / "requirements-dbt.txt"),
+            "dbt",
+        )
+    )
+    return WarehouseBuildSettings(
+        dbt_project_dir=Path(source.get("DBT_PROJECT_DIR") or _ROOT / "dbt" / "quancrypt_dw"),
+        dbt_command=command,
+        host=str(parsed.host),
+        port=parsed.port or 5432,
+        user=str(parsed.username),
+        password=password,
+        dbname=str(parsed.database),
     )

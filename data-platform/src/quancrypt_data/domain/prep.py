@@ -93,6 +93,9 @@ class UnitRow:
     unit_path: str
     java_version: object = None
     spring_boot_version: object = None
+    # When the unit was analysed: the largest occurred_at of the events that feed it (D-317g, D-318b). The warehouse
+    # fact tables take their date from it.
+    analysed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +138,8 @@ class TopologyRow:
     edge_count: object
     tls_edge_count: object
     mtls_edge_count: object
+    # occurred_at of the event the summary comes from (the date of the topology in the warehouse).
+    recorded_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -214,7 +219,9 @@ class PrepBatch:
             if e.event_id in gone and e.event_type in ANALYSIS_EVENTS and e.payload.get("chunk_index") == 0
         }
         units = tuple(
-            UnitRow(u.project_key, u.unit_path) if (u.project_key, u.unit_path) in chunk_zero_gone else u
+            replace(u, java_version=None, spring_boot_version=None)
+            if (u.project_key, u.unit_path) in chunk_zero_gone
+            else u
             for u in self.units
             if (u.project_key, u.unit_path) in supported
         )

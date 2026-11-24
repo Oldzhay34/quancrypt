@@ -74,7 +74,7 @@ class TestExtract:
         result = extract([raw], [])
 
         assert result.projects == (ProjectRow(KEY, "CORPUS"),)
-        assert result.units == (UnitRow(KEY, "svc-a", "21", "3.3.1"),)
+        assert result.units == (UnitRow(KEY, "svc-a", "21", "3.3.1", NOW),)
         assert [f.full_path for f in result.findings] == ["svc-a/src/main/java/A.java", "svc-a/B.java"]
         assert result.findings[1].id == row_id(raw.event_id, "finding", 1)
         assert (result.topologies[0].node_count, result.topologies[0].tls_edge_count) == (4, 1)
@@ -104,7 +104,7 @@ class TestExtract:
             (2, 2, 1, 1)
         ]
         assert [(link.ordinal, link.protocol) for link in result.links] == [(0, "HTTP"), (1, "MQTT")]
-        assert result.units == (UnitRow(KEY, ".", "17", None),)
+        assert result.units == (UnitRow(KEY, ".", "17", None, NOW),)
         assert result.findings[0].file_path is None and result.findings[0].priority == "P1"
         assert scan not in result.events, "an event type without a prep table is not read"
 

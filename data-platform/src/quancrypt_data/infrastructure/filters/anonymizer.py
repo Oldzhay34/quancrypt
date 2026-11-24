@@ -135,7 +135,7 @@ class Anonymizer:
             unit_rows.append(
                 replace(u, unit_path=units[(u.project_key, u.unit_path)])
                 if self._clean(versions)
-                else UnitRow(u.project_key, units[(u.project_key, u.unit_path)])
+                else UnitRow(u.project_key, units[(u.project_key, u.unit_path)], analysed_at=u.analysed_at)
             )
 
         labels: list[LabelRow] = []

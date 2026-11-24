@@ -1,0 +1,14 @@
+version: 2
+
+seeds:
+  - name: quantum_status
+    config:
+      column_types:
+        algorithm_family: varchar(32)
+        quantum_status: varchar(32)
+  - name: strategy
+    config:
+      column_types:
+        strategy_code: varchar(32)
+        description: varchar(200)
+        related_priority: varchar(32)

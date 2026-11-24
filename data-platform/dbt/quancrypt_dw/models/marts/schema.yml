@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: mart_inventory_summary
+    columns:
+      - name: project_key
+        data_tests:
+          - not_null
+      - name: quantum_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['VULNERABLE', 'RESISTANT', 'SYMMETRIC_OR_HASH', 'UNKNOWN']
+      - name: priority
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['P0', 'P1', 'P2', 'P3', '~UNRESOLVED']
+      - name: location_count
+        data_tests:
+          - not_null
+  - name: mart_service_runtime
+    columns:
+      - name: project_key
+        data_tests:
+          - not_null
+  - name: mart_topology_coverage
+    columns:
+      - name: project_key
+        data_tests:
+          - unique
+          - not_null
+  - name: mart_risk_features
+    columns:
+      - name: finding_id
+        data_tests:
+          - unique
+          - not_null
+      - name: project_key
+        data_tests:
+          - not_null
+      - name: origin
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['CORPUS', 'BENCHMARK']
+  - name: mart_guardrail_quality
+    columns:
+      - name: decision_count
+        data_tests:
+          - not_null
+  - name: mart_migration_outcomes
+    columns:
+      - name: strategy_code

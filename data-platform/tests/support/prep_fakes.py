@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from quancrypt_data.domain.prep import (
     FindingRow,
@@ -25,6 +26,7 @@ from quancrypt_data.port.outbound.prep import (
 )
 
 KEY = "c" * 64
+ANALYSED_AT = datetime(2026, 11, 23, 12, 0, tzinfo=UTC)
 
 
 @dataclass
@@ -114,7 +116,7 @@ def content(
         )
         for n in range(findings)
     )  # fmt: skip
-    return ProjectContent(ProjectRow(key, "CORPUS"), (UnitRow(key, unit, "21", None),), rows, (), (), ())
+    return ProjectContent(ProjectRow(key, "CORPUS"), (UnitRow(key, unit, "21", None, ANALYSED_AT),), rows, (), (), ())
 
 
 def check_source_on_an_empty_raw(source: RawEventSource) -> None:

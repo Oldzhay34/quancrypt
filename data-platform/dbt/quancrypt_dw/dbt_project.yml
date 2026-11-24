@@ -1,0 +1,45 @@
+# The warehouse (P6.6, D-316 to D-319): staging views over prep, the dimensions and facts of core, the SCD2 snapshots and the
+# marts. Design: docs/data/warehouse-design.md. The profile reads its connection from environment variables
+# (profiles.yml.example); `quancrypt-data warehouse build` sets them and holds the build lock.
+name: quancrypt_dw
+version: "1.0.0"
+config-version: 2
+profile: quancrypt_dw
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+require-dbt-version: [">=1.12.0", "<2.0.0"]
+
+# Locality rule: no usage statistics leave the machine.
+flags:
+  send_anonymous_usage_stats: false
+
+models:
+  quancrypt_dw:
+    +materialized: table
+    staging:
+      +schema: staging
+      +materialized: view
+    core:
+      +schema: core
+      +grants:
+        select: ["warehouse_db_app"]
+        delete: ["warehouse_db_app"]
+    marts:
+      +schema: marts
+      +grants:
+        select: ["warehouse_db_app", "warehouse_reader"]
+        delete: ["warehouse_db_app"]
+
+seeds:
+  quancrypt_dw:
+    +schema: staging
+
+on-run-end:
+  - "{{ grant_schema_usage() }}"

@@ -29,7 +29,25 @@ _REGISTERED_TABLES = (
     ProjectKeyTable("prep", "scope_decision"),
     ProjectKeyTable("prep", "project_snapshot"),
     ProjectKeyTable("quarantine", "prep_record"),
+    # The warehouse tables dbt builds (P6.6, D-319): marts, then the facts and dimensions, then the snapshot history.
+    ProjectKeyTable("marts", "mart_inventory_summary"),
+    ProjectKeyTable("marts", "mart_service_runtime"),
+    ProjectKeyTable("marts", "mart_topology_coverage"),
+    ProjectKeyTable("marts", "mart_risk_features"),
+    ProjectKeyTable("core", "fact_crypto_finding"),
+    ProjectKeyTable("core", "fact_topology_summary"),
+    ProjectKeyTable("core", "fact_service_link"),
+    ProjectKeyTable("core", "fact_scope_decision"),
+    ProjectKeyTable("core", "fact_migration_step"),
+    ProjectKeyTable("core", "dim_service"),
+    ProjectKeyTable("core", "dim_project"),
+    ProjectKeyTable("snapshots", "dim_service_snapshot"),
+    ProjectKeyTable("snapshots", "dim_project_snapshot"),
 )
+
+# dbt builds these schemas; a build holds this advisory lock (BuildWarehouse) and an erasure waits for it (D-319d).
+WAREHOUSE_SCHEMAS = frozenset({"core", "snapshots", "marts"})
+WAREHOUSE_BUILD_LOCK = "quancrypt-warehouse-build"
 
 
 def _json(value: object) -> str:
@@ -125,8 +143,26 @@ class PostgresProjectDataEraser:
     def delete(self, table: ProjectKeyTable, project_key: str) -> int:
         if table not in self._registry.tables():
             raise ValueError("the table is not in the project-key registry")
+        connection = self._database.connection()
+        if table.schema in WAREHOUSE_SCHEMAS:
+            # dbt rebuilds these tables (a table is dropped and renamed): wait for a build that is running, within the
+            # session lock timeout (5 s; a timeout fails the transaction and the sender sends the event again).
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:name, 0))"), {"name": WAREHOUSE_BUILD_LOCK}
+            )
+            # The table does not exist until dbt has built it: nothing to erase.
+            # (the catalog is read directly: to_regclass needs USAGE on a schema that dbt has not granted yet).
+            exists = connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname = :schema AND c.relname = :name AND c.relkind IN ('r', 'p'))"
+                ),
+                {"schema": table.schema, "name": table.name},
+            ).scalar_one()
+            if not exists:
+                return 0
         # The identifiers are fixed constants checked against [a-z_]+ (ProjectKeyTable); the key is bound.
-        result = self._database.connection().execute(
+        result = connection.execute(
             text(f"DELETE FROM {table.qualified} WHERE project_key = :project_key"), {"project_key": project_key}
         )
         return result.rowcount

@@ -1,0 +1,32 @@
+version: 2
+
+# SCD2 history of the dimensions that change over time (D-316d, D-317d). analysed_at is no check column: a new analysis of the
+# same runtime is no new version. hard_deletes: invalidate closes the row of a key that left prep; the post_hook then erases
+# the history of keys that are gone (KVKK, D-317e).
+snapshots:
+  - name: dim_project_snapshot
+    relation: ref('stg_project_snapshot')
+    config:
+      schema: snapshots
+      unique_key: project_key
+      strategy: check
+      check_cols: [origin, is_outlier_project]
+      hard_deletes: invalidate
+      grants:
+        select: [warehouse_db_app]
+        delete: [warehouse_db_app]
+      post_hook:
+        - "delete from {{ this }} where project_key not in (select project_key from {{ ref('stg_project_snapshot') }})"
+  - name: dim_service_snapshot
+    relation: ref('stg_analysis_unit')
+    config:
+      schema: snapshots
+      unique_key: service_id
+      strategy: check
+      check_cols: [java_version, spring_boot_version]
+      hard_deletes: invalidate
+      grants:
+        select: [warehouse_db_app]
+        delete: [warehouse_db_app]
+      post_hook:
+        - "delete from {{ this }} where project_key not in (select project_key from {{ ref('stg_project_snapshot') }})"

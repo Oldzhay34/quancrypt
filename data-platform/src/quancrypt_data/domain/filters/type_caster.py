@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import TypeVar
 
 from quancrypt_data.domain.prep import (
@@ -42,6 +42,15 @@ def _int(value: object, column: str, *, minimum: int, nullable: bool = False) ->
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise CastError(column)
     return value
+
+
+def _instant(value: object, column: str) -> datetime | None:
+    """A time zone aware time in UTC; None stays None (a row built without a time, tests): the database refuses it."""
+    if value is None:
+        return None
+    if not isinstance(value, datetime) or value.tzinfo is None:
+        raise CastError(column)
+    return value.astimezone(UTC)
 
 
 def _bool(value: object, column: str) -> bool:
@@ -111,7 +120,7 @@ class TypeCaster:
             try:
                 units.append(self._unit(unit))
             except CastError:
-                units.append(UnitRow(unit.project_key, unit.unit_path))
+                units.append(replace(unit, java_version=None, spring_boot_version=None))
                 runtime_dropped += 1
         return FilterResult(
             replace(
@@ -174,6 +183,7 @@ class TypeCaster:
             edge_count=_int(t.edge_count, "topology_summary.edge_count", minimum=0),
             tls_edge_count=_int(t.tls_edge_count, "topology_summary.tls_edge_count", minimum=0, nullable=True),
             mtls_edge_count=_int(t.mtls_edge_count, "topology_summary.mtls_edge_count", minimum=0, nullable=True),
+            recorded_at=_instant(t.recorded_at, "topology_summary.recorded_at"),
         )
 
     @staticmethod
@@ -205,6 +215,7 @@ class TypeCaster:
             u,
             java_version=_version(u.java_version, "analysis_unit.java_version"),
             spring_boot_version=_version(u.spring_boot_version, "analysis_unit.spring_boot_version"),
+            analysed_at=_instant(u.analysed_at, "analysis_unit.analysed_at"),
         )
 
     @staticmethod

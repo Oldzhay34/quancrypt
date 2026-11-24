@@ -94,3 +94,16 @@ def preprocess_flow() -> None:
         _step("preprocess", preprocessing.preprocess)
     finally:
         container.close()
+
+
+@flow(name="warehouse_build_flow", log_prints=True)
+def warehouse_build_flow() -> None:
+    """prep -> dbt build (seeds, snapshots, core, marts and their tests) while the build lock is held (P6.6)."""
+    _require_local_mode()
+    container = bootstrap(need_warehouse_build=True, configure_logs=False)
+    try:
+        warehouse = container.warehouse
+        assert warehouse is not None  # noqa: S101 (need_warehouse_build=True builds it)
+        _step("warehouse", warehouse.build)
+    finally:
+        container.close()

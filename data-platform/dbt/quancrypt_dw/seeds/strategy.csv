@@ -1,0 +1,9 @@
+strategy_code,description,related_priority
+FIX_WEAK_CLASSIC,Replace weak classical cryptography that can be broken today,P0
+HYBRID_TLS_KEX,Hybrid key exchange group for TLS and mTLS between services,P1
+KEM_DEM_ENCRYPTION,KEM-DEM construction for application level encryption and key wrapping,P1
+DEVICE_HYBRID_TLS,Hybrid key exchange on field device connections,P1
+PQ_SIGNATURE,Post-quantum signature for long-lived signatures,P2
+KEEP_SHORT_LIVED_TOKEN,Keep short-lived tokens (JWT) as they are for now,P3
+HYBRID_KEX_CLASSIC_CERT,Hybrid key exchange with classical certificates,P3
+JDK_UPGRADE,Upgrade the JDK to a version that supports the target algorithms,

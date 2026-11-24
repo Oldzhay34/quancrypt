@@ -1,0 +1,347 @@
+version: 2
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_key
+        data_tests:
+          - unique
+          - not_null
+      - name: date_day
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_project
+    columns:
+      - name: project_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: project_key
+        data_tests:
+          - not_null
+      - name: origin
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source')
+                field: origin
+  - name: dim_service
+    columns:
+      - name: service_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: project_key
+        data_tests:
+          - not_null
+  - name: dim_algorithm
+    columns:
+      - name: algorithm_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: algorithm_family
+        data_tests:
+          - unique
+          - not_null
+      - name: quantum_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['VULNERABLE', 'RESISTANT', 'SYMMETRIC_OR_HASH', 'UNKNOWN']
+  - name: dim_usage_context
+    columns:
+      - name: usage_context_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: usage_context
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_location_kind
+    columns:
+      - name: location_kind_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: location_kind
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_priority
+    columns:
+      - name: priority_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: priority
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_library
+    columns:
+      - name: library_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: library
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_source
+    columns:
+      - name: source_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: origin
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_protocol
+    columns:
+      - name: protocol_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: protocol
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_language
+    columns:
+      - name: language_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: language
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_deciding_ring
+    columns:
+      - name: deciding_ring_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: deciding_ring
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_strategy
+    columns:
+      - name: strategy_sk
+        data_tests:
+          - unique
+          - not_null
+      - name: strategy_code
+        data_tests:
+          - unique
+          - not_null
+  - name: dim_model
+    columns:
+      - name: model_sk
+        data_tests:
+          - unique
+          - not_null
+  - name: fact_crypto_finding
+    columns:
+      - name: finding_id
+        data_tests:
+          - unique
+          - not_null
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: project_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_project')
+                field: project_sk
+      - name: service_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_service')
+                field: service_sk
+      - name: algorithm_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_algorithm')
+                field: algorithm_sk
+      - name: usage_context_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_usage_context')
+                field: usage_context_sk
+      - name: location_kind_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location_kind')
+                field: location_kind_sk
+      - name: priority_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_priority')
+                field: priority_sk
+      - name: library_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_library')
+                field: library_sk
+      - name: source_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source')
+                field: source_sk
+      - name: project_key
+        data_tests:
+          - not_null
+      - name: hndl_exposure
+        data_tests:
+          - not_null
+  - name: fact_topology_summary
+    columns:
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: project_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_project')
+                field: project_sk
+      - name: service_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_service')
+                field: service_sk
+      - name: source_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source')
+                field: source_sk
+      - name: project_key
+        data_tests:
+          - not_null
+  - name: fact_service_link
+    columns:
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: project_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_project')
+                field: project_sk
+      - name: service_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_service')
+                field: service_sk
+      - name: source_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_source')
+                field: source_sk
+      - name: protocol_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_protocol')
+                field: protocol_sk
+      - name: project_key
+        data_tests:
+          - not_null
+  - name: fact_scope_decision
+    columns:
+      - name: event_id
+        data_tests:
+          - unique
+          - not_null
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: project_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_project')
+                field: project_sk
+      - name: language_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_language')
+                field: language_sk
+      - name: deciding_ring_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_deciding_ring')
+                field: deciding_ring_sk
+      - name: project_key
+        data_tests:
+          - not_null
+      - name: decision
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['ALLOW', 'DENY']
+  - name: fact_migration_step
+    columns:
+      - name: step_id
+        data_tests:
+          - unique
+      - name: project_key

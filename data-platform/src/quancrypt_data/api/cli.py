@@ -17,8 +17,10 @@ app = typer.Typer(
 )
 corpus = typer.Typer(no_args_is_help=True, help="The open-source corpus: list, clone, analyse, report")
 benchmarks = typer.Typer(no_args_is_help=True, help="Benchmark labels and benchmark code")
+warehouse = typer.Typer(no_args_is_help=True, help="The warehouse (dbt)")
 app.add_typer(corpus, name="corpus")
 app.add_typer(benchmarks, name="benchmarks")
+app.add_typer(warehouse, name="warehouse")
 
 Offset = Annotated[int, typer.Option(min=0, help="First project of the window (position in the corpus list)")]
 Limit = Annotated[int, typer.Option(min=1, max=1000, help="Number of projects of the window")]
@@ -164,6 +166,22 @@ def preprocess() -> None:
         try:
             assert container.preprocessing is not None  # noqa: S101 (need_database=True builds it)
             _show(container.preprocessing.preprocess())
+        finally:
+            container.close()
+
+    _guarded(action)
+
+
+@warehouse.command("build")
+def warehouse_build() -> None:
+    """Build the warehouse from prep with dbt (P6.6): seeds, snapshots, models and their tests, while the build
+    lock is held. Ends with a non-zero exit code when a node or a test fails."""
+
+    def action() -> None:
+        container = bootstrap(need_warehouse_build=True)
+        try:
+            assert container.warehouse is not None  # noqa: S101 (need_warehouse_build=True builds it)
+            _show(container.warehouse.build())
         finally:
             container.close()
 

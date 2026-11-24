@@ -1,0 +1,15 @@
+# Copied to a temporary profiles directory by `quancrypt-data warehouse build`, which sets the DBT_* variables from the
+# migrator settings (the role that owns warehouse_db and creates the schemas). No secret is written in this file.
+quancrypt_dw:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | as_number }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'warehouse_db') }}"
+      schema: staging
+      threads: 1
+      connect_timeout: 10

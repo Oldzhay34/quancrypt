@@ -1,0 +1,5 @@
+# The warehouse build (P6.6, D-22, D-319h): dbt runs as a child process of `quancrypt-data warehouse build` in its own
+# environment, so its pins (pydantic, jinja, psycopg2) never meet those of the service or the corpus tooling.
+# Versions come from docs/VERSIONS.md; dbt-postgres brings psycopg2-binary.
+dbt-core==1.12.5
+dbt-postgres==1.11.0

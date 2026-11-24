@@ -13,6 +13,8 @@ Other event types (scans, plans) have no prep table and are not read."""
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
+from datetime import datetime
 
 from quancrypt_data.domain.prep import (
     ROOT_UNIT,
@@ -26,6 +28,7 @@ from quancrypt_data.domain.prep import (
     ScopeRow,
     TopologyRow,
     UnitRow,
+    event_unit,
     row_id,
 )
 
@@ -53,6 +56,20 @@ def _latest(events: Iterable[RawEvent], event_type: str) -> dict[str, RawEvent]:
     for event in sorted((e for e in events if e.event_type == event_type), key=lambda e: (e.occurred_at, e.event_id)):
         latest[event.project_key] = event
     return latest
+
+
+# The event types that create or feed an analysis unit (the others are about the project or a scope decision).
+_UNIT_EVENTS = (*_ANALYSIS, "finding_detected", "topology_recorded", "project_runtime_changed")
+
+
+def _analysis_times(events: Sequence[RawEvent]) -> dict[tuple[str, str], datetime]:
+    """When each unit was analysed: the largest occurred_at over every event that feeds it (D-318b)."""
+    times: dict[tuple[str, str], datetime] = {}
+    for event in events:
+        if event.event_type in _UNIT_EVENTS:
+            key = (event.project_key, event_unit(event))
+            times[key] = max(times[key], event.occurred_at) if key in times else event.occurred_at
+    return times
 
 
 def extract(events: Sequence[RawEvent], labels: Sequence[RawLabel]) -> PrepBatch:
@@ -85,6 +102,7 @@ def extract(events: Sequence[RawEvent], labels: Sequence[RawLabel]) -> PrepBatch
                         TopologyRow(
                             event.project_key, unit_path, event.event_id, topology.get("node_count"),
                             topology.get("edge_count"), topology.get("tls_edge_count"), topology.get("mtls_edge_count"),
+                            event.occurred_at,
                         )
                     )  # fmt: skip
             for ordinal, item in enumerate(_list(payload.get("findings"))):
@@ -108,7 +126,7 @@ def extract(events: Sequence[RawEvent], labels: Sequence[RawLabel]) -> PrepBatch
             TopologyRow(
                 event.project_key, ROOT_UNIT, event.event_id, event.payload.get("node_count"),
                 event.payload.get("link_count"), sum(1 for e in edges if e.get("tls") is True),
-                sum(1 for e in edges if e.get("mtls") is True),
+                sum(1 for e in edges if e.get("mtls") is True), event.occurred_at,
             )
         )  # fmt: skip
         links.extend(
@@ -123,10 +141,14 @@ def extract(events: Sequence[RawEvent], labels: Sequence[RawLabel]) -> PrepBatch
             event.project_key, ROOT_UNIT, current.get("java_version"), current.get("spring_boot_version")
         )
 
+    analysed = _analysis_times(relevant)
     return PrepBatch(
         events=relevant,
         projects=tuple(sorted(projects.values(), key=lambda p: p.project_key)),
-        units=tuple(sorted(units.values(), key=lambda u: (u.project_key, u.unit_path))),
+        units=tuple(
+            replace(u, analysed_at=analysed.get((u.project_key, u.unit_path)))
+            for u in sorted(units.values(), key=lambda u: (u.project_key, u.unit_path))
+        ),
         findings=tuple(findings),
         topologies=tuple(topologies),
         links=tuple(links),

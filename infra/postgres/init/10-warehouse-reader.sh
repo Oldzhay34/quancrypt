@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # `warehouse_reader`: marts şemasını okuyan salt okunur rol (Superset ve ML için, D-24).
-# TODO(P0.3-1): `marts` şeması henüz yok; SELECT yetkisi şema yaratıldığında (P6.5/P6.6) eklenecek.
-# Şimdilik rol yalnızca warehouse_db'ye CONNECT yetkisine sahiptir.
+# `marts` şeması bu betik çalıştığında yoktur (dbt yaratır): rol burada yalnızca warehouse_db'ye CONNECT alır. `marts`'ta
+# USAGE ve tablo başına SELECT yetkisini dbt build verir (dbt_project.yml `grants` ve grant_schema_usage makrosu, P6.6, D-319e);
+# core, snapshots, staging, prep ve raw'da hiçbir yetkisi yoktur. TODO(P0.3-1) böylece kapandı.
 set -euo pipefail
 
 : "${WAREHOUSE_READER_PASSWORD:?WAREHOUSE_READER_PASSWORD tanımlı olmalı}"

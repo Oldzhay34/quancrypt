@@ -286,3 +286,48 @@ class TestCommandLine:
     )
     def test_arguments_out_of_range_are_refused_by_the_parser(self, arguments: list[str]) -> None:
         assert CliRunner().invoke(app, arguments).exit_code == 2
+
+
+class TestWarehouseBuildSettings:
+    @staticmethod
+    def env(tmp_path: Path, **overrides: str) -> dict[str, str]:
+        values = {
+            "WAREHOUSE_DB_URL": "postgresql+psycopg://warehouse_db_app@127.0.0.1:5432/warehouse_db",
+            "WAREHOUSE_DB_APP_PASSWORD": "a" * 20,
+            "WAREHOUSE_DB_MIGRATOR_URL": "postgresql+psycopg://warehouse_db_migrator@127.0.0.1:5432/warehouse_db",
+            "WAREHOUSE_DB_MIGRATOR_PASSWORD": "m" * 20,
+            **overrides,
+        }
+        return environment(tmp_path, **values)
+
+    def test_the_migrator_connection_and_an_offline_dbt_command_are_read(self, tmp_path: Path) -> None:
+        settings = load_corpus_settings(self.env(tmp_path), need_warehouse_build=True)
+
+        warehouse = settings.warehouse
+        assert warehouse is not None
+        assert (warehouse.user, warehouse.host, warehouse.port, warehouse.dbname) == (
+            "warehouse_db_migrator", "127.0.0.1", 5432, "warehouse_db",
+        )  # fmt: skip
+        assert "--offline" in warehouse.dbt_command and warehouse.dbt_command[-1] == "dbt"
+        assert "m" * 20 not in repr(warehouse)
+
+    @pytest.mark.parametrize(
+        ("overrides", "reason"),
+        [
+            ({"WAREHOUSE_DB_MIGRATOR_PASSWORD": "CHANGE_ME"}, "WAREHOUSE_DB_MIGRATOR_PASSWORD"),
+            ({"WAREHOUSE_DB_MIGRATOR_URL": "postgresql+psycopg://warehouse_db_migrator@postgres:5432/warehouse_db"}, "host must be"),
+            ({"WAREHOUSE_DB_MIGRATOR_URL": "postgresql+psycopg://warehouse_db_app@127.0.0.1:5432/warehouse_db"}, "role must be"),
+            ({"DBT_EXECUTABLE": "dbt"}, "DBT_EXECUTABLE: must be an absolute path"),
+            ({"DBT_PROJECT_DIR": "relative/dir"}, "DBT_PROJECT_DIR"),
+        ],
+    )  # fmt: skip
+    def test_a_bad_setting_is_named_without_its_value(
+        self, tmp_path: Path, overrides: dict[str, str], reason: str
+    ) -> None:
+        with pytest.raises(ConfigError, match=reason) as raised:
+            load_corpus_settings(self.env(tmp_path, **overrides), need_warehouse_build=True)
+
+        assert "m" * 20 not in str(raised.value)
+
+    def test_nothing_is_read_for_a_command_that_does_not_build(self, tmp_path: Path) -> None:
+        assert load_corpus_settings(environment(tmp_path)).warehouse is None

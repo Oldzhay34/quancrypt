@@ -193,8 +193,8 @@ class PostgresPrepRepository:
         if content.units:
             connection.execute(
                 text(
-                    "INSERT INTO prep.analysis_unit (project_key, unit_path, java_version, spring_boot_version) "
-                    "VALUES (:project_key, :unit_path, :java_version, :spring_boot_version)"
+                    "INSERT INTO prep.analysis_unit (project_key, unit_path, java_version, spring_boot_version, "
+                    "analysed_at) VALUES (:project_key, :unit_path, :java_version, :spring_boot_version, :analysed_at)"
                 ),
                 [vars(u) for u in content.units],
             )
@@ -214,8 +214,8 @@ class PostgresPrepRepository:
                 text(
                     "INSERT INTO prep.topology_summary (project_key, unit_path, source_event_id, node_count, "
                     "edge_count, "
-                    "tls_edge_count, mtls_edge_count) VALUES (:project_key, :unit_path, :source_event_id, :node_count, "
-                    ":edge_count, :tls_edge_count, :mtls_edge_count)"
+                    "tls_edge_count, mtls_edge_count, recorded_at) VALUES (:project_key, :unit_path, :source_event_id, "
+                    ":node_count, :edge_count, :tls_edge_count, :mtls_edge_count, :recorded_at)"
                 ),
                 [vars(t) for t in content.topologies],
             )

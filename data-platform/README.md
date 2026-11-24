@@ -1,8 +1,8 @@
 # data-platform
 
 Quancrypt veri platformu (Python 3.12, hexagonal, tek paket `quancrypt_data`). P6.1 ile gelen parça **ingest-api**'dir: core-service
-ve agent-service outbox relay'lerinin gönderdiği olayları `warehouse_db`'nin iniş katmanına (`raw`) yazar. Korpus hattı (P6.2),
-ön işleme (P6.4) ve warehouse (P6.5, P6.6) sonraki alt fazlardadır.
+ve agent-service outbox relay'lerinin gönderdiği olayları `warehouse_db`'nin iniş katmanına (`raw`) yazar. Korpus hattı (P6.2), profilleme
+(P6.3), ön işleme (P6.4) ve warehouse (dbt, P6.6) host'ta çalışan `quancrypt-data` komut satırındadır.
 
 ## ingest-api
 
@@ -77,6 +77,7 @@ make corpus ARGS="benchmarks load owasp-benchmark <klasör>"             # etike
 ```bash
 make corpus ARGS="profile"   # reports/profiling_report.md, reports/figures/*.png, reports/unmapped_values.csv
 make corpus ARGS="preprocess" # raw -> prep + quarantine; reports/preprocessing_report.md (sızıntı varsa çıkış kodu 1)
+make warehouse                # prep -> dbt build (staging, snapshots, core, marts, testler); build kilidi tutulur (P6.6)
 ```
 
 - raw'u **yalnız okur**: uygulama rolü (`WAREHOUSE_DB_URL`, `WAREHOUSE_DB_APP_PASSWORD`) ve her sorgu `READ ONLY` transaction'da
@@ -88,6 +89,24 @@ make corpus ARGS="preprocess" # raw -> prep + quarantine; reports/preprocessing_
 - Rapora dosya yolu, karantina kaydı ve tam proje anahtarı yazılmaz (anahtarın ilk 12 hanesi); redaksiyon kuralının eşleştiği
   yazım gizlenir. `unmapped_values.csv`: `contracts/canonical_dictionary.csv`'de olmayan yazımlar (`kind, raw, frequency, projects`).
 - Anlamlı rapor için önce korpus koşusu gerekir (D-302a).
+
+## Warehouse (dbt, P6.6)
+
+`dbt/quancrypt_dw/` (tasarım: `docs/data/warehouse-design.md`, D-316 – D-319): staging görünümleri prep'e birebir bağlıdır ve
+`ingest.ingest_audit`'teki en son onay iptalinden eski satırları süzer (KVKK); `snapshots` (SCD2: `dim_project`, `dim_service`),
+`core` (14 boyut, 5 fact) ve `marts` her build'de baştan kurulan tablolardır; `fact_migration_step` ve `mart_migration_outcomes`
+Faz 8'e dek boştur, `mart_archetypes` ve `mart_model_metrics` P7'de eklenir.
+
+- `make warehouse-deps`: `dbt_utils` 1.4.1'i bir kez kurar (`dbt deps`; tek indirme, geliştirme zamanında) ve dbt ortamını uv önbelleğine hazırlar. `make verify` bunu ister (ilk koşuda ağ gerekir); `make warehouse` ve komut satırı dbt'yi `uv run --offline` ile çalıştırır, önbellek yoksa net bir hatayla durur.
+- `make warehouse` (`quancrypt-data warehouse build`, Prefect akışı `warehouse_build_flow`): migrator rolüyle (`WAREHOUSE_DB_MIGRATOR_URL`
+  ve `WAREHOUSE_DB_MIGRATOR_PASSWORD`) `dbt build` çalıştırır; dbt kendi ortamında (`requirements-dbt.txt`) çocuk süreç olarak koşar,
+  ortamında yalnız `DBT_*` bağlantı değişkenleri ve kapalı telemetri vardır. Başarısız düğüm veya test varsa çıkış kodu 1'dir.
+- **Build kilidi:** komut `pg_advisory_lock('quancrypt-warehouse-build')` tutar; ingest-api, core, snapshots ve marts tablolarını
+  silmeden (`consent_revoked`) önce aynı kilidi alır ve 5 sn'de alamazsa işlem geri alınır (gönderici olayı yeniden gönderir).
+  Çıplak `dbt build` kilit kullanmaz: yalnız bu komutu kullanın.
+- Yetkiler: `warehouse_reader` yalnız `marts`'ı okur; uygulama rolü core, snapshots ve marts'ta yalnız `SELECT` ve `DELETE` alır.
+- Lineage: `dbt docs generate` çıktısı `docs/data/lineage/` altındadır (git dışı).
+- KVKK: `dbt run-operation delete_project_key --args '{project_key: <64 hane>}'` elle silme yoludur; normal yol ingest-api'dir.
 
 ## Mimari
 

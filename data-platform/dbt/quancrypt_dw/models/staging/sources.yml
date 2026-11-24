@@ -1,0 +1,26 @@
+version: 2
+
+sources:
+  - name: prep
+    schema: prep
+    description: The clean, canonical and anonymous tables the preprocessing pipeline writes (P6.4). raw is never read.
+    tables:
+      - name: project_snapshot
+      - name: analysis_unit
+      - name: finding
+      - name: topology_summary
+      - name: service_link
+      - name: scope_decision
+      - name: algorithm_family
+      - name: usage_context
+      - name: location_kind
+      - name: priority
+      - name: protocol
+      - name: language
+      - name: deciding_ring
+      - name: project_origin
+  - name: ingest
+    schema: ingest
+    description: Only the consent revocation audit (KVKK filter, D-318c).
+    tables:
+      - name: ingest_audit

@@ -139,7 +139,7 @@ class TestShape:
 
         apply_migrations(migrated.settings(), MIGRATIONS_DIR)
 
-        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0004",)]
+        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0005",)]
 
 
 class TestConstraints:
@@ -406,11 +406,12 @@ class TestReviewFindings:
         }
 
         # The warehouse tables exist only after dbt built them; tests/integration/test_warehouse_postgres.py checks that
-        # the tables dbt builds with a project_key are exactly the registered ones.
+        # the tables dbt builds with a project_key are exactly the registered ones. The labels schema comes from
+        # ml/migrations (P7.1); ml's own tests check its erasure statement and test_warehouse_postgres the eraser.
         registered = {
             table.qualified
             for table in StaticProjectKeyTableRegistry().tables()
-            if table.schema not in {"core", "snapshots", "marts"}
+            if table.schema not in {"core", "snapshots", "marts", "labels"}
         }
 
         # The audit keeps the key on purpose (D-127: the HMAC key and the action, nothing else); everything else is erased.

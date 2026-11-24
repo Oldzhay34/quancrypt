@@ -284,6 +284,66 @@ services:
         condition: service_healthy
     stop_grace_period: 40s
 
+  # MLflow tracking server (P7.1, D-322e, D-323). The official image has no PostgreSQL driver: infra/mlflow/Dockerfile adds
+  # psycopg2-binary (D-40). `mlflow-migrate` creates and upgrades the schema of mlflow_db once as mlflow_db_migrator (DDL);
+  # the server then runs as mlflow_db_app (DML only). The passwords reach libpq through PGPASSWORD, not through the URL.
+  # Telemetry is off (MLFLOW_DISABLE_TELEMETRY, DO_NOT_TRACK; set in the image and here). Host-side training (P7.2) reaches
+  # the server at 127.0.0.1:5000; artifacts are stored by the server in the mlflow-artifacts volume (--serve-artifacts).
+  mlflow-migrate:
+    profiles: [data]
+    build:
+      context: ./infra/mlflow
+    image: quancrypt-mlflow:3.16.1
+    command: ["mlflow", "db", "upgrade", "postgresql+psycopg2://mlflow_db_migrator@postgres:5432/mlflow_db"]
+    environment:
+      PGPASSWORD: ${MLFLOW_DB_MIGRATOR_PASSWORD:-}
+      MLFLOW_DISABLE_TELEMETRY: "true"
+      DO_NOT_TRACK: "true"
+    networks:
+      - quancrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  mlflow:
+    profiles: [data]
+    image: quancrypt-mlflow:3.16.1
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - postgresql+psycopg2://mlflow_db_app@postgres:5432/mlflow_db
+      - --artifacts-destination
+      - /mlartifacts
+      - --serve-artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --workers
+      - "1"
+    environment:
+      PGPASSWORD: ${MLFLOW_DB_APP_PASSWORD:-}
+      MLFLOW_DISABLE_TELEMETRY: "true"
+      DO_NOT_TRACK: "true"
+    volumes:
+      - mlflow-artifacts:/mlartifacts
+    ports:
+      - "127.0.0.1:5000:5000"
+    networks:
+      - quancrypt
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:5000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      mlflow-migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+
 networks:
   # Uygulama ve veri servisleri.
   quancrypt: {}
@@ -296,3 +356,4 @@ networks:
 
 volumes:
   pgdata: {}
+  mlflow-artifacts: {}

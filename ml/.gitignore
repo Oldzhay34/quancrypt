@@ -1,0 +1,9 @@
+# Filled-in label batches carry real file paths and code context of corpus repositories (D-322a): never committed.
+labeling/*.csv
+labeling/*.tmp
+reports/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+__pycache__/

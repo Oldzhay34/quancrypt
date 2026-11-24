@@ -454,3 +454,147 @@ class TestRolesAndLock:
 
         assert done.is_set() and not failure
         assert count(warehouse.instance.migrator_engine(), "raw.event", "project_key = :k", k=KEY_A) == 0
+
+
+# The labels schema as ml/migrations 0001 creates it (P7.1), reduced to the columns the mart and the eraser read; the
+# full schema is tested in ml/tests/integration.
+LABELS_DDL = (
+    "DROP SCHEMA IF EXISTS labels CASCADE",
+    "CREATE SCHEMA labels",
+    "CREATE TABLE labels.label_batch (id uuid PRIMARY KEY, name varchar(64) NOT NULL, created_at timestamptz NOT NULL)",
+    "CREATE TABLE labels.labeled_finding (finding_id uuid PRIMARY KEY, project_key char(64) NOT NULL)",
+    "CREATE TABLE labels.label_batch_item (batch_id uuid NOT NULL REFERENCES labels.label_batch (id) ON DELETE CASCADE, "
+    "finding_id uuid NOT NULL REFERENCES labels.labeled_finding (finding_id) ON DELETE CASCADE, "
+    "double_label boolean NOT NULL, PRIMARY KEY (batch_id, finding_id))",
+    "CREATE TABLE labels.gold_label (batch_id uuid NOT NULL, finding_id uuid NOT NULL, labeler_role varchar(16) NOT NULL, "
+    "risk_class varchar(16) NOT NULL, PRIMARY KEY (batch_id, finding_id, labeler_role), FOREIGN KEY (batch_id, finding_id) "
+    "REFERENCES labels.label_batch_item (batch_id, finding_id) ON DELETE CASCADE)",
+    "CREATE TABLE labels.label_resolution (batch_id uuid NOT NULL, finding_id uuid NOT NULL, risk_class varchar(16) NOT NULL, "
+    "PRIMARY KEY (batch_id, finding_id), FOREIGN KEY (batch_id, finding_id) "
+    "REFERENCES labels.label_batch_item (batch_id, finding_id) ON DELETE CASCADE)",
+    "GRANT USAGE ON SCHEMA labels TO warehouse_db_app",
+    "GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA labels TO warehouse_db_app",
+)
+
+
+@pytest.fixture
+def labelled(warehouse: Stack) -> Iterator[Stack]:
+    with warehouse.instance.migrator_engine().begin() as connection:
+        for statement in LABELS_DDL:
+            connection.execute(text(statement))
+    yield warehouse
+    with warehouse.instance.migrator_engine().begin() as connection:
+        connection.execute(text("DROP SCHEMA IF EXISTS labels CASCADE"))
+
+
+class TestLabels:
+    def test_without_the_labels_schema_the_gold_label_is_null_and_the_silver_label_follows_the_rules(
+        self, warehouse: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(warehouse, tmp_path)
+        build_service(warehouse).execute()
+        engine = warehouse.instance.migrator_engine()
+        found = rows(engine, "SELECT priority, in_test_code, gold_label, silver_label FROM marts.mart_risk_features")
+        # The corpus findings are P0 signatures outside test code: rule 1 (crypto-domain section 1).
+        assert found and {(p, t, g, s) for p, t, g, s in found} == {("P0", False, None, "CRITICAL")}
+
+    def test_the_gold_label_is_the_resolution_else_the_first_label_of_the_latest_batch(
+        self, labelled: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(labelled, tmp_path)
+        engine = labelled.instance.migrator_engine()
+        build_service(labelled).execute()
+        first, second = (
+            r[0] for r in rows(engine, "SELECT finding_id FROM marts.mart_risk_features ORDER BY finding_id")
+        )
+        old, new = uuid.uuid4(), uuid.uuid4()
+        with engine.begin() as connection:
+            for finding in (first, second):
+                connection.execute(
+                    text("INSERT INTO labels.labeled_finding VALUES (:f, :k)"), {"f": finding, "k": CORPUS_KEY}
+                )
+            for batch, at in ((old, "2026-11-01"), (new, "2026-11-20")):
+                connection.execute(text("INSERT INTO labels.label_batch VALUES (:b, :b, :at)"), {"b": batch, "at": at})
+                for finding in (first, second):
+                    connection.execute(
+                        text("INSERT INTO labels.label_batch_item VALUES (:b, :f, true)"), {"b": batch, "f": finding}
+                    )
+            connection.execute(
+                text("INSERT INTO labels.gold_label VALUES (:b, :f, 'FIRST', 'LOW')"), {"b": old, "f": first}
+            )
+            connection.execute(
+                text("INSERT INTO labels.gold_label VALUES (:b, :f, 'FIRST', 'HIGH')"), {"b": new, "f": first}
+            )
+            connection.execute(
+                text("INSERT INTO labels.gold_label VALUES (:b, :f, 'FIRST', 'HIGH')"), {"b": new, "f": second}
+            )
+            connection.execute(
+                text("INSERT INTO labels.gold_label VALUES (:b, :f, 'SECOND', 'LOW')"), {"b": new, "f": second}
+            )
+            connection.execute(
+                text("INSERT INTO labels.label_resolution VALUES (:b, :f, 'MEDIUM')"), {"b": new, "f": second}
+            )
+
+        build_service(labelled).execute()
+
+        gold = dict(rows(engine, "SELECT finding_id, gold_label FROM marts.mart_risk_features"))
+        assert gold == {first: "HIGH", second: "MEDIUM"}
+
+    def test_an_unresolved_disagreement_has_no_gold_label(self, labelled: Stack, tmp_path: Path) -> None:
+        seed_and_prepare(labelled, tmp_path)
+        engine = labelled.instance.migrator_engine()
+        build_service(labelled).execute()
+        first, second = (
+            r[0] for r in rows(engine, "SELECT finding_id FROM marts.mart_risk_features ORDER BY finding_id")
+        )
+        batch = uuid.uuid4()
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO labels.label_batch VALUES (:b, 'b', now())"), {"b": batch})
+            for finding, labels in ((first, ("HIGH", "LOW")), (second, ("LOW", "LOW"))):
+                connection.execute(
+                    text("INSERT INTO labels.labeled_finding VALUES (:f, :k)"), {"f": finding, "k": CORPUS_KEY}
+                )
+                connection.execute(
+                    text("INSERT INTO labels.label_batch_item VALUES (:b, :f, true)"), {"b": batch, "f": finding}
+                )
+                for role, label in zip(("FIRST", "SECOND"), labels, strict=True):
+                    connection.execute(
+                        text("INSERT INTO labels.gold_label VALUES (:b, :f, :r, :l)"),
+                        {"b": batch, "f": finding, "r": role, "l": label},
+                    )
+
+        build_service(labelled).execute()
+
+        gold = dict(rows(engine, "SELECT finding_id, gold_label FROM marts.mart_risk_features"))
+        assert gold == {first: None, second: "LOW"}
+
+    def test_consent_revoked_erases_the_label_items_of_the_key_and_their_labels(
+        self, labelled: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(labelled, tmp_path)
+        engine = labelled.instance.migrator_engine()
+        batch, finding = uuid.uuid4(), uuid.uuid4()
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO labels.label_batch VALUES (:b, 'b', now())"), {"b": batch})
+            other = uuid.uuid4()
+            connection.execute(
+                text("INSERT INTO labels.labeled_finding VALUES (:f, :k), (:o, :ok)"),
+                {"f": finding, "k": KEY_A, "o": other, "ok": KEY_B},
+            )
+            connection.execute(
+                text("INSERT INTO labels.label_batch_item VALUES (:b, :f, false), (:b, :o, false)"),
+                {"b": batch, "f": finding, "o": other},
+            )
+            connection.execute(
+                text("INSERT INTO labels.gold_label VALUES (:b, :f, 'FIRST', 'LOW')"), {"b": batch, "f": finding}
+            )
+
+        ingest(labelled, revoked(KEY_A))
+
+        assert count(engine, "labels.labeled_finding", "project_key = :k", k=KEY_A) == 0
+        assert count(engine, "labels.label_batch_item", "finding_id = :f", f=finding) == 0
+        assert count(engine, "labels.gold_label") == 0
+        assert count(engine, "labels.labeled_finding", "project_key = :k", k=KEY_B) == 1
+        assert count(engine, "labels.label_batch_item") == 1
+        audited = dict(rows(engine, "SELECT table_name, deleted_rows FROM ingest.ingest_audit_table"))
+        assert audited["labels.labeled_finding"] == 1

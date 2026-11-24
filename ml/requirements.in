@@ -1,0 +1,8 @@
+# Runtime dependencies of the ml command line (D-28: compiled to requirements.txt with `uv pip compile --python-version 3.12`).
+# Versions come from docs/VERSIONS.md. P7.1 (D-322f): the Typer command line, the labels schema (SQLAlchemy Core, Alembic,
+# psycopg 3) and the analyzer client (httpx). The model libraries (scikit-learn, XGBoost, SHAP, ...) come with P7.2.
+typer==0.27.2
+SQLAlchemy==2.0.54
+alembic==1.20.0
+psycopg[binary]==3.3.6
+httpx==0.28.1

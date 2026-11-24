@@ -43,11 +43,16 @@ _REGISTERED_TABLES = (
     ProjectKeyTable("core", "dim_project"),
     ProjectKeyTable("snapshots", "dim_service_snapshot"),
     ProjectKeyTable("snapshots", "dim_project_snapshot"),
+    # The gold labels of Model A (P7.1, D-322g, D-324a; ml/migrations): a labelled finding carries the project key, its
+    # batch items, labels and resolutions go with it by CASCADE.
+    ProjectKeyTable("labels", "labeled_finding"),
 )
 
 # dbt builds these schemas; a build holds this advisory lock (BuildWarehouse) and an erasure waits for it (D-319d).
 WAREHOUSE_SCHEMAS = frozenset({"core", "snapshots", "marts"})
 WAREHOUSE_BUILD_LOCK = "quancrypt-warehouse-build"
+# Schemas another package creates (dbt, ml/migrations): a table that is not there yet has nothing to erase.
+OPTIONAL_SCHEMAS = WAREHOUSE_SCHEMAS | {"labels"}
 
 
 def _json(value: object) -> str:
@@ -150,7 +155,8 @@ class PostgresProjectDataEraser:
             connection.execute(
                 text("SELECT pg_advisory_xact_lock(hashtextextended(:name, 0))"), {"name": WAREHOUSE_BUILD_LOCK}
             )
-            # The table does not exist until dbt has built it: nothing to erase.
+        if table.schema in OPTIONAL_SCHEMAS:
+            # The table does not exist until dbt has built it (or `ml migrate` ran): nothing to erase.
             # (the catalog is read directly: to_regclass needs USAGE on a schema that dbt has not granted yet).
             exists = connection.execute(
                 text(

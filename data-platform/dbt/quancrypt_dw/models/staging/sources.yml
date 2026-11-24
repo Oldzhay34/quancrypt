@@ -24,3 +24,13 @@ sources:
     description: Only the consent revocation audit (KVKK filter, D-318c).
     tables:
       - name: ingest_audit
+  - name: labels
+    schema: labels
+    description: >
+      The gold labels of Model A (P7.1, ml/migrations, D-322d). Optional: the schema exists only after `ml migrate`;
+      mart_risk_features reads it only when it is there.
+    tables:
+      - name: label_batch
+      - name: label_batch_item
+      - name: gold_label
+      - name: label_resolution

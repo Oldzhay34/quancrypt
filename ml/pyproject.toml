@@ -1,0 +1,117 @@
+# Tool settings only (D-28): dependencies live in requirements*.in / requirements*.txt. The package is src/quancrypt_ml.
+[project]
+name = "quancrypt-ml"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[project.scripts]
+# `make ml ARGS="..."` runs it with the pinned requirements and the user's .env.
+ml = "quancrypt_ml.api.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "postgres: needs Docker and the local pgvector image; it runs in `make verify` and fails (never skips) without them",
+]
+
+[tool.coverage.run]
+source = ["src/quancrypt_ml"]
+branch = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607", "S608", "E501"]
+"migrations/**" = ["E501", "S608"]
+# The request texts of the scope data set are long on purpose.
+"scripts/**" = ["E501"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "tests", "scripts"]
+explicit_package_bases = true
+mypy_path = "src:."
+
+[tool.importlinter]
+root_package = "quancrypt_ml"
+include_external_packages = true
+
+# Rules of hexagonal-service section 2 (D-05) and ml-pipeline section 1: every contract forbids a whole layer and lists the
+# allowed edges in `ignore_imports`, so a module a later phase adds is covered without touching the contract. The model
+# libraries (P7.2) join the forbidden lists of the inner layers when they come.
+
+[[tool.importlinter.contracts]]
+name = "domain imports nothing of the package and no framework"
+type = "forbidden"
+source_modules = ["quancrypt_ml.domain"]
+forbidden_modules = [
+    "quancrypt_ml.port", "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "port imports only the domain"
+type = "forbidden"
+source_modules = ["quancrypt_ml.port"]
+forbidden_modules = [
+    "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "usecase imports only port and domain"
+type = "forbidden"
+source_modules = ["quancrypt_ml.usecase"]
+forbidden_modules = [
+    "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "facade imports only port.inbound"
+type = "forbidden"
+source_modules = ["quancrypt_ml.facade"]
+forbidden_modules = [
+    "quancrypt_ml.usecase", "quancrypt_ml.api", "quancrypt_ml.infrastructure", "quancrypt_ml.port.outbound",
+    "quancrypt_ml.domain", "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+# `api.cli` is the bootstrap of the command line (like <Servis>Application.java): it builds the facades through the
+# composition root and nothing else.
+name = "api imports only the facade"
+type = "forbidden"
+source_modules = ["quancrypt_ml.api"]
+forbidden_modules = [
+    "quancrypt_ml.usecase", "quancrypt_ml.infrastructure", "quancrypt_ml.port", "quancrypt_ml.domain",
+    "sqlalchemy", "psycopg", "alembic", "httpx",
+]
+ignore_imports = ["quancrypt_ml.api.cli -> quancrypt_ml.infrastructure.container"]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "infrastructure does not call use cases, facade or api"
+type = "forbidden"
+source_modules = ["quancrypt_ml.infrastructure"]
+forbidden_modules = ["quancrypt_ml.api", "quancrypt_ml.facade", "quancrypt_ml.port.inbound", "quancrypt_ml.usecase"]
+ignore_imports = [
+    "quancrypt_ml.infrastructure.container -> quancrypt_ml.usecase.**",
+    "quancrypt_ml.infrastructure.container -> quancrypt_ml.facade.**",
+    "quancrypt_ml.infrastructure.container -> quancrypt_ml.port.inbound.**",
+]
+unmatched_ignore_imports_alerting = "none"
+allow_indirect_imports = true

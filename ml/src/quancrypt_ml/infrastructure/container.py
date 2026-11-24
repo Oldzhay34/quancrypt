@@ -1,0 +1,78 @@
+"""Composition root of the ml command line: each command builds only what it needs (`scope-split` needs no database, the
+import needs no analyzer), so a missing variable of another command never stops it."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Mapping
+
+from quancrypt_ml.facade.labeling_facade import LabelingFacade, LabelPaths, ScopeFacade
+from quancrypt_ml.infrastructure.analyzer.snippet_client import AnalyzerSnippetClient
+from quancrypt_ml.infrastructure.files.batch_csv import CsvBatchFiles
+from quancrypt_ml.infrastructure.files.text_files import FileReportWriter, JsonlScopeDatasetFiles
+from quancrypt_ml.infrastructure.persistence import database
+from quancrypt_ml.infrastructure.persistence.candidates import PostgresCandidateSource
+from quancrypt_ml.infrastructure.persistence.label_store import PostgresLabelStore
+from quancrypt_ml.infrastructure.persistence.locator import PostgresSourceLocator
+from quancrypt_ml.infrastructure.settings import (
+    ConfigError,
+    Paths,
+    load_analyzer,
+    load_database,
+    load_paths,
+    load_salt,
+)
+from quancrypt_ml.infrastructure.system import RandomIdGenerator, SystemClock
+from quancrypt_ml.port.inbound.labeling import ExportCommand, ExportLabelBatchUseCase, ExportResult
+from quancrypt_ml.usecase.export_label_batch_service import ExportLabelBatchService
+from quancrypt_ml.usecase.import_labels_service import ImportLabelsService
+from quancrypt_ml.usecase.labeling_report_writer import LabelingReporter
+from quancrypt_ml.usecase.resolve_disagreements_service import ResolveDisagreementsService
+from quancrypt_ml.usecase.split_scope_dataset_service import SplitScopeDatasetService
+
+__all__ = ["ConfigError", "labeling", "migrate", "paths", "scope"]
+
+
+def _env(source: Mapping[str, str] | None) -> Mapping[str, str]:
+    return os.environ if source is None else source
+
+
+def paths(source: Mapping[str, str] | None = None) -> Paths:
+    return load_paths(_env(source))
+
+
+def labeling(with_analyzer: bool, source: Mapping[str, str] | None = None) -> LabelingFacade:
+    env = _env(source)
+    folders = load_paths(env)
+    engine = database.engine(load_database(env))
+    store = PostgresLabelStore(engine)
+    candidates = PostgresCandidateSource(engine)
+    files = CsvBatchFiles()
+    clock, ids = SystemClock(), RandomIdGenerator()
+    reporter = LabelingReporter(store, candidates, files, FileReportWriter())
+    export: ExportLabelBatchUseCase = _NoExport()
+    if with_analyzer:
+        analyzer = load_analyzer(env)
+        locator = PostgresSourceLocator(engine, load_salt(env), folders.manifest)
+        snippets = AnalyzerSnippetClient(analyzer.url, analyzer.token, analyzer.timeout_s)
+        export = ExportLabelBatchService(candidates, locator, snippets, store, files, clock, ids)
+    return LabelingFacade(
+        export,
+        ImportLabelsService(store, files, reporter, clock),
+        ResolveDisagreementsService(store, files, reporter, clock),
+        LabelPaths(folders.labeling_dir, folders.reports_dir / "labeling.md"),
+    )
+
+
+def scope() -> ScopeFacade:
+    return ScopeFacade(SplitScopeDatasetService(JsonlScopeDatasetFiles()))
+
+
+def migrate(source: Mapping[str, str] | None = None) -> None:
+    env = _env(source)
+    database.migrate(load_database(env, migrator=True), load_paths(env).migrations_dir)
+
+
+class _NoExport:
+    def execute(self, command: ExportCommand) -> ExportResult:  # pragma: no cover (only import and resolve are wired)
+        raise RuntimeError("the export is built with the analyzer")

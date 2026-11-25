@@ -22,19 +22,12 @@ from quancrypt_ml.infrastructure.persistence.locator import PostgresSourceLocato
 from quancrypt_ml.port.outbound.labeling import LabelStore, SourceLocator
 from tests.support.label_store_cases import AT, CASES, KEY, new_batch
 from tests.support.port_cases import CANDIDATE_CASES, LOCATOR_CASES, CandidateFactory, LocatorFactory
-from tests.support.postgres import MIGRATIONS_DIR, PostgresInstance, start_postgres
+from tests.support.postgres import MIGRATIONS_DIR, PostgresInstance
 
 pytestmark = pytest.mark.postgres
 
 SALT = "s" * 40
 TABLES = ("gold_label", "label_resolution", "label_batch_item", "label_batch", "labeled_finding", "labeler")
-
-
-@pytest.fixture(scope="module")
-def pg() -> Iterator[PostgresInstance]:
-    instance = start_postgres()
-    database.migrate(instance.settings(migrator=True), MIGRATIONS_DIR)
-    yield instance
 
 
 @pytest.fixture
@@ -54,7 +47,8 @@ def test_the_migration_creates_the_schema_once_with_its_own_version_table(pg: Po
         ).scalars()
         assert list(tables) == sorted(["gold_label", "label_batch", "label_batch_item", "label_resolution",
                                        "labeled_finding", "labeler", "labeler_role", "risk_class"])  # fmt: skip
-        assert connection.execute(text("SELECT version_num FROM public.ml_alembic_version")).scalar_one() == "0001"
+        # The head of the chain (0002 adds ml_outputs, P7.2).
+        assert connection.execute(text("SELECT version_num FROM public.ml_alembic_version")).scalar_one() == "0002"
         classes = connection.execute(text("SELECT code FROM labels.risk_class ORDER BY sort_order")).scalars()
         assert list(classes) == ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 

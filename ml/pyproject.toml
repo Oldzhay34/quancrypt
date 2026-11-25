@@ -31,8 +31,9 @@ select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607", "S608", "E501"]
 "migrations/**" = ["E501", "S608"]
-# The request texts of the scope data set are long on purpose.
+# The request texts of the scope data set and the Turkish sentences of the Model A report are long on purpose.
 "scripts/**" = ["E501"]
+"src/quancrypt_ml/domain/model_a_report.py" = ["E501"]
 
 [tool.mypy]
 strict = true
@@ -41,13 +42,19 @@ files = ["src", "tests", "scripts"]
 explicit_package_bases = true
 mypy_path = "src:."
 
+# The model libraries ship no type information (scikit-learn, SHAP, skl2onnx, onnxmltools, MLflow): they are typed Any
+# at the infrastructure boundary only.
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "shap.*", "skl2onnx.*", "onnxmltools.*", "onnxruntime.*", "mlflow.*", "xgboost.*", "pandas.*"]
+ignore_missing_imports = true
+
 [tool.importlinter]
 root_package = "quancrypt_ml"
 include_external_packages = true
 
 # Rules of hexagonal-service section 2 (D-05) and ml-pipeline section 1: every contract forbids a whole layer and lists the
 # allowed edges in `ignore_imports`, so a module a later phase adds is covered without touching the contract. The model
-# libraries (P7.2) join the forbidden lists of the inner layers when they come.
+# libraries (P7.2) are forbidden everywhere but in infrastructure (ml-pipeline section 1).
 
 [[tool.importlinter.contracts]]
 name = "domain imports nothing of the package and no framework"
@@ -55,7 +62,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.domain"]
 forbidden_modules = [
     "quancrypt_ml.port", "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
 ]
 allow_indirect_imports = true
 
@@ -65,7 +72,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.port"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
 ]
 allow_indirect_imports = true
 
@@ -75,7 +82,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.usecase"]
 forbidden_modules = [
     "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
 ]
 allow_indirect_imports = true
 
@@ -85,7 +92,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.facade"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.api", "quancrypt_ml.infrastructure", "quancrypt_ml.port.outbound",
-    "quancrypt_ml.domain", "sqlalchemy", "psycopg", "alembic", "httpx", "typer",
+    "quancrypt_ml.domain", "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
 ]
 allow_indirect_imports = true
 
@@ -97,7 +104,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.api"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.infrastructure", "quancrypt_ml.port", "quancrypt_ml.domain",
-    "sqlalchemy", "psycopg", "alembic", "httpx",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
 ]
 ignore_imports = ["quancrypt_ml.api.cli -> quancrypt_ml.infrastructure.container"]
 unmatched_ignore_imports_alerting = "none"

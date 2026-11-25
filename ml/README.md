@@ -14,6 +14,8 @@ make ml ARGS="label-import labeling/batch_001.csv --labeler FIRST"
 make ml ARGS="label-import labeling/batch_001_second.csv --labeler SECOND"
 make ml ARGS="label-resolve"                 # labeling/batch_001_disagreements.csv'deki çözümleri yazar
 make scope-dataset                           # kapsam veri setini üretir ve 70/15/15 böler
+make ml ARGS="train-risk --labels silver"    # Model A deneme koşusu (gümüş etiket; ml_outputs'a yazmaz)
+make ml ARGS="train-risk"                    # Model A (altın etiket): rapor, model kartı, ONNX, ml_outputs
 make verify                                  # ruff, mypy --strict, import-linter, pytest (gerçek PostgreSQL), kapsam
 ```
 
@@ -26,3 +28,4 @@ yapılmış olmasını ister. Her içe aktarma `reports/labeling.md` raporunu (C
 - Etiketleme dışa aktarımı korpus bulgularının gerçek dosya ve satırını `raw.event`'ten okur; bu, ml-pipeline §2'deki "raw okunmaz" kuralının kayıtlı tek istisnasıdır (D-322b). Konum yalnız git dışı CSV'ye yazılır.
 - Etiketler `warehouse_db.labels` şemasındadır (`migrations/`, sürüm tablosu `ml_alembic_version`). Bir projenin onayı geri alınırsa data-platform `labels.labeled_finding` satırlarını, parti kalemleri, etiketleri ve çözümleriyle birlikte siler.
 - Kapsam veri seti `data/scope/` altındadır; test kümesi `services/agent-service/data/examples/scope_set.jsonl`'e kopyalanır (tek kaynak `ml/`).
+- Model A (P7.2) `train-risk` ile eğitilir: proje bazında sabit test projeleri, üç algoritma (lojistik regresyon, Random Forest, XGBoost), kural baseline'ı ve yerel LLM sıfır-atış karşılaştırması. Çıktılar: MLflow (`127.0.0.1:5000`, deney `model_a_risk`), `models/risk_model-v1.onnx` (kök `models/`, git dışı), `model_cards/risk_model-v1.md`, `reports/model_a.md` ve `warehouse_db.ml_outputs`.

@@ -1,7 +1,8 @@
 {{ config(indexes=[{'columns': ['project_key']}]) }}
 
 -- Q7. Grain: one finding. Raw, unscaled values for Model A. USER rows stay out until the MODEL_TRAINING consent reaches the
--- warehouse (D-21, D-317h). risk_score and risk_class come from ml_outputs in P7 and are NULL until then (D-316b).
+-- warehouse (D-21, D-317h). risk_score and risk_class are the published Model A version's prediction (ml_outputs,
+-- D-316b, D-327d); NULL until a model is published or for a finding it did not score.
 -- gold_label (P7.1, D-322d, D-324d): the user's resolution of a disagreement, else the first labeller's label when the
 -- second labeller agrees or did not label the record; an unresolved disagreement has none. It comes from the latest batch
 -- with a final label; NULL until the labels schema exists (`ml migrate`) and the finding is labelled.
@@ -12,6 +13,10 @@
 {%- set label_batch = source('labels', 'label_batch') -%}
 {%- set label_gold = source('labels', 'gold_label') -%}
 {%- set label_resolution = source('labels', 'label_resolution') -%}
+{%- set published = source('ml_outputs', 'published_model') -%}
+{%- set prediction = source('ml_outputs', 'risk_prediction') -%}
+{%- set has_predictions = execute and adapter.get_relation(
+    database=prediction.database, schema=prediction.schema, identifier=prediction.identifier) is not none %}
 {%- set has_labels = execute and adapter.get_relation(
     database=label_item.database, schema=label_item.schema, identifier=label_item.identifier) is not none %}
 with features as (
@@ -36,9 +41,7 @@ with features as (
         f.hndl_exposure,
         s.java_major,
         s.spring_boot_version,
-        count(*) over (partition by f.project_key) as project_finding_count,
-        cast(null as numeric(5, 4)) as risk_score,
-        cast(null as varchar(16)) as risk_class
+        count(*) over (partition by f.project_key) as project_finding_count
     from {{ ref('fact_crypto_finding') }} f
     join {{ ref('dim_project') }} p on p.project_sk = f.project_sk
     join {{ ref('dim_service') }} s on s.service_sk = f.service_sk
@@ -86,6 +89,19 @@ gold as (
 {%- endif %}
 ),
 
+predicted as (
+{%- if has_predictions %}
+    select r.finding_id, r.risk_score, r.risk_class
+    from {{ published }} p
+    join {{ prediction }} r on r.model_version_id = p.model_version_id
+    where p.model_name = 'risk_model'
+{%- else %}
+    select cast(null as uuid) as finding_id, cast(null as numeric(5, 4)) as risk_score,
+        cast(null as varchar(16)) as risk_class
+    where false
+{%- endif %}
+),
+
 silver as (
     select
         finding_id,
@@ -101,6 +117,8 @@ silver as (
 
 select
     f.*,
+    cast(m.risk_score as numeric(5, 4)) as risk_score,
+    cast(m.risk_class as varchar(16)) as risk_class,
     cast(g.gold_label as varchar(16)) as gold_label,
     cast(
         case
@@ -113,3 +131,4 @@ select
 from features f
 join silver s on s.finding_id = f.finding_id
 left join gold g on g.finding_id = f.finding_id
+left join predicted m on m.finding_id = f.finding_id

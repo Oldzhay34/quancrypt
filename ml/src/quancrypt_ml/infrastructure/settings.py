@@ -40,6 +40,14 @@ class AnalyzerSettings:
 
 
 @dataclass(frozen=True)
+class RiskSettings:
+    mlflow_uri: str
+    ollama_url: str
+    ollama_model: str
+    models_dir: Path
+
+
+@dataclass(frozen=True)
 class Paths:
     labeling_dir: Path
     reports_dir: Path
@@ -97,15 +105,7 @@ def load_database(source: Mapping[str, str], migrator: bool = False) -> Database
 def load_analyzer(source: Mapping[str, str]) -> AnalyzerSettings:
     url = source.get("CORPUS_ANALYZER_URL", "http://127.0.0.1:8082")
     problems = _secret_problems("INTERNAL_SERVICE_TOKEN", source.get("INTERNAL_SERVICE_TOKEN", ""))
-    parts = urlsplit(url)
-    try:
-        port = parts.port
-    except ValueError:
-        port = -1
-    if parts.scheme != "http" or parts.hostname not in LOOPBACK or parts.username or parts.password or port == -1:
-        problems.append("CORPUS_ANALYZER_URL: an http address on loopback, without credentials")
-    elif parts.path not in ("", "/") or parts.query or parts.fragment:
-        problems.append("CORPUS_ANALYZER_URL: the bare address, without a path")
+    problems += _loopback_http("CORPUS_ANALYZER_URL", url)
     _raise(problems)
     return AnalyzerSettings(url.rstrip("/"), source["INTERNAL_SERVICE_TOKEN"])
 
@@ -128,4 +128,32 @@ def load_paths(source: Mapping[str, str]) -> Paths:
         scope_dir=ML_ROOT / "data" / "scope",
         agent_scope_set=REPO_ROOT / "services" / "agent-service" / "data" / "examples" / "scope_set.jsonl",
         migrations_dir=ML_ROOT / "migrations",
+    )
+
+
+def _loopback_http(name: str, value: str) -> list[str]:
+    parts = urlsplit(value)
+    try:
+        port = parts.port
+    except ValueError:
+        port = -1
+    if parts.scheme != "http" or parts.hostname not in LOOPBACK or parts.username or parts.password or port == -1:
+        return [f"{name}: an http address on loopback, without credentials"]
+    if parts.path not in ("", "/") or parts.query or parts.fragment:
+        return [f"{name}: the bare address, without a path"]
+    return []
+
+
+def load_risk(source: Mapping[str, str]) -> RiskSettings:
+    """Model A (P7.2): the local MLflow server, the host Ollama (D-51) and the root models/ folder."""
+    mlflow_uri = source.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+    ollama_url = source.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    problems = _loopback_http("MLFLOW_TRACKING_URI", mlflow_uri) + _loopback_http("OLLAMA_BASE_URL", ollama_url)
+    model = source.get("ML_ZERO_SHOT_MODEL", "gemma3:4b")
+    if not model or len(model) > 64 or any(c.isspace() for c in model):
+        problems.append("ML_ZERO_SHOT_MODEL: an Ollama model tag without spaces")
+    _raise(problems)
+    models = source.get("MODELS_DIR", "")
+    return RiskSettings(
+        mlflow_uri.rstrip("/"), ollama_url.rstrip("/"), model, Path(models) if models else REPO_ROOT / "models"
     )

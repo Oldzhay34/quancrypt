@@ -139,7 +139,7 @@ class TestShape:
 
         apply_migrations(migrated.settings(), MIGRATIONS_DIR)
 
-        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0005",)]
+        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0006",)]
 
 
 class TestConstraints:
@@ -411,7 +411,7 @@ class TestReviewFindings:
         registered = {
             table.qualified
             for table in StaticProjectKeyTableRegistry().tables()
-            if table.schema not in {"core", "snapshots", "marts", "labels"}
+            if table.schema not in {"core", "snapshots", "marts", "labels", "ml_outputs"}
         }
 
         # The audit keeps the key on purpose (D-127: the HMAC key and the action, nothing else); everything else is erased.

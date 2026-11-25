@@ -34,3 +34,13 @@ sources:
       - name: label_batch_item
       - name: gold_label
       - name: label_resolution
+  - name: ml_outputs
+    schema: ml_outputs
+    description: >
+      Model A's versions, predictions and metrics (P7.2, ml/migrations 0002, D-327d). Optional: the schema exists only
+      after `ml migrate`; the marts read it only when it is there.
+    tables:
+      - name: model_version
+      - name: published_model
+      - name: risk_prediction
+      - name: model_metric

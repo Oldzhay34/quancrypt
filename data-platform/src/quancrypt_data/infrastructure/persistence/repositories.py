@@ -46,13 +46,16 @@ _REGISTERED_TABLES = (
     # The gold labels of Model A (P7.1, D-322g, D-324a; ml/migrations): a labelled finding carries the project key, its
     # batch items, labels and resolutions go with it by CASCADE.
     ProjectKeyTable("labels", "labeled_finding"),
+    # Model A's predictions (P7.2, D-327d; ml/migrations 0002): a scored finding carries the project key, its
+    # predictions and explanations go with it by CASCADE.
+    ProjectKeyTable("ml_outputs", "scored_finding"),
 )
 
 # dbt builds these schemas; a build holds this advisory lock (BuildWarehouse) and an erasure waits for it (D-319d).
 WAREHOUSE_SCHEMAS = frozenset({"core", "snapshots", "marts"})
 WAREHOUSE_BUILD_LOCK = "quancrypt-warehouse-build"
 # Schemas another package creates (dbt, ml/migrations): a table that is not there yet has nothing to erase.
-OPTIONAL_SCHEMAS = WAREHOUSE_SCHEMAS | {"labels"}
+OPTIONAL_SCHEMAS = WAREHOUSE_SCHEMAS | {"labels", "ml_outputs"}
 
 
 def _json(value: object) -> str:

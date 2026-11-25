@@ -12,6 +12,7 @@ import threading
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -598,3 +599,110 @@ class TestLabels:
         assert count(engine, "labels.label_batch_item") == 1
         audited = dict(rows(engine, "SELECT table_name, deleted_rows FROM ingest.ingest_audit_table"))
         assert audited["labels.labeled_finding"] == 1
+
+
+# The ml_outputs schema as ml/migrations 0002 creates it (P7.2), reduced to what the marts and the eraser read; the full
+# schema is tested in ml/tests/integration.
+ML_OUTPUTS_DDL = (
+    "DROP SCHEMA IF EXISTS ml_outputs CASCADE",
+    "CREATE SCHEMA ml_outputs",
+    "CREATE TABLE ml_outputs.model_version (id uuid PRIMARY KEY, model_name varchar(64) NOT NULL, version varchar(64) NOT NULL, "
+    "algorithm varchar(32) NOT NULL, label_source varchar(32) NOT NULL, trained_at timestamptz NOT NULL)",
+    "CREATE TABLE ml_outputs.published_model (model_name varchar(64) PRIMARY KEY, model_version_id uuid NOT NULL "
+    "REFERENCES ml_outputs.model_version (id) ON DELETE CASCADE)",
+    "CREATE TABLE ml_outputs.scored_finding (finding_id uuid PRIMARY KEY, project_key char(64) NOT NULL)",
+    "CREATE TABLE ml_outputs.risk_prediction (model_version_id uuid NOT NULL REFERENCES ml_outputs.model_version (id) "
+    "ON DELETE CASCADE, finding_id uuid NOT NULL REFERENCES ml_outputs.scored_finding (finding_id) ON DELETE CASCADE, "
+    "risk_class varchar(16) NOT NULL, risk_score numeric(5,4) NOT NULL, PRIMARY KEY (model_version_id, finding_id))",
+    "CREATE TABLE ml_outputs.model_metric (model_version_id uuid NOT NULL REFERENCES ml_outputs.model_version (id) "
+    "ON DELETE CASCADE, scope varchar(32) NOT NULL, fold smallint NOT NULL, metric varchar(32) NOT NULL, "
+    "label varchar(32) NOT NULL, value double precision NOT NULL)",
+    "GRANT USAGE ON SCHEMA ml_outputs TO warehouse_db_app",
+    "GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA ml_outputs TO warehouse_db_app",
+)
+
+
+@pytest.fixture
+def scored(warehouse: Stack) -> Iterator[Stack]:
+    with warehouse.instance.migrator_engine().begin() as connection:
+        for statement in ML_OUTPUTS_DDL:
+            connection.execute(text(statement))
+    yield warehouse
+    with warehouse.instance.migrator_engine().begin() as connection:
+        connection.execute(text("DROP SCHEMA IF EXISTS ml_outputs CASCADE"))
+
+
+class TestModelOutputs:
+    def test_the_published_model_fills_the_risk_columns_and_its_metrics_reach_the_metric_mart(
+        self, scored: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(scored, tmp_path)
+        engine = scored.instance.migrator_engine()
+        build_service(scored).execute()
+        assert count(engine, "marts.mart_risk_features", "risk_score IS NOT NULL") == 0
+        assert count(engine, "marts.mart_model_metrics") == 0
+        first, second = (
+            r[0] for r in rows(engine, "SELECT finding_id FROM marts.mart_risk_features ORDER BY finding_id")
+        )
+        published, older = uuid.uuid4(), uuid.uuid4()
+        with engine.begin() as connection:
+            for version, name in ((published, "v2"), (older, "v1")):
+                connection.execute(
+                    text(
+                        "INSERT INTO ml_outputs.model_version VALUES (:v, 'risk_model', :n, 'XGBOOST', 'GOLD', now())"
+                    ),
+                    {"v": version, "n": name},
+                )
+            connection.execute(
+                text("INSERT INTO ml_outputs.published_model VALUES ('risk_model', :v)"), {"v": published}
+            )
+            connection.execute(
+                text("INSERT INTO ml_outputs.scored_finding VALUES (:f, :k)"), {"f": first, "k": CORPUS_KEY}
+            )
+            for version, score, label in ((published, 0.8812, "CRITICAL"), (older, 0.175, "LOW")):
+                connection.execute(
+                    text("INSERT INTO ml_outputs.risk_prediction VALUES (:v, :f, :c, :s)"),
+                    {"v": version, "f": first, "c": label, "s": score},
+                )
+            connection.execute(
+                text("INSERT INTO ml_outputs.model_metric VALUES (:v, 'TEST', 0, 'MACRO_F1', 'ALL', 0.81)"),
+                {"v": published},
+            )
+
+        build_service(scored).execute()
+
+        risk = {
+            r[0]: (r[1], r[2])
+            for r in rows(engine, "SELECT finding_id, risk_score, risk_class FROM marts.mart_risk_features")
+        }
+        assert risk[first] == (Decimal("0.8812"), "CRITICAL") and risk[second] == (None, None)
+        assert rows(
+            engine, "SELECT model_name, version, is_published, metric, value FROM marts.mart_model_metrics"
+        ) == [("risk_model", "v2", True, "MACRO_F1", 0.81)]
+
+    def test_consent_revoked_erases_the_scored_findings_of_the_key_and_their_predictions(
+        self, scored: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(scored, tmp_path)
+        engine = scored.instance.migrator_engine()
+        version, finding, other = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        with engine.begin() as connection:
+            connection.execute(
+                text("INSERT INTO ml_outputs.model_version VALUES (:v, 'risk_model', 'v1', 'XGBOOST', 'GOLD', now())"),
+                {"v": version},
+            )
+            connection.execute(
+                text("INSERT INTO ml_outputs.scored_finding VALUES (:f, :k), (:o, :ok)"),
+                {"f": finding, "k": KEY_A, "o": other, "ok": KEY_B},
+            )
+            connection.execute(
+                text("INSERT INTO ml_outputs.risk_prediction VALUES (:v, :f, 'LOW', 0.2), (:v, :o, 'LOW', 0.2)"),
+                {"v": version, "f": finding, "o": other},
+            )
+
+        ingest(scored, revoked(KEY_A))
+
+        assert count(engine, "ml_outputs.scored_finding", "project_key = :k", k=KEY_A) == 0
+        assert count(engine, "ml_outputs.risk_prediction") == 1 and count(engine, "ml_outputs.model_version") == 1
+        audited = dict(rows(engine, "SELECT table_name, deleted_rows FROM ingest.ingest_audit_table"))
+        assert audited["ml_outputs.scored_finding"] == 1

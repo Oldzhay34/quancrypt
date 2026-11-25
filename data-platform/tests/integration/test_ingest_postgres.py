@@ -193,7 +193,9 @@ class TestErasure:
         # The prep tables are in the registry too; this key has no rows there.
         assert {t: n for t, n in deleted.items() if t.startswith(("prep.", "quarantine.prep"))} == {
             t: 0 for t in deleted if t.startswith(("prep.", "quarantine.prep"))
-        } and len(deleted) == 23  # raw, quarantine, prep (7), the prep quarantine, 13 warehouse tables and the labels
+        } and len(
+            deleted
+        ) == 24  # raw, quarantine, prep (7), the prep quarantine, 13 warehouse tables, labels, ml_outputs
 
     def test_an_event_that_follows_the_revocation_in_the_same_batch_survives_it(self, stack: Stack) -> None:
         before = envelope(occurred_at="2026-10-27T10:00:00Z")

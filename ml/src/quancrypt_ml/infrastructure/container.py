@@ -7,6 +7,7 @@ import os
 from collections.abc import Mapping
 
 from quancrypt_ml.facade.labeling_facade import LabelingFacade, LabelPaths, ScopeFacade
+from quancrypt_ml.facade.risk_facade import RiskFacade, RiskPaths
 from quancrypt_ml.infrastructure.analyzer.snippet_client import AnalyzerSnippetClient
 from quancrypt_ml.infrastructure.files.batch_csv import CsvBatchFiles
 from quancrypt_ml.infrastructure.files.text_files import FileReportWriter, JsonlScopeDatasetFiles
@@ -15,11 +16,13 @@ from quancrypt_ml.infrastructure.persistence.candidates import PostgresCandidate
 from quancrypt_ml.infrastructure.persistence.label_store import PostgresLabelStore
 from quancrypt_ml.infrastructure.persistence.locator import PostgresSourceLocator
 from quancrypt_ml.infrastructure.settings import (
+    ML_ROOT,
     ConfigError,
     Paths,
     load_analyzer,
     load_database,
     load_paths,
+    load_risk,
     load_salt,
 )
 from quancrypt_ml.infrastructure.system import RandomIdGenerator, SystemClock
@@ -30,7 +33,7 @@ from quancrypt_ml.usecase.labeling_report_writer import LabelingReporter
 from quancrypt_ml.usecase.resolve_disagreements_service import ResolveDisagreementsService
 from quancrypt_ml.usecase.split_scope_dataset_service import SplitScopeDatasetService
 
-__all__ = ["ConfigError", "labeling", "migrate", "paths", "scope"]
+__all__ = ["ConfigError", "labeling", "migrate", "paths", "risk", "scope"]
 
 
 def _env(source: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -61,6 +64,41 @@ def labeling(with_analyzer: bool, source: Mapping[str, str] | None = None) -> La
         ImportLabelsService(store, files, reporter, clock),
         ResolveDisagreementsService(store, files, reporter, clock),
         LabelPaths(folders.labeling_dir, folders.reports_dir / "labeling.md"),
+    )
+
+
+def risk(source: Mapping[str, str] | None = None) -> RiskFacade:
+    """Model A (P7.2). The model libraries are imported here, not at module load, so the labelling commands stay
+    light."""
+    from quancrypt_ml.infrastructure.llm.ollama_zero_shot import OllamaZeroShotClassifier
+    from quancrypt_ml.infrastructure.model.analysis import MatplotlibCharts, ShapExplainer, StratifiedProjectSplitter
+    from quancrypt_ml.infrastructure.model.onnx_exporter import SklearnOnnxExporter
+    from quancrypt_ml.infrastructure.model.trainer import SklearnModelTrainer
+    from quancrypt_ml.infrastructure.persistence.result_sink import PostgresResultSink
+    from quancrypt_ml.infrastructure.persistence.training_data import PostgresTrainingData
+    from quancrypt_ml.infrastructure.registry.mlflow_registry import MlflowModelRegistry
+    from quancrypt_ml.usecase.export_onnx_service import ExportOnnxService
+    from quancrypt_ml.usecase.train_risk_model_service import RiskTrainingPorts, TrainRiskModelService
+
+    env = _env(source)
+    folders = load_paths(env)
+    settings = load_risk(env)
+    engine = database.engine(load_database(env))
+    ports = RiskTrainingPorts(
+        data=PostgresTrainingData(engine),
+        splitter=StratifiedProjectSplitter(),
+        trainer=SklearnModelTrainer(),
+        explainer=ShapExplainer(),
+        charts=MatplotlibCharts(),
+        zero_shot=OllamaZeroShotClassifier(settings.ollama_url, settings.ollama_model),
+        registry=MlflowModelRegistry(settings.mlflow_uri),
+        export=ExportOnnxService(SklearnOnnxExporter()),
+        sink=PostgresResultSink(engine),
+        reports=FileReportWriter(),
+        clock=SystemClock(),
+    )
+    return RiskFacade(
+        TrainRiskModelService(ports), RiskPaths(folders.reports_dir, ML_ROOT / "model_cards", settings.models_dir)
     )
 
 

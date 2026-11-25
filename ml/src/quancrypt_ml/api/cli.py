@@ -103,6 +103,43 @@ def label_resolve(
     typer.echo(f"{result.batch}: {result.stored} resolutions stored, {result.open_disagreements} still open")
 
 
+@app.command("train-risk")
+def train_risk(
+    labels: str = typer.Option(
+        "gold", help="gold (the real run) or silver (a dry run while the gold labels are written)"
+    ),
+    version: str = typer.Option("v1"),
+    llm: bool = typer.Option(True, "--llm/--no-llm", help="Compare with the local LLM's zero-shot classification"),
+    seed: int = typer.Option(42),
+) -> None:
+    """Train Model A (risk), compare it with the rule baseline and the local LLM, export ONNX and write the report."""
+    if labels.lower() not in ("gold", "silver"):
+        _fail("--labels is gold or silver", 2)
+    try:
+        result = container.risk().train(labels, version, llm, seed)
+    except container.ConfigError as error:
+        _fail(str(error), 2)
+        return
+    except MlCommandError as error:
+        _fail(str(error))
+        return
+    typer.echo(
+        f"{result.label_source}: train {result.train_rows} findings, test {result.test_rows} findings in "
+        f"{result.test_projects} unseen projects"
+    )
+    for name, value in result.cv_macro_f1.items():
+        typer.echo(f"  CV macro-F1 {name}: {value:.3f}")
+    llm_text = "-" if result.llm_macro_f1 is None else f"{result.llm_macro_f1:.3f}"
+    typer.echo(
+        f"selected {result.selected}: test macro-F1 {result.test_macro_f1:.3f}; rule {result.rule_macro_f1:.3f}; "
+        f"LLM {llm_text}; ONNX parity {'ok' if result.onnx_parity else 'FAILED'}"
+    )
+    h3 = "not judged (dry run)" if result.h3_met is None else ("met" if result.h3_met else "NOT met")
+    typer.echo(f"H3: {h3}; ml_outputs {'written' if result.stored else 'not written'}")
+    if result.erased_skipped:
+        typer.echo(f"{result.erased_skipped} predictions not written: their finding was erased (KVKK) during training")
+
+
 @app.command("scope-split")
 def scope_split(seed: int = typer.Option(42)) -> None:
     """Check ml/data/scope/scope_dataset.jsonl, split it by paraphrase group (70/15/15) and copy the test split to

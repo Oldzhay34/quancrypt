@@ -42,4 +42,5 @@ docs/
 
 # Modeller ve deney kayıtları
 models/*.onnx
+models/*.thresholds.json
 mlruns/

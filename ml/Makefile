@@ -24,8 +24,11 @@ verify: ## ruff, mypy --strict, import-linter, pytest (birim, sözleşme, gerçe
 	$(RUN) ruff format --check .
 	$(RUN) mypy
 	$(RUN) lint-imports
-	$(RUN) coverage run -m pytest
+	$(RUN) coverage run -m pytest -m "not ollama"
 	$(RUN) coverage report --include="*/domain/*,*/usecase/*" --fail-under=75
+
+ollama-check: ## Yerel Ollama'daki embedding modeliyle tek gömme denemesi (P7.3; make verify dışında)
+	$(RUN) pytest -m ollama
 
 ml: ## ml komut satırı (host'ta; ENV_FILE içindeki değişkenlerle): make ml ARGS="label-export"
 	@test -f "$(ENV_FILE)" || { echo "HATA: $(ENV_FILE) yok (ENV_FILE=... ile başka dosya verilebilir)"; exit 1; }

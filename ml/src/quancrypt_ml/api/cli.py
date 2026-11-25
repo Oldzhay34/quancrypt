@@ -140,6 +140,29 @@ def train_risk(
         typer.echo(f"{result.erased_skipped} predictions not written: their finding was erased (KVKK) during training")
 
 
+@app.command("train-scope")
+def train_scope(version: str = typer.Option("v1"), seed: int = typer.Option(42)) -> None:
+    """Train Model B (scope): embed locally, choose the threshold and band on val, test once, export ONNX."""
+    try:
+        result = container.scope_model().train(version, seed)
+    except container.ConfigError as error:
+        _fail(str(error), 2)
+        return
+    except MlCommandError as error:
+        _fail(str(error))
+        return
+    typer.echo(f"embedding {result.embedding_model} ({result.embedding_digest[:12]})")
+    for name, value in result.cv_auc.items():
+        typer.echo(f"  inner-CV ROC AUC {name}: {value:.3f}")
+    band = result.band
+    typer.echo(
+        f"selected {result.selected}: threshold {band.threshold:.4f}, UNSURE [{band.low:.4f}, {band.high:.4f}); "
+        f"test out-of-scope recall {100 * result.test_recall:.1f} %, false rejects "
+        f"{100 * result.test_false_reject_rate:.1f} %, UNSURE {100 * result.test_unsure_rate:.1f} %"
+    )
+    typer.echo(f"H4: {'met' if result.h4_met else 'NOT met'}; ONNX parity {'ok' if result.onnx_parity else 'FAILED'}")
+
+
 @app.command("scope-split")
 def scope_split(seed: int = typer.Option(42)) -> None:
     """Check ml/data/scope/scope_dataset.jsonl, split it by paraphrase group (70/15/15) and copy the test split to

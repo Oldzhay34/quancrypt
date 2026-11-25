@@ -8,6 +8,7 @@ from collections.abc import Mapping
 
 from quancrypt_ml.facade.labeling_facade import LabelingFacade, LabelPaths, ScopeFacade
 from quancrypt_ml.facade.risk_facade import RiskFacade, RiskPaths
+from quancrypt_ml.facade.scope_model_facade import ScopeModelFacade, ScopeModelPaths
 from quancrypt_ml.infrastructure.analyzer.snippet_client import AnalyzerSnippetClient
 from quancrypt_ml.infrastructure.files.batch_csv import CsvBatchFiles
 from quancrypt_ml.infrastructure.files.text_files import FileReportWriter, JsonlScopeDatasetFiles
@@ -24,6 +25,7 @@ from quancrypt_ml.infrastructure.settings import (
     load_paths,
     load_risk,
     load_salt,
+    load_scope_model,
 )
 from quancrypt_ml.infrastructure.system import RandomIdGenerator, SystemClock
 from quancrypt_ml.port.inbound.labeling import ExportCommand, ExportLabelBatchUseCase, ExportResult
@@ -33,7 +35,7 @@ from quancrypt_ml.usecase.labeling_report_writer import LabelingReporter
 from quancrypt_ml.usecase.resolve_disagreements_service import ResolveDisagreementsService
 from quancrypt_ml.usecase.split_scope_dataset_service import SplitScopeDatasetService
 
-__all__ = ["ConfigError", "labeling", "migrate", "paths", "risk", "scope"]
+__all__ = ["ConfigError", "labeling", "migrate", "paths", "risk", "scope", "scope_model"]
 
 
 def _env(source: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -100,6 +102,40 @@ def risk(source: Mapping[str, str] | None = None) -> RiskFacade:
     return RiskFacade(
         TrainRiskModelService(ports), RiskPaths(folders.reports_dir, ML_ROOT / "model_cards", settings.models_dir)
     )
+
+
+def scope_model(source: Mapping[str, str] | None = None) -> ScopeModelFacade:
+    """Model B (P7.3). The model libraries are imported here, as in risk()."""
+    from quancrypt_ml.infrastructure.files.embedding_cache import NpyEmbeddingCache
+    from quancrypt_ml.infrastructure.llm.ollama_embedding import OllamaEmbeddingProvider
+    from quancrypt_ml.infrastructure.model.analysis import MatplotlibCharts
+    from quancrypt_ml.infrastructure.model.scope_onnx import SklearnScopeOnnxExporter
+    from quancrypt_ml.infrastructure.model.scope_trainer import SklearnScopeTrainer
+    from quancrypt_ml.infrastructure.persistence.result_sink import PostgresResultSink
+    from quancrypt_ml.infrastructure.registry.mlflow_registry import MlflowModelRegistry
+    from quancrypt_ml.usecase.export_scope_onnx_service import ExportScopeOnnxService
+    from quancrypt_ml.usecase.train_scope_classifier_service import ScopeTrainingPorts, TrainScopeClassifierService
+
+    env = _env(source)
+    folders = load_paths(env)
+    settings = load_scope_model(env)
+    engine = database.engine(load_database(env))
+    ports = ScopeTrainingPorts(
+        files=JsonlScopeDatasetFiles(),
+        embeddings=OllamaEmbeddingProvider(
+            settings.ollama_url, settings.embedding_model, settings.embedding_dimensions
+        ),
+        cache=NpyEmbeddingCache(folders.scope_dir),
+        trainer=SklearnScopeTrainer(),
+        export=ExportScopeOnnxService(SklearnScopeOnnxExporter(settings.embedding_dimensions)),
+        charts=MatplotlibCharts(),
+        registry=MlflowModelRegistry(settings.mlflow_uri),
+        sink=PostgresResultSink(engine),
+        reports=FileReportWriter(),
+        clock=SystemClock(),
+    )
+    paths = ScopeModelPaths(folders.scope_dir, folders.reports_dir, ML_ROOT / "model_cards", settings.models_dir)
+    return ScopeModelFacade(TrainScopeClassifierService(ports), paths)
 
 
 def scope() -> ScopeFacade:

@@ -48,6 +48,15 @@ class RiskSettings:
 
 
 @dataclass(frozen=True)
+class ScopeModelSettings:
+    mlflow_uri: str
+    ollama_url: str
+    embedding_model: str
+    embedding_dimensions: int
+    models_dir: Path
+
+
+@dataclass(frozen=True)
 class Paths:
     labeling_dir: Path
     reports_dir: Path
@@ -157,3 +166,16 @@ def load_risk(source: Mapping[str, str]) -> RiskSettings:
     return RiskSettings(
         mlflow_uri.rstrip("/"), ollama_url.rstrip("/"), model, Path(models) if models else REPO_ROOT / "models"
     )
+
+
+EMBEDDING_DIMENSIONS = 768  # embeddinggemma (D-68); agent-service model_config.yaml embedding_dimensions
+
+
+def load_scope_model(source: Mapping[str, str]) -> ScopeModelSettings:
+    """Model B (P7.3): the local MLflow, the host Ollama's embedding model (the one agent-service uses, D-14) and the
+    root models/ folder."""
+    risk = load_risk(source)
+    model = source.get("ML_EMBEDDING_MODEL", "embeddinggemma:latest")
+    if not model or len(model) > 64 or any(c.isspace() for c in model):
+        _raise(["ML_EMBEDDING_MODEL: an Ollama model tag without spaces"])
+    return ScopeModelSettings(risk.mlflow_uri, risk.ollama_url, model, EMBEDDING_DIMENSIONS, risk.models_dir)

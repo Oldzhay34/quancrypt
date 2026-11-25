@@ -378,3 +378,27 @@ def test_the_key_lock_name_is_data_platforms() -> None:
               / "persistence" / "repositories.py").read_text(encoding="utf-8")  # fmt: skip
     match = re.search(r'^LOCK_NAMESPACE = "([^"]+)"$', source, re.M)
     assert match is not None and match.group(1) == INGEST_LOCK_NAMESPACE
+
+
+def test_model_b_codes_are_in_the_lookups_and_a_scope_version_is_stored(
+    pg: PostgresInstance, sink: PostgresResultSink
+) -> None:
+    """ml migration 0003 (P7.3, D-333f): Model B's codes; a scope classifier version holds metrics and no predictions."""
+    expected = {
+        "algorithm": {"LINEAR_SVM"}, "label_source": {"SCOPE_SET"}, "metric_scope": {"VALIDATION"},
+        "metric": {"OUT_OF_SCOPE_RECALL", "FALSE_REJECT_RATE", "UNSURE_RATE", "THRESHOLD", "UNSURE_LOW", "UNSURE_HIGH",
+                   "ROC_AUC"},
+        "metric_label": {"TR", "EN", "JAILBREAK", "BOUNDARY"},
+    }  # fmt: skip
+    with pg.engine("warehouse_db_migrator").begin() as connection:
+        for table, codes in expected.items():
+            present = set(connection.execute(text(f"SELECT code FROM ml_outputs.{table}")).scalars())
+            assert codes <= present, table
+    metrics = [
+        MetricValue("VALIDATION", 0, "THRESHOLD", "ALL", 0.42), MetricValue("TEST", 0, "OUT_OF_SCOPE_RECALL", "TR", 1.0),
+        MetricValue("TEST", 0, "FALSE_REJECT_RATE", "BOUNDARY", 0.125),
+    ]  # fmt: skip
+    sink.store([StoredModel("scope_classifier", "v1", "LINEAR_SVM", "SCOPE_SET", "0" * 32, AT, metrics, [], True)])
+    assert _count(pg, "model_metric") == 3 and _count(pg, "risk_prediction") == 0
+    assert _count(pg, "model_version", "label_source = 'SCOPE_SET' AND algorithm = 'LINEAR_SVM'") == 1
+    assert _count(pg, "published_model", "model_name = 'scope_classifier'") == 1

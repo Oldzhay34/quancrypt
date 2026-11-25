@@ -7,3 +7,5 @@ reports/
 .pytest_cache/
 .coverage
 __pycache__/
+# Model B embedding cache (P7.3, D-333b): rebuilt from the local embedding model.
+data/scope/embeddings_*

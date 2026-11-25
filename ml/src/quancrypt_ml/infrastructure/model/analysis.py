@@ -125,3 +125,22 @@ class MatplotlibCharts:
         axes.set_title("Model A: calibration (test projects)")
         axes.legend()
         _save(figure, path)
+
+    def score_histogram(
+        self, labels: Sequence[str], p_out: Sequence[float], bounds: Mapping[str, float], path: Path
+    ) -> None:
+        """Model B (P7.3): the out-of-scope probability per true class, with the threshold and the UNSURE band."""
+        figure = Figure(figsize=(7, 4))
+        axes = figure.add_subplot()
+        bins = [i / 20 for i in range(21)]
+        for label in sorted(set(labels)):
+            values = [p for p, t in zip(p_out, labels, strict=True) if t == label]
+            axes.hist(values, bins=bins, alpha=0.6, label=label)
+        for name, value in sorted(bounds.items()):
+            axes.axvline(value, linestyle="--", linewidth=1, color="black")
+            axes.annotate(name, (value, axes.get_ylim()[1]), rotation=90, va="top", ha="right", fontsize=7)
+        axes.set_xlabel("out-of-scope probability")
+        axes.set_ylabel("requests")
+        axes.set_title("Model B: scores (test set)")
+        axes.legend()
+        _save(figure, path)

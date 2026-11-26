@@ -36,6 +36,7 @@ select = ["E", "F", "I", "B", "UP", "S", "C4", "SIM", "RET"]
 "scripts/**" = ["E501"]
 "src/quancrypt_ml/domain/model_a_report.py" = ["E501"]
 "src/quancrypt_ml/domain/model_b_report.py" = ["E501"]
+"src/quancrypt_ml/domain/mining_report.py" = ["E501"]
 
 [tool.mypy]
 strict = true
@@ -47,7 +48,7 @@ mypy_path = "src:."
 # The model libraries ship no type information (scikit-learn, SHAP, skl2onnx, onnxmltools, MLflow): they are typed Any
 # at the infrastructure boundary only.
 [[tool.mypy.overrides]]
-module = ["sklearn.*", "shap.*", "skl2onnx.*", "onnxmltools.*", "onnxruntime.*", "mlflow.*", "xgboost.*", "pandas.*"]
+module = ["sklearn.*", "shap.*", "skl2onnx.*", "onnxmltools.*", "onnxruntime.*", "mlflow.*", "xgboost.*", "pandas.*", "mlxtend.*"]
 ignore_missing_imports = true
 
 [tool.importlinter]
@@ -64,7 +65,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.domain"]
 forbidden_modules = [
     "quancrypt_ml.port", "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib", "mlxtend", "scipy",
 ]
 allow_indirect_imports = true
 
@@ -74,7 +75,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.port"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib", "mlxtend", "scipy",
 ]
 allow_indirect_imports = true
 
@@ -84,7 +85,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.usecase"]
 forbidden_modules = [
     "quancrypt_ml.facade", "quancrypt_ml.api", "quancrypt_ml.infrastructure",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib", "mlxtend", "scipy",
 ]
 allow_indirect_imports = true
 
@@ -94,7 +95,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.facade"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.api", "quancrypt_ml.infrastructure", "quancrypt_ml.port.outbound",
-    "quancrypt_ml.domain", "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
+    "quancrypt_ml.domain", "sqlalchemy", "psycopg", "alembic", "httpx", "typer", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib", "mlxtend", "scipy",
 ]
 allow_indirect_imports = true
 
@@ -106,7 +107,7 @@ type = "forbidden"
 source_modules = ["quancrypt_ml.api"]
 forbidden_modules = [
     "quancrypt_ml.usecase", "quancrypt_ml.infrastructure", "quancrypt_ml.port", "quancrypt_ml.domain",
-    "sqlalchemy", "psycopg", "alembic", "httpx", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib",
+    "sqlalchemy", "psycopg", "alembic", "httpx", "sklearn", "xgboost", "shap", "skl2onnx", "onnxmltools", "onnxruntime", "onnx", "mlflow", "numpy", "pandas", "matplotlib", "mlxtend", "scipy",
 ]
 ignore_imports = ["quancrypt_ml.api.cli -> quancrypt_ml.infrastructure.container"]
 unmatched_ignore_imports_alerting = "none"

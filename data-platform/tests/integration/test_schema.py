@@ -139,7 +139,7 @@ class TestShape:
 
         apply_migrations(migrated.settings(), MIGRATIONS_DIR)
 
-        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0006",)]
+        assert rows(migrated.migrator_engine(), "SELECT version_num FROM alembic_version") == before == [("0007",)]
 
 
 class TestConstraints:

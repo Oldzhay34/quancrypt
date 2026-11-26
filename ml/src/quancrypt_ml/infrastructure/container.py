@@ -7,6 +7,7 @@ import os
 from collections.abc import Mapping
 
 from quancrypt_ml.facade.labeling_facade import LabelingFacade, LabelPaths, ScopeFacade
+from quancrypt_ml.facade.mining_facade import MiningFacade, MiningPaths
 from quancrypt_ml.facade.risk_facade import RiskFacade, RiskPaths
 from quancrypt_ml.facade.scope_model_facade import ScopeModelFacade, ScopeModelPaths
 from quancrypt_ml.infrastructure.analyzer.snippet_client import AnalyzerSnippetClient
@@ -22,6 +23,7 @@ from quancrypt_ml.infrastructure.settings import (
     Paths,
     load_analyzer,
     load_database,
+    load_mlflow,
     load_paths,
     load_risk,
     load_salt,
@@ -35,7 +37,7 @@ from quancrypt_ml.usecase.labeling_report_writer import LabelingReporter
 from quancrypt_ml.usecase.resolve_disagreements_service import ResolveDisagreementsService
 from quancrypt_ml.usecase.split_scope_dataset_service import SplitScopeDatasetService
 
-__all__ = ["ConfigError", "labeling", "migrate", "paths", "risk", "scope", "scope_model"]
+__all__ = ["ConfigError", "labeling", "migrate", "mining", "paths", "risk", "scope", "scope_model"]
 
 
 def _env(source: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -136,6 +138,32 @@ def scope_model(source: Mapping[str, str] | None = None) -> ScopeModelFacade:
     )
     paths = ScopeModelPaths(folders.scope_dir, folders.reports_dir, ML_ROOT / "model_cards", settings.models_dir)
     return ScopeModelFacade(TrainScopeClassifierService(ports), paths)
+
+
+def mining(source: Mapping[str, str] | None = None) -> MiningFacade:
+    """Data mining (P7.4). The model libraries are imported here, as in risk()."""
+    from quancrypt_ml.infrastructure.model.mining import MlxtendRuleMiner, SklearnAnomalyDetector, SklearnClusterer
+    from quancrypt_ml.infrastructure.model.mining_charts import MatplotlibMiningCharts
+    from quancrypt_ml.infrastructure.persistence.mining_data import PostgresMiningData
+    from quancrypt_ml.infrastructure.persistence.mining_sink import PostgresMiningSink
+    from quancrypt_ml.infrastructure.registry.mlflow_registry import MlflowModelRegistry
+    from quancrypt_ml.usecase.detect_anomalies_service import AnomalyPorts, DetectAnomaliesService
+    from quancrypt_ml.usecase.mine_association_rules_service import MineAssociationRulesService, RulePorts
+    from quancrypt_ml.usecase.mine_corpus_service import MineCorpusService
+    from quancrypt_ml.usecase.run_clustering_service import ClusteringPorts, RunClusteringService
+
+    env = _env(source)
+    folders = load_paths(env)
+    mlflow_uri = load_mlflow(env)
+    engine = database.engine(load_database(env))
+    data, charts, sink = PostgresMiningData(engine), MatplotlibMiningCharts(), PostgresMiningSink(engine)
+    registry, reports, clock = MlflowModelRegistry(mlflow_uri), FileReportWriter(), SystemClock()
+    clustering = RunClusteringService(ClusteringPorts(SklearnClusterer(), charts, registry, sink, reports, clock))
+    rules = MineAssociationRulesService(RulePorts(MlxtendRuleMiner(), charts, registry, sink, reports, clock))
+    anomalies = DetectAnomaliesService(AnomalyPorts(SklearnAnomalyDetector(), charts, registry, sink, reports, clock))
+    return MiningFacade(
+        MineCorpusService(data, clustering, rules, anomalies, reports), MiningPaths(folders.reports_dir)
+    )
 
 
 def scope() -> ScopeFacade:

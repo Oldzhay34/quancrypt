@@ -45,7 +45,7 @@ WAREHOUSE_SCHEMAS = "staging, snapshots, core, marts"
 FACTS = ("core.fact_crypto_finding", "core.fact_topology_summary", "core.fact_service_link", "core.fact_scope_decision")
 WAREHOUSE_TABLES_WITH_KEY = (
     "marts.mart_inventory_summary", "marts.mart_service_runtime", "marts.mart_topology_coverage",
-    "marts.mart_risk_features", *FACTS, "core.fact_migration_step", "core.dim_service", "core.dim_project",
+    "marts.mart_risk_features", "marts.mart_archetypes", *FACTS, "core.fact_migration_step", "core.dim_service", "core.dim_project",
     "snapshots.dim_service_snapshot", "snapshots.dim_project_snapshot",
 )  # fmt: skip
 
@@ -706,3 +706,73 @@ class TestModelOutputs:
         assert count(engine, "ml_outputs.risk_prediction") == 1 and count(engine, "ml_outputs.model_version") == 1
         audited = dict(rows(engine, "SELECT table_name, deleted_rows FROM ingest.ingest_audit_table"))
         assert audited["ml_outputs.scored_finding"] == 1
+
+
+# The mining tables as ml/migrations 0004 creates them (P7.4), reduced to what the mart and the eraser read; the full
+# schema is tested in ml/tests/integration.
+MINING_DDL = (
+    "DROP SCHEMA IF EXISTS ml_outputs CASCADE",
+    "CREATE SCHEMA ml_outputs",
+    "CREATE TABLE ml_outputs.mining_run (technique varchar(32) PRIMARY KEY, run_at timestamptz NOT NULL)",
+    "CREATE TABLE ml_outputs.archetype (technique varchar(32) NOT NULL, cluster_no smallint NOT NULL, "
+    "name varchar(128) NOT NULL, PRIMARY KEY (technique, cluster_no))",
+    "CREATE TABLE ml_outputs.project_archetype (technique varchar(32) NOT NULL, project_key char(64) NOT NULL, "
+    "cluster_no smallint, PRIMARY KEY (technique, project_key))",
+    "CREATE TABLE ml_outputs.anomaly (technique varchar(32) NOT NULL, project_key char(64) NOT NULL, "
+    "score double precision NOT NULL, is_flagged boolean NOT NULL, PRIMARY KEY (technique, project_key))",
+    "GRANT USAGE ON SCHEMA ml_outputs TO warehouse_db_app",
+    "GRANT SELECT, INSERT, DELETE ON ALL TABLES IN SCHEMA ml_outputs TO warehouse_db_app",
+)
+
+
+@pytest.fixture
+def mined(warehouse: Stack) -> Iterator[Stack]:
+    with warehouse.instance.migrator_engine().begin() as connection:
+        for statement in MINING_DDL:
+            connection.execute(text(statement))
+    yield warehouse
+    with warehouse.instance.migrator_engine().begin() as connection:
+        connection.execute(text("DROP SCHEMA IF EXISTS ml_outputs CASCADE"))
+
+
+class TestArchetypes:
+    def test_the_profile_holds_corpus_projects_only_and_its_shares(self, warehouse: Stack, tmp_path: Path) -> None:
+        seed_and_prepare(warehouse, tmp_path)
+        engine = warehouse.instance.migrator_engine()
+        build_service(warehouse).execute()
+
+        found = rows(
+            engine,
+            "SELECT project_key, origin, analysis_unit_count, finding_count, findings_per_unit, share_alg_rsa, "
+            "share_ctx_signature, share_p0, archetype_no, anomaly_score FROM marts.mart_archetypes",
+        )
+        assert [tuple(r) for r in found] == [(CORPUS_KEY, "CORPUS", 1, 2, 2.0, 1.0, 1.0, 1.0, None, None)]
+
+    def test_the_last_mining_run_labels_the_profile_and_consent_revoked_erases_it(
+        self, mined: Stack, tmp_path: Path
+    ) -> None:
+        seed_and_prepare(mined, tmp_path)
+        engine = mined.instance.migrator_engine()
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO ml_outputs.mining_run VALUES ('KMEANS', now())"))
+            connection.execute(text("INSERT INTO ml_outputs.archetype VALUES ('KMEANS', 1, 'RSA / SIGNATURE')"))
+            for technique, cluster in (("KMEANS", 1), ("HDBSCAN", None)):
+                connection.execute(
+                    text("INSERT INTO ml_outputs.project_archetype VALUES (:t, :k, :c)"),
+                    {"t": technique, "k": CORPUS_KEY, "c": cluster},
+                )
+            connection.execute(
+                text("INSERT INTO ml_outputs.anomaly VALUES ('ISOLATION_FOREST', :k, -0.1, true)"), {"k": CORPUS_KEY}
+            )
+        build_service(mined).execute()
+        labelled = rows(
+            engine,
+            "SELECT archetype_no, archetype_name, hdbscan_cluster_no, anomaly_score, is_anomaly "
+            "FROM marts.mart_archetypes",
+        )
+        assert [tuple(r) for r in labelled] == [(1, "RSA / SIGNATURE", None, -0.1, True)]
+
+        ingest(mined, revoked(CORPUS_KEY))
+        assert count(engine, "marts.mart_archetypes", "project_key = :k", k=CORPUS_KEY) == 0
+        assert count(engine, "ml_outputs.project_archetype", "project_key = :k", k=CORPUS_KEY) == 0
+        assert count(engine, "ml_outputs.anomaly", "project_key = :k", k=CORPUS_KEY) == 0

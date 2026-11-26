@@ -44,3 +44,7 @@ sources:
       - name: published_model
       - name: risk_prediction
       - name: model_metric
+      - name: mining_run
+      - name: archetype
+      - name: project_archetype
+      - name: anomaly

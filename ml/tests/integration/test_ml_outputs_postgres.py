@@ -78,7 +78,9 @@ def test_the_schema_has_its_tables_and_lookups_and_the_reader_sees_nothing(pg: P
             connection.execute(text("SELECT tablename FROM pg_tables WHERE schemaname = 'ml_outputs'")).scalars()
         )
     assert {"model_version", "published_model", "scored_finding", "risk_prediction", "risk_explanation", "model_metric",
-            "algorithm", "label_source", "metric_scope", "metric", "metric_label", "risk_class"} == tables  # fmt: skip
+            "algorithm", "label_source", "metric_scope", "metric", "metric_label", "risk_class",
+            "mining_technique", "mining_run", "mining_run_parameter", "archetype", "project_archetype",
+            "association_rule", "association_rule_item", "anomaly"} == tables  # fmt: skip
     with pytest.raises(DBAPIError, match="permission denied"), pg.engine("warehouse_reader").begin() as connection:
         connection.execute(text("SELECT 1 FROM ml_outputs.risk_prediction"))
     with pytest.raises(DBAPIError, match="permission denied"), pg.engine("warehouse_db_app").begin() as connection:

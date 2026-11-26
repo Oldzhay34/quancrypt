@@ -16,3 +16,5 @@ onnxruntime==1.30.0
 mlflow==3.16.1
 # Charts of the Model A report (calibration, SHAP summary); VERSIONS.md 3.11.2.
 matplotlib==3.11.2
+# P7.4 (D-337f): FP-Growth for the association rules.
+mlxtend==0.25.0

@@ -75,3 +75,17 @@ models:
       - name: value
         data_tests:
           - not_null
+  - name: mart_archetypes
+    columns:
+      - name: project_key
+        data_tests:
+          - unique
+          - not_null
+      - name: origin
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['CORPUS']
+      - name: findings_per_unit
+        data_tests:
+          - not_null

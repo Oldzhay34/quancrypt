@@ -48,7 +48,7 @@ def test_the_migration_creates_the_schema_once_with_its_own_version_table(pg: Po
         assert list(tables) == sorted(["gold_label", "label_batch", "label_batch_item", "label_resolution",
                                        "labeled_finding", "labeler", "labeler_role", "risk_class"])  # fmt: skip
         # The head of the chain (0002 adds ml_outputs, P7.2; 0003 Model B's codes, P7.3).
-        assert connection.execute(text("SELECT version_num FROM public.ml_alembic_version")).scalar_one() == "0003"
+        assert connection.execute(text("SELECT version_num FROM public.ml_alembic_version")).scalar_one() == "0004"
         classes = connection.execute(text("SELECT code FROM labels.risk_class ORDER BY sort_order")).scalars()
         assert list(classes) == ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 

@@ -153,6 +153,13 @@ def _loopback_http(name: str, value: str) -> list[str]:
     return []
 
 
+def load_mlflow(source: Mapping[str, str]) -> str:
+    """The local MLflow server (all data mining needs besides the warehouse, P7.4)."""
+    uri = source.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+    _raise(_loopback_http("MLFLOW_TRACKING_URI", uri))
+    return uri.rstrip("/")
+
+
 def load_risk(source: Mapping[str, str]) -> RiskSettings:
     """Model A (P7.2): the local MLflow server, the host Ollama (D-51) and the root models/ folder."""
     mlflow_uri = source.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")

@@ -80,6 +80,14 @@ where not exists (select 1 from {{ source('prep', 'analysis_unit') }} u
   and not exists (select 1 from {{ source('prep', 'scope_decision') }} s
                   where s.project_key = w.project_key and s.occurred_at > a.revoked_at)
 union all
+select 'marts.mart_archetypes' as warehouse_table, w.project_key
+from {{ ref('mart_archetypes') }} w
+join {{ source('ingest', 'ingest_audit') }} a on a.project_key = w.project_key
+where not exists (select 1 from {{ source('prep', 'analysis_unit') }} u
+                  where u.project_key = w.project_key and u.analysed_at > a.revoked_at)
+  and not exists (select 1 from {{ source('prep', 'scope_decision') }} s
+                  where s.project_key = w.project_key and s.occurred_at > a.revoked_at)
+union all
 select 'snapshots.dim_project_snapshot' as warehouse_table, w.project_key
 from {{ ref('dim_project_snapshot') }} w
 join {{ source('ingest', 'ingest_audit') }} a on a.project_key = w.project_key

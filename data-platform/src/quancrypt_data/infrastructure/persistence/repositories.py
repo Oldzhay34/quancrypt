@@ -34,6 +34,7 @@ _REGISTERED_TABLES = (
     ProjectKeyTable("marts", "mart_service_runtime"),
     ProjectKeyTable("marts", "mart_topology_coverage"),
     ProjectKeyTable("marts", "mart_risk_features"),
+    ProjectKeyTable("marts", "mart_archetypes"),
     ProjectKeyTable("core", "fact_crypto_finding"),
     ProjectKeyTable("core", "fact_topology_summary"),
     ProjectKeyTable("core", "fact_service_link"),
@@ -49,6 +50,9 @@ _REGISTERED_TABLES = (
     # Model A's predictions (P7.2, D-327d; ml/migrations 0002): a scored finding carries the project key, its
     # predictions and explanations go with it by CASCADE.
     ProjectKeyTable("ml_outputs", "scored_finding"),
+    # The mining results of a project (P7.4, D-338h; ml/migrations 0004): its cluster assignments and anomaly score.
+    ProjectKeyTable("ml_outputs", "project_archetype"),
+    ProjectKeyTable("ml_outputs", "anomaly"),
 )
 
 # dbt builds these schemas; a build holds this advisory lock (BuildWarehouse) and an erasure waits for it (D-319d).

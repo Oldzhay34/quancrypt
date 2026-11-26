@@ -163,6 +163,41 @@ def train_scope(version: str = typer.Option("v1"), seed: int = typer.Option(42))
     typer.echo(f"H4: {'met' if result.h4_met else 'NOT met'}; ONNX parity {'ok' if result.onnx_parity else 'FAILED'}")
 
 
+@app.command("mine")
+def mine(
+    min_support_projects: int = typer.Option(3, min=1, help="FP-Growth: projects that must hold an itemset"),
+    min_confidence: float = typer.Option(0.6, help="FP-Growth: minimum confidence (lift must be above 1)"),
+    contamination: float = typer.Option(0.10, help="Isolation Forest: share of projects in the review queue"),
+    seed: int = typer.Option(42),
+) -> None:
+    """Cluster the corpus profiles, mine rules, queue anomalies; writes ml_outputs and ml/reports/mining.md."""
+    try:
+        result = container.mining().mine(min_support_projects, min_confidence, contamination, seed)
+    except container.ConfigError as error:
+        _fail(str(error), 2)
+        return
+    except MlCommandError as error:
+        _fail(str(error))
+        return
+    typer.echo(f"{result.projects} corpus projects")
+    if result.clustering_skipped:
+        typer.echo(f"clustering skipped: {result.clustering_skipped}")
+    else:
+        typer.echo(f"K-Means k={result.chosen_k}: " + "; ".join(result.archetype_names))
+        typer.echo(f"HDBSCAN: {result.hdbscan_clusters} clusters, {result.hdbscan_noise} noise")
+    if result.rules_skipped:
+        typer.echo(f"association rules skipped: {result.rules_skipped}")
+    else:
+        typer.echo(f"association rules: {result.rules}")
+    if result.anomalies_skipped:
+        typer.echo(f"anomaly detection skipped: {result.anomalies_skipped}")
+    else:
+        typer.echo(f"review queue: {result.flagged} projects")
+    if result.erased_skipped:
+        typer.echo(f"{result.erased_skipped} projects not written: erased (KVKK) during the run")
+    typer.echo(f"written: {result.report}; run `make warehouse` to refresh mart_archetypes")
+
+
 @app.command("scope-split")
 def scope_split(seed: int = typer.Option(42)) -> None:
     """Check ml/data/scope/scope_dataset.jsonl, split it by paraphrase group (70/15/15) and copy the test split to

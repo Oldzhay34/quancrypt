@@ -17,6 +17,7 @@ make scope-dataset                           # kapsam veri setini üretir ve 70/
 make ml ARGS="train-risk --labels silver"    # Model A deneme koşusu (gümüş etiket; ml_outputs'a yazmaz)
 make ml ARGS="train-risk"                    # Model A (altın etiket): rapor, model kartı, ONNX, ml_outputs
 make ml ARGS="train-scope"                   # Model B (kapsam): eşik, UNSURE bandı, ONNX, rapor, ml_outputs
+make ml ARGS="mine"                          # data mining: arketipler, birliktelik kuralları, anomali kuyruğu
 make ollama-check                            # yerel Ollama embedding modeliyle tek deneme (verify dışında)
 make verify                                  # ruff, mypy --strict, import-linter, pytest (gerçek PostgreSQL), kapsam
 ```
@@ -32,3 +33,4 @@ yapılmış olmasını ister. Her içe aktarma `reports/labeling.md` raporunu (C
 - Kapsam veri seti `data/scope/` altındadır; test kümesi `services/agent-service/data/examples/scope_set.jsonl`'e kopyalanır (tek kaynak `ml/`).
 - Model A (P7.2) `train-risk` ile eğitilir: proje bazında sabit test projeleri, üç algoritma (lojistik regresyon, Random Forest, XGBoost), kural baseline'ı ve yerel LLM sıfır-atış karşılaştırması. Çıktılar: MLflow (`127.0.0.1:5000`, deney `model_a_risk`), `models/risk_model-v1.onnx` (kök `models/`, git dışı), `model_cards/risk_model-v1.md`, `reports/model_a.md` ve `warehouse_db.ml_outputs`.
 - Model B (P7.3) `train-scope` ile eğitilir: kapsam seti agent-service ile aynı yerel embedding modeliyle (D-14) gömülür (önbellek `data/scope/embeddings_*`, git dışı); lojistik regresyon ve kalibrasyonlu doğrusal SVM yalnız eğitim kümesinde fit edilir; eşik ve UNSURE bandı doğrulama kümesinde seçilir, test kümesi bir kez kullanılır (D-332, D-333). Çıktılar: MLflow (deney `model_b_scope`), `models/scope_classifier-v1.onnx` (yalnız sınıflandırıcı başı) ve `.thresholds.json`, `model_cards/scope_classifier-v1.md`, `reports/model_b.md` ve `ml_outputs` metrikleri. Önce `make ml ARGS="migrate"` (0003 kodları), Ollama ve MLflow açık olmalıdır.
+- Data mining (P7.4) `mine`: yalnız korpus projeleri, test kodu hariç (D-337). Önce `make warehouse` (`mart_archetypes`) ve `make ml ARGS="migrate"` (0004), MLflow açık; sonra `mine`; ardından yine `make warehouse` (etiketler mart'a gelir). Çıktılar: `ml_outputs` mining tabloları, MLflow deneyi `mining`, `reports/mining.md`. Seçenekler: `--min-support-projects`, `--min-confidence`, `--contamination`.

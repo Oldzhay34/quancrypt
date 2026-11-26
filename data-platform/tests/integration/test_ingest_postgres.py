@@ -195,7 +195,7 @@ class TestErasure:
             t: 0 for t in deleted if t.startswith(("prep.", "quarantine.prep"))
         } and len(
             deleted
-        ) == 24  # raw, quarantine, prep (7), the prep quarantine, 13 warehouse tables, labels, ml_outputs
+        ) == 27  # raw, quarantine, prep (7), the prep quarantine, 14 warehouse tables, labels, ml_outputs (3)
 
     def test_an_event_that_follows_the_revocation_in_the_same_batch_survives_it(self, stack: Stack) -> None:
         before = envelope(occurred_at="2026-10-27T10:00:00Z")

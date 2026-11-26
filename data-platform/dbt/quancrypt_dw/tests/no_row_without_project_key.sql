@@ -19,6 +19,8 @@ select 'marts.mart_topology_coverage' as table_name from {{ ref('mart_topology_c
 union all
 select 'marts.mart_risk_features' as table_name from {{ ref('mart_risk_features') }} where project_key is null
 union all
+select 'marts.mart_archetypes' as table_name from {{ ref('mart_archetypes') }} where project_key is null
+union all
 select 'snapshots.dim_project_snapshot' as table_name from {{ ref('dim_project_snapshot') }} where project_key is null
 union all
 select 'snapshots.dim_service_snapshot' as table_name from {{ ref('dim_service_snapshot') }} where project_key is null

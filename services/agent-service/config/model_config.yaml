@@ -26,7 +26,16 @@ ollama:
   health_timeout_s: 2
   health_cache_s: 5
 
-# Local ONNX models (Model A: risk, Model B: scope). Not trained yet; set by P7.
+# The risk model of score_findings (P7.5, D-343a): onnx (Model A) or rule_baseline. With onnx a missing model file stops
+# the service; it never falls back to the baseline on its own.
+risk_model: ${RISK_MODEL:-onnx}
+
+# Local ONNX models (ml P7.2 and P7.3), read from models_dir (the root models/ folder; /models in the container). Model A
+# is the dry run trained on silver labels until the gold labels exist (D-343a): after `ml train-risk` with gold labels
+# risk_model_file becomes risk_model-v1.onnx and risk_model_id risk_model_v1.
 onnx:
-  risk_model_path: null
-  scope_model_path: null
+  models_dir: ${MODELS_DIR:-../../models}
+  risk_model_file: risk_model-v1-dry_run.onnx
+  risk_model_id: risk_model_v1_dry_run
+  scope_model_file: scope_classifier-v1.onnx
+  scope_thresholds_file: scope_classifier-v1.thresholds.json

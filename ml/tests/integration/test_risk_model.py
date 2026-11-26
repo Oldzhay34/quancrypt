@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -50,7 +51,13 @@ def test_each_algorithm_cross_validates_by_project_and_its_onnx_answers_like_it(
     model = trainer.fit(algorithm, train, labels)
     probabilities = model.probabilities(test)
     assert all(abs(sum(p.values()) - 1.0) < 1e-6 for p in probabilities)
-    parity = SklearnOnnxExporter().export(model, test, tmp_path / "risk_model.onnx")
+    exporter = SklearnOnnxExporter()
+    parity = exporter.export(model, test, tmp_path / "risk_model.onnx")
+    assert not (tmp_path / "risk_model.onnx").exists()
+    exporter.promote(tmp_path / "risk_model.onnx")
+    assert hashlib.sha256((tmp_path / "risk_model.onnx").read_bytes()).hexdigest() == parity.sha256
+    assert len(parity.reference) == len(test) and len(parity.sha256) == 64
+    assert all(abs(sum(row) - 1.0) < 1e-6 for row in parity.reference)
     assert parity.classes_equal and parity.max_probability_difference <= 1e-4 and parity.rows == len(test)
     top = ShapExplainer().top_features(model, test[:5], 3)
     assert all(len(row) == 3 for row in top)

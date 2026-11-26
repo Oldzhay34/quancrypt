@@ -65,6 +65,8 @@ def findings_page() -> dict[str, Any]:
                 "usageContext": "TLS_KEY_EXCHANGE",
                 "priority": "P1",
                 "locationKind": "CODE",
+                "keySizeBits": None,
+                "confidence": 0.9,
             }
         ],
         "page": 0,

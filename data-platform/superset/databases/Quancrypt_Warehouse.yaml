@@ -1,0 +1,17 @@
+database_name: Quancrypt Warehouse
+sqlalchemy_uri: postgresql+psycopg2://warehouse_reader:XXXXXXXXXX@postgres:5432/warehouse_db
+cache_timeout: null
+expose_in_sqllab: true
+allow_run_async: false
+allow_ctas: false
+allow_cvas: false
+allow_dml: false
+allow_file_upload: false
+extra:
+  allows_virtual_table_explore: false
+  disable_data_preview: false
+  schemas_allowed_for_file_upload: []
+impersonate_user: false
+configuration_method: sqlalchemy_form
+uuid: 85f94b42-d33d-5f29-bd32-84da668d0543
+version: 1.0.0

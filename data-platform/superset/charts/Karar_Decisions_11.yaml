@@ -1,0 +1,20 @@
+slice_name: Karar / Decisions
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: decisions
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  datasource: 2__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 88549a1e-9510-5198-8e42-c9b77ff40009
+version: 1.0.0
+dataset_uuid: bd649ca1-5f6f-5e48-a5fd-ef0164b7af32

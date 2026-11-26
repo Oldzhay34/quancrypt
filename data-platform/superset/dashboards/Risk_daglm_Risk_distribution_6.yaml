@@ -1,0 +1,165 @@
+dashboard_title: "Risk da\u011F\u0131l\u0131m\u0131 / Risk distribution"
+description: null
+css: ''
+slug: quancrypt-risk
+certified_by: null
+certification_details: null
+published: true
+uuid: 073dd98b-0d2c-58aa-8d52-767b580efb4f
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-quancrypt-risk-0
+    - ROW-quancrypt-risk-1
+    - ROW-quancrypt-risk-2
+    parents:
+    - ROOT_ID
+  HEADER_ID:
+    id: HEADER_ID
+    type: HEADER
+    meta:
+      text: "Risk da\u011F\u0131l\u0131m\u0131 / Risk distribution"
+  MARKDOWN-quancrypt-risk:
+    type: MARKDOWN
+    id: MARKDOWN-quancrypt-risk
+    children: []
+    meta:
+      width: 12
+      height: 12
+      code: "Kaynak / Source: `marts.mart_risk_features` (korpus ve benchmark, D-317h).\
+        \ G\xFCm\xFC\u015F etiket kural tablosudur; Model A s\u0131n\u0131f\u0131\
+        \ yaln\u0131z yay\u0131mlanm\u0131\u015F bir alt\u0131n Model A varken doludur\
+        \ (deneme ko\u015Fusu yay\u0131mlanmaz). / The silver label is the rule table;\
+        \ the Model A class is filled only once a gold Model A is published."
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-0
+  CHART-quancrypt-risk-0:
+    type: CHART
+    id: CHART-quancrypt-risk-0
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 25
+      uuid: 1e4d0100-d4a5-5263-9db8-0b301c1909c4
+      sliceName: "G\xFCm\xFC\u015F etiket / Silver label"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-1
+  CHART-quancrypt-risk-1:
+    type: CHART
+    id: CHART-quancrypt-risk-1
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 26
+      uuid: a9dcf30c-9658-524b-8db7-136d228ebda3
+      sliceName: "Model A s\u0131n\u0131f\u0131 / Model A class"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-1
+  CHART-quancrypt-risk-2:
+    type: CHART
+    id: CHART-quancrypt-risk-2
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 27
+      uuid: 0f50bdff-ce54-5341-b543-48b8e16b5339
+      sliceName: "Model A s\u0131n\u0131f\u0131 olan bulgu / Scored findings"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-1
+  CHART-quancrypt-risk-3:
+    type: CHART
+    id: CHART-quancrypt-risk-3
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 28
+      uuid: 5fc0ba22-827a-5e1a-a1f5-c114cbeb17d1
+      sliceName: "\xD6ncelik ve g\xFCm\xFC\u015F etiket / Priority by silver label"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-2
+  CHART-quancrypt-risk-4:
+    type: CHART
+    id: CHART-quancrypt-risk-4
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 29
+      uuid: 3fae5325-d489-53d4-be53-fa03cb3d68ac
+      sliceName: "Aile ve s\u0131n\u0131f / Family and class"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-risk-2
+  ROW-quancrypt-risk-0:
+    type: ROW
+    id: ROW-quancrypt-risk-0
+    children:
+    - MARKDOWN-quancrypt-risk
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-risk-1:
+    type: ROW
+    id: ROW-quancrypt-risk-1
+    children:
+    - CHART-quancrypt-risk-0
+    - CHART-quancrypt-risk-1
+    - CHART-quancrypt-risk-2
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-risk-2:
+    type: ROW
+    id: ROW-quancrypt-risk-2
+    children:
+    - CHART-quancrypt-risk-3
+    - CHART-quancrypt-risk-4
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+metadata:
+  color_scheme: ''
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  chart_configuration: {}
+  native_filter_configuration: []
+  shared_label_colors:
+  - CRITICAL
+  - HIGH
+  - LOW
+  color_scheme_domain: []
+  map_label_colors: {}
+theme_uuid: null
+version: 1.0.0

@@ -21,6 +21,8 @@ ScopeLabel = Literal["IN_SCOPE", "OUT_OF_SCOPE"]
 
 GOLDEN_FILE = "golden_qa.jsonl"
 SCOPE_FILE = "scope_set_seed.jsonl"
+# Model B's test split (ml P7.1, copied by `ml scope-split`): the set H4 is decided on in P7.5 (D-343e).
+SCOPE_TEST_FILE = "scope_set.jsonl"
 INJECTION_FILE = "injection_set.jsonl"
 
 _LANGUAGES = frozenset({"tr", "en"})
@@ -74,10 +76,10 @@ class EvaluationSets:
     injection: tuple[InjectionCase, ...]
 
 
-def load_sets(examples_dir: Path) -> EvaluationSets:
+def load_sets(examples_dir: Path, scope_file: str = SCOPE_FILE) -> EvaluationSets:
     return EvaluationSets(
         golden=load_golden(examples_dir / GOLDEN_FILE),
-        scope=load_scope(examples_dir / SCOPE_FILE),
+        scope=load_scope(examples_dir / scope_file),
         injection=load_injection(examples_dir / INJECTION_FILE),
     )
 
@@ -130,13 +132,19 @@ def _golden(row: Mapping[str, Any]) -> GoldenQuestion:
 
 
 def _scope(row: Mapping[str, Any]) -> ScopeCase:
-    _fields(row, {"id", "language", "text", "expected", "category"})
-    expected = _text(row, "expected")
+    """A record of the seed set (`language`, `expected`) or of Model B's test split (`lang`, `label`, `seed_id`,
+    `source`; ml's scope data set)."""
+    if "expected" in row:
+        _fields(row, {"id", "language", "text", "expected", "category"})
+        expected, language_key = _text(row, "expected"), "language"
+    else:
+        _fields(row, {"id", "seed_id", "lang", "text", "label", "category", "source"})
+        expected, language_key = _text(row, "label"), "lang"
     if expected not in ("IN_SCOPE", "OUT_OF_SCOPE"):
         raise TestCaseError(f"expected must be IN_SCOPE or OUT_OF_SCOPE, not {expected!r}")
     return ScopeCase(
         id=_text(row, "id"),
-        language=_language(row, "language"),
+        language=_language(row, language_key),
         text=_text(row, "text"),
         expected="IN_SCOPE" if expected == "IN_SCOPE" else "OUT_OF_SCOPE",
         category=_text(row, "category"),

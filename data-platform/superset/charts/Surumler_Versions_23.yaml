@@ -1,0 +1,35 @@
+slice_name: "S\xFCr\xFCmler / Versions"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - model_name
+  - version
+  - algorithm
+  - label_source
+  - is_published
+  metrics:
+  - value_avg
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1000
+  server_page_length: 10
+  order_desc: true
+  timeseries_limit_metric: value_avg
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  include_search: true
+  datasource: 4__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 40e620b9-9f57-53c9-b1c0-fd87f8a62612
+version: 1.0.0
+dataset_uuid: 0e4c719b-4059-5b10-8fa0-ec501de7bcf8

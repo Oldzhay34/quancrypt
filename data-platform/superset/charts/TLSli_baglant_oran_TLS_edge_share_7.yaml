@@ -1,0 +1,27 @@
+slice_name: "TLS'li ba\u011Flant\u0131 oran\u0131 / TLS edge share"
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: tls_share
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: origin
+    operator: ==
+    comparator: CORPUS
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_origin_1
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: .1%
+  time_format: smart_date
+  datasource: 7__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 70763671-b982-55ff-9569-1d089cd0ce23
+version: 1.0.0
+dataset_uuid: 5faaa156-02e9-5345-82a0-49cbeea6f35e

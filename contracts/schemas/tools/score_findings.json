@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "score_findings",
-  "description": "Risk scores of findings (rule baseline rule_baseline_v1 until Model A, P7.5). findings as list_findings returns them; topology as get_topology returns it.",
+  "description": "Risk scores of findings: Model A (ONNX, P7.5) or the rule baseline rule_baseline_v1, as model_config.yaml risk_model sets. findings as list_findings returns them; topology as get_topology returns it; runtime as get_project_profile's runtimeProfile (Model A's Java and Spring Boot features).",
   "$defs": {
     "input": {
       "type": "object",
@@ -22,12 +22,28 @@
               },
               "locationKind": {
                 "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/locationKind"
+              },
+              "algorithmFamily": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/algorithmFamily"
+              },
+              "usageContext": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/usageContext"
+              },
+              "keySizeBits": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/keySizeBits"
+              },
+              "confidence": {
+                "$ref": "../../openapi/core-service.yaml#/components/schemas/Finding/properties/confidence"
               }
             },
             "required": [
               "id",
               "priority",
-              "locationKind"
+              "locationKind",
+              "algorithmFamily",
+              "usageContext",
+              "keySizeBits",
+              "confidence"
             ]
           }
         },
@@ -35,6 +51,45 @@
           "oneOf": [
             {
               "$ref": "../../openapi/core-service.yaml#/components/schemas/Topology"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtime": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "javaVersion": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "springBootVersion": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9A-Za-z._+-]{1,32}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "javaVersion",
+                "springBootVersion"
+              ],
+              "additionalProperties": false
             },
             {
               "type": "null"

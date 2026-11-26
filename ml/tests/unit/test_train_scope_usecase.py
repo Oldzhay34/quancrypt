@@ -41,7 +41,7 @@ class World:
         )
         ports = {
             "files": self.files, "embeddings": self.embeddings, "cache": self.cache, "trainer": self.trainer,
-            "export": ExportScopeOnnxService(FakeScopeExporter()), "charts": FakeScoreCharts(),
+            "export": ExportScopeOnnxService(FakeScopeExporter(), FakeReports()), "charts": FakeScoreCharts(),
             "registry": self.registry, "sink": self.sink, "reports": self.reports, "clock": FixedClock(),
         }  # fmt: skip
         ports.update(overrides)
@@ -140,8 +140,15 @@ def test_the_mlflow_runs_carry_the_children_the_digest_and_the_artifacts(tmp_pat
     "overrides, message",
     [
         ({"embeddings": FakeEmbeddings(down=True)}, "embedding model"),
-        ({"export": ExportScopeOnnxService(FakeScopeExporter(drift=1e-3))}, "parity"),
-        ({"export": ExportScopeOnnxService(FakeScopeExporter(ScopeParity(40, False, 0.0, (0.5,) * 40)))}, "parity"),
+        ({"export": ExportScopeOnnxService(FakeScopeExporter(drift=1e-3), FakeReports())}, "parity"),
+        (
+            {
+                "export": ExportScopeOnnxService(
+                    FakeScopeExporter(ScopeParity(40, False, 0.0, (0.5,) * 40)), FakeReports()
+                )
+            },
+            "parity",
+        ),
     ],
     ids=["embedding-down", "probability-drift", "other-classes"],
 )
@@ -165,20 +172,40 @@ def test_the_onnx_export_needs_the_same_three_way_decisions(tmp_path: Path) -> N
     model = FirstComponentModel("LOGISTIC_REGRESSION", {}, identity, FakeScopeTrainer().seen)
     vectors = [[0.39, 0.0, 0.0, 1.0], [0.61, 0.0, 0.0, 1.0]]
     command = ExportScopeOnnxCommand(model, vectors, [0.39, 0.61], Band(0.4, 0.5, 0.6), tmp_path / "m.onnx")
-    assert ExportScopeOnnxService(FakeScopeExporter()).execute(command).rows == 2
+    assert ExportScopeOnnxService(FakeScopeExporter(), FakeReports()).execute(command).rows == 2
     # within 1e-4 but across a band bound: 0.39 -> 0.40004 is UNSURE instead of ALLOW
     nudged = ScopeParity(2, True, 0.0, (0.40004, 0.61))
     with pytest.raises(ScopeTrainingError, match="parity"):
-        ExportScopeOnnxService(FakeScopeExporter(nudged)).execute(command)
+        ExportScopeOnnxService(FakeScopeExporter(nudged), FakeReports()).execute(command)
 
 
 def test_a_model_reaches_its_path_only_when_the_parity_passes(tmp_path: Path) -> None:
     failed, passed = FakeScopeExporter(drift=1e-3), FakeScopeExporter()
-    world = World(tmp_path, export=ExportScopeOnnxService(failed))
+    world = World(tmp_path, export=ExportScopeOnnxService(failed, FakeReports()))
     with pytest.raises(ScopeTrainingError, match="parity"):
         world.service.execute(world.command())
     assert failed.promoted == []
-    world = World(tmp_path, export=ExportScopeOnnxService(passed))
+    world = World(tmp_path, export=ExportScopeOnnxService(passed, FakeReports()))
     world.service.execute(world.command())
     assert passed.promoted == [tmp_path / "m.onnx"]
     assert json.loads(world.reports.texts[tmp_path / "m.thresholds.json"])["onnx_sha256"] == "f" * 64
+
+
+def test_the_fixed_set_is_written_only_after_the_model_reached_its_path(tmp_path: Path) -> None:
+    from quancrypt_ml.domain.scope_model import Band
+
+    model = FirstComponentModel("LOGISTIC_REGRESSION", {}, identity, FakeScopeTrainer().seen)
+    vectors = [[0.1 * i, 0.0, 0.0, 1.0] for i in range(30)]
+    reference = [0.1 * i for i in range(30)]
+    command = ExportScopeOnnxCommand(model, vectors, reference, Band(0.2, 0.3, 0.5), tmp_path / "m.onnx")
+    reports = FakeReports()
+    ExportScopeOnnxService(FakeScopeExporter(), reports).execute(command)
+    fixture = json.loads(reports.texts[tmp_path / "m.parity.json"])
+    assert len(fixture["rows"]) == 20 and fixture["onnx_sha256"] == "f" * 64
+    assert fixture["band"] == {"low": 0.2, "threshold": 0.3, "high": 0.5}
+    assert [r["decision"] for r in fixture["rows"][:6]] == ["ALLOW", "ALLOW", "UNSURE", "UNSURE", "UNSURE", "DENY"]
+    assert fixture["covered"] == ["ALLOW", "DENY", "UNSURE"]
+    failing = FakeReports()
+    with pytest.raises(ScopeTrainingError):
+        ExportScopeOnnxService(FakeScopeExporter(drift=1e-3), failing).execute(command)
+    assert failing.texts == {}

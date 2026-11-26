@@ -4,6 +4,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
+    "models: needs the ONNX model files of ml in the root models/ folder; outside `make verify`, run with `make models-check`",
     "ollama: needs the local Ollama server; it runs in `make verify` and fails (never skips) when Ollama is unreachable",
     "postgres: needs Docker and the local pgvector image; it runs in `make verify` and fails (never skips) without them",
     "integration: needs running core-service and analyzer-service (a compose stack); only `make integration` runs it, never `make verify`",
@@ -40,6 +41,11 @@ python_version = "3.12"
 files = ["src", "tests", "scripts/build_index.py", "scripts/evaluate.py"]
 explicit_package_bases = true
 mypy_path = "."
+
+# onnxruntime ships no type information (P7.5): typed Any where the two ONNX adapters call it.
+[[tool.mypy.overrides]]
+module = ["onnxruntime.*"]
+ignore_missing_imports = true
 
 [tool.importlinter]
 root_package = "src"
@@ -187,4 +193,19 @@ type = "forbidden"
 source_modules = ["src.agents", "src.app", "src.evaluation", "src.guardrails", "src.llm", "src.memory", "src.prompts", "src.tools", "src.workflows"]
 forbidden_modules = ["langgraph", "langchain_core", "langsmith"]
 ignore_imports = ["src.workflows.agent_graph -> langgraph", "src.workflows.agent_graph -> langchain_core"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+# P7.5 (D-346c): onnxruntime and numpy belong to the two ONNX adapters (Model A and Model B); agents, workflows, memory
+# and the rest stay free of the model runtime.
+name = "onnxruntime and numpy are imported only by the two ONNX adapters"
+type = "forbidden"
+source_modules = ["src.agents", "src.app", "src.evaluation", "src.guardrails", "src.llm", "src.memory", "src.prompts", "src.tools", "src.workflows"]
+forbidden_modules = ["onnxruntime", "numpy"]
+ignore_imports = [
+    "src.tools.risk_model_tool -> onnxruntime",
+    "src.tools.risk_model_tool -> numpy",
+    "src.guardrails.scope_classifier -> onnxruntime",
+    "src.guardrails.scope_classifier -> numpy",
+]
 allow_indirect_imports = true

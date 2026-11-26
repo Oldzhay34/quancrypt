@@ -1,0 +1,31 @@
+slice_name: Arketip / Archetype
+description: null
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  viz_type: pie
+  groupby:
+  - archetype_name
+  metric: projects
+  adhoc_filters: []
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  labels_outside: true
+  label_type: key_percent
+  number_format: SMART_NUMBER
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  donut: true
+  outerRadius: 70
+  innerRadius: 30
+  datasource: 1__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 5ee46f3e-e7ac-5b43-9d8e-cc5bd1d218ca
+version: 1.0.0
+dataset_uuid: dfa409ff-5859-5bae-ad01-c6b98d351ca2

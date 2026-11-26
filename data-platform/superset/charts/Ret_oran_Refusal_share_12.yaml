@@ -1,0 +1,20 @@
+slice_name: "Ret oran\u0131 / Refusal share"
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: denied_share
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: .1%
+  time_format: smart_date
+  datasource: 2__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: caef7502-dc40-5347-aff4-a5e5cfcf94fc
+version: 1.0.0
+dataset_uuid: bd649ca1-5f6f-5e48-a5fd-ef0164b7af32

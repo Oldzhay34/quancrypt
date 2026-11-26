@@ -1,0 +1,34 @@
+slice_name: "T\xFCm metrikler / All metrics"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: raw
+  all_columns:
+  - model_name
+  - version
+  - scope
+  - fold
+  - metric
+  - label
+  - value
+  groupby: []
+  metrics: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols:
+  - '["model_name", true]'
+  - '["metric", true]'
+  row_limit: 1000
+  server_page_length: 10
+  table_timestamp_format: smart_date
+  include_search: true
+  datasource: 4__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 62133d0e-5420-52bc-a4b6-1e37ffd734d6
+version: 1.0.0
+dataset_uuid: 0e4c719b-4059-5b10-8fa0-ec501de7bcf8

@@ -2,8 +2,8 @@
 
 Each ring answers ALLOW, DENY or UNSURE. The first ALLOW or DENY decides; if every ring is UNSURE, if there are no
 rings, or if a ring fails, the decision is DENY by `FAIL_CLOSED`. The rings come from configuration in order and are
-built in the container (OCP: a new ring is a new class and a configuration entry; P7.5 replaces the interim topic
-gate, D-246, with the ONNX scope classifier).
+built in the container (OCP: a new ring is a new class and a configuration entry). Ring 2 is Model B (ONNX, P7.5);
+the interim topic gate (D-246) stays only for the baseline measurement.
 
 The chain returns a `GuardDecision` with the fields of a `scope_decision` record (D-226) and never the request text; the
 workflow layer records it (P4.6), the guardrails do not import `src.memory`.
@@ -69,14 +69,16 @@ class GuardChain:
         self._rings = tuple(rings)
         self._clock = clock
         if "SCOPE_CLASSIFIER" not in self.ring_names:
-            # guardrails-security section 2: until Model B exists (P7.5) ring 2 is absent, and that is logged.
-            _LOG.info(
-                "scope classifier ring (Model B) is not in the chain; rings: %s", ", ".join(self.ring_names) or "none"
-            )
+            # guardrails-security section 2: a chain without ring 2 is allowed by configuration, and that is logged.
+            _LOG.info("scope classifier ring is not in the chain; rings: %s", ", ".join(self.ring_names) or "none")
 
     @property
     def ring_names(self) -> tuple[RingName, ...]:
         return tuple(ring.name for ring in self._rings)
+
+    def ring(self, name: RingName) -> GuardRing | None:
+        """One ring of the chain by its name (the evaluation measures ring 2 on its own, D-346b)."""
+        return next((ring for ring in self._rings if ring.name == name), None)
 
     def decide(self, request: GuardRequest) -> GuardDecision:
         started = self._clock()

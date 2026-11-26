@@ -1,0 +1,20 @@
+slice_name: "Birim ba\u015F\u0131na bulgu / Findings per unit"
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: avg_findings_per_unit
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: .2f
+  time_format: smart_date
+  datasource: 1__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: db3f9b96-0f5d-5b2e-8fe2-5ecbc477d5f1
+version: 1.0.0
+dataset_uuid: dfa409ff-5859-5bae-ad01-c6b98d351ca2

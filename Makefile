@@ -11,7 +11,7 @@ PROFILES ?=
 ENV_FILE ?= .env
 COMPOSE := docker compose --env-file "$(ENV_FILE)" $(foreach p,$(PROFILES),--profile $(p))
 
-.PHONY: help up down ps logs db-reset verify-all check-env demo-smoke
+.PHONY: help up down ps logs db-reset verify-all check-env demo-smoke superset-import
 
 help: ## Hedefleri listeler
 	@echo "Quancrypt kök Makefile"
@@ -65,3 +65,9 @@ verify-all: ## Her servisin `make verify` hedefini sırayla çalıştırır ve �
 # Önce `make up PROFILES=demo` ile demo profili kalkmış olmalıdır.
 demo-smoke: ## QBank demo'yu uçtan uca doğrular (önce: make up PROFILES=demo)
 	@ENV_FILE="$(ENV_FILE)" bash reference-system/demo-smoke.sh
+
+# Superset panoları (P7.5, D-344i): data-platform/superset/ altındaki sürümlü demeti Superset'e yükler. Önce
+# `make up PROFILES="data"` (superset ve superset-init) kalkmış ve `make warehouse` ile mart'lar kurulmuş olmalıdır.
+# Warehouse parolası demette değildir; konteynerin ortamındaki WAREHOUSE_READER_PASSWORD ile verilir.
+superset-import: ## Altı Superset panosunu içe aktarır (önce: make up PROFILES="data")
+	$(COMPOSE) --profile data exec -T superset python /app/pythonpath/quancrypt_import.py

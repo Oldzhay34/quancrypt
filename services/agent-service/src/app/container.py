@@ -7,12 +7,15 @@ factory), the orchestrator, the outbox relay and the housekeeping task.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import re
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from src.agents.base_agent import Budget, Toolbox
 from src.agents.discovery_agent import DiscoveryAgent
@@ -32,8 +35,10 @@ from src.app.outbox_relay import (
 from src.app.settings import (
     LOCAL_SERVICE_HOSTS,
     AppSettings,
+    ConfigError,
     DatabaseSettings,
     GuardrailsSettings,
+    ModelsConfig,
     OllamaSettings,
     ServiceSettings,
 )
@@ -42,7 +47,7 @@ from src.guardrails.llm_self_check import LLMSelfCheck
 from src.guardrails.output_checker import OutputChecker
 from src.guardrails.redaction import Redactor
 from src.guardrails.rule_filter import RuleFilter, RuleFilterConfig
-from src.guardrails.scope_classifier import EmbeddingTopicGate
+from src.guardrails.scope_classifier import EmbeddingTopicGate, OnnxScopeClassifier, OnnxScopeHead, ScopeBand
 from src.llm.null_provider import NullProvider
 from src.llm.ollama_provider import OllamaProvider, OllamaProviderConfig
 from src.llm.provider import EmbeddingProvider, LLMHealth, LLMProvider
@@ -75,7 +80,13 @@ from src.tools.base_tool import SchemaStore
 from src.tools.core_tool import CoreConsentReader, core_tools
 from src.tools.kb_search_tool import KbSearchTool
 from src.tools.registry import ToolRegistry
-from src.tools.risk_model_tool import RuleBaselineRiskModel, ScoreFindingsTool
+from src.tools.risk_model_tool import (
+    OnnxRiskModel,
+    OnnxRiskSession,
+    RiskModel,
+    RuleBaselineRiskModel,
+    ScoreFindingsTool,
+)
 from src.workflows.agent_graph import LangGraphWorkflows
 from src.workflows.orchestrator import AgentSet, Orchestrator
 
@@ -139,13 +150,18 @@ def build_container(settings: AppSettings) -> Container:
     llm: LLMProvider
     embeddings: EmbeddingProvider
     llm_health: LLMHealth
+    embedding_digest: Callable[[], str | None] = _no_digest
     if settings.models.llm.provider == "null":
         null = NullProvider()
         llm, embeddings, llm_health = null, null, null
     else:
         ollama = OllamaProvider(_ollama_config(settings.models.ollama))
         llm, embeddings, llm_health = ollama, ollama, ollama
+        embedding_digest = ollama.embedding_digest
         closers.append(ollama.close)
+    # The ONNX models are opened first: a missing or foreign model file stops the service before anything connects.
+    risk_model = build_risk_model(settings.models)
+    scope_ring = build_scope_ring(settings, embeddings, embedding_digest)
 
     memory = settings.agents.memory
     database = Database(_database_config(memory.database))
@@ -169,9 +185,9 @@ def build_container(settings: AppSettings) -> Container:
     analyzer_client = InternalHttpClient(_endpoint("analyzer-service", services.analyzer, token))
     closers.extend([core_client.close, analyzer_client.close])
     service_tools: list[EndpointTool] = [*core_tools(core_client, schemas), *analyzer_tools(analyzer_client, schemas)]
-    rule_filter = _rule_filter(settings.agents.guardrails)
+    rule_filter = build_rule_filter(settings.agents.guardrails)
     registry = ToolRegistry(
-        [*service_tools, KbSearchTool(knowledge, schemas), ScoreFindingsTool(RuleBaselineRiskModel(), schemas)],
+        [*service_tools, KbSearchTool(knowledge, schemas), ScoreFindingsTool(risk_model, schemas)],
         {name: agent.tools for name, agent in settings.agents.agents.items()},
         schemas,
         redactor,
@@ -182,7 +198,7 @@ def build_container(settings: AppSettings) -> Container:
     idempotency = PostgresIdempotencyMaintenance(database, utc_now)
     checkpoints = PostgresCheckpointStore(database, utc_now)
     consent_reader = CoreConsentReader(registry.call)
-    guard_chain = GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, embeddings))
+    guard_chain = GuardChain(_rings(settings.agents.guardrails, rule_filter, llm, scope_ring))
     output_checker = OutputChecker(rule_filter, redactor, settings.agents.output_check.on_mismatch)
     agents = _agent_factory(settings, registry, knowledge, audit)
     orchestrator = Orchestrator(
@@ -286,7 +302,7 @@ def build_redactor(settings: AppSettings) -> Redactor:
     return Redactor.from_file(Path(settings.agents.services.contracts_dir) / "redaction-rules.yaml")
 
 
-def _rule_filter(guardrails: GuardrailsSettings) -> RuleFilter:
+def build_rule_filter(guardrails: GuardrailsSettings) -> RuleFilter:
     return RuleFilter(
         RuleFilterConfig(
             max_request_chars=guardrails.max_request_chars,
@@ -301,17 +317,100 @@ def _rule_filter(guardrails: GuardrailsSettings) -> RuleFilter:
 
 
 def _rings(
-    guardrails: GuardrailsSettings, rule_filter: RuleFilter, llm: LLMProvider, embeddings: EmbeddingProvider
+    guardrails: GuardrailsSettings, rule_filter: RuleFilter, llm: LLMProvider, scope_ring: Callable[[], GuardRing]
 ) -> list[GuardRing]:
-    """The rings in configuration order (OCP: a new ring is a factory here and a name in the settings' ring list;
-    P7.5 swaps the interim topic gate for the ONNX scope classifier, D-246)."""
-    anchors = (*guardrails.topic_anchors.tr, *guardrails.topic_anchors.en)
+    """The rings in configuration order (OCP: a new ring is a factory here and a name in the settings' ring list)."""
     factories: dict[str, Callable[[], GuardRing]] = {
         "rule_filter": lambda: rule_filter,
-        "scope_classifier": lambda: EmbeddingTopicGate(embeddings, anchors, guardrails.topic_threshold),
+        "scope_classifier": scope_ring,
         "llm_self_check": lambda: LLMSelfCheck(llm, guardrails.self_check_max_tokens),
     }
     return [factories[name]() for name in guardrails.rings]
+
+
+_DIGEST = re.compile(r"[0-9a-f]{64}")
+
+
+def _no_digest() -> str | None:
+    return None
+
+
+def _model_file(models: ModelsConfig, name: str, key: str) -> Path:
+    path = Path(models.onnx.models_dir) / name
+    if not path.is_file():
+        raise ConfigError(f"onnx.{key}: the file is not in onnx.models_dir (MODELS_DIR).")
+    return path
+
+
+def build_risk_model(models: ModelsConfig) -> RiskModel:
+    """Model A or, only when configured so, the rule baseline (D-343a); never a silent fallback."""
+    if models.risk_model == "rule_baseline":
+        return RuleBaselineRiskModel()
+    path = _model_file(models, models.onnx.risk_model_file, "risk_model_file")
+    content = path.read_bytes()
+    # ml writes the parity set beside the model only after the parity check passed (D-346c); it names the file's hash.
+    parity = _json_object(path.with_name(path.name.removesuffix(".onnx") + ".parity.json"), "risk_model_file")
+    if parity.get("onnx_sha256") != hashlib.sha256(content).hexdigest():
+        raise ConfigError("onnx.risk_model_file: its parity file is missing or names another file (SHA-256).")
+    try:
+        session = OnnxRiskSession(content)
+    except Exception:  # onnxruntime raises its own types; the message must not carry the path's content
+        raise ConfigError("onnx.risk_model_file: the file is not Model A's ONNX pipeline.") from None
+    return OnnxRiskModel(session, models.onnx.risk_model_id)
+
+
+def build_scope_ring(
+    settings: AppSettings, embeddings: EmbeddingProvider, embedding_digest: Callable[[], str | None]
+) -> Callable[[], GuardRing]:
+    """Ring 2's factory. Model B's files are checked when the ring is built (D-344b): the thresholds file must name this
+    ONNX file and its SHA-256 and the embedding model and size of the Ollama settings."""
+    guardrails, models = settings.agents.guardrails, settings.models
+    if guardrails.scope_classifier == "topic_gate":
+        anchors = (*guardrails.topic_anchors.tr, *guardrails.topic_anchors.en)
+        return lambda: EmbeddingTopicGate(embeddings, anchors, guardrails.topic_threshold)
+    if "scope_classifier" not in guardrails.rings:
+        return _unused_ring
+    model = _model_file(models, models.onnx.scope_model_file, "scope_model_file")
+    content = model.read_bytes()
+    thresholds = _json_object(
+        _model_file(models, models.onnx.scope_thresholds_file, "scope_thresholds_file"), "scope_thresholds_file"
+    )
+    ollama = models.ollama
+    if (
+        thresholds.get("onnx") != model.name
+        or thresholds.get("positive_class") != "OUT_OF_SCOPE"
+        or thresholds.get("onnx_sha256") != hashlib.sha256(content).hexdigest()
+    ):
+        raise ConfigError("onnx.scope_thresholds_file: it does not describe onnx.scope_model_file (name or SHA-256).")
+    if (
+        thresholds.get("embedding_model") != ollama.embedding_model
+        or thresholds.get("input_dimensions") != ollama.embedding_dimensions
+    ):
+        raise ConfigError("onnx.scope_thresholds_file: Model B was trained on another embedding model or size.")
+    digest = thresholds.get("embedding_digest")
+    if not isinstance(digest, str) or not _DIGEST.fullmatch(digest):
+        raise ConfigError("onnx.scope_thresholds_file: embedding_digest is not an Ollama digest (64 hex digits).")
+    try:
+        band = ScopeBand(float(thresholds["unsure_low"]), float(thresholds["unsure_high"]))
+        head = OnnxScopeHead(content, ollama.embedding_dimensions)
+    except Exception:  # a broken thresholds file or a foreign ONNX file
+        raise ConfigError("onnx.scope_model_file: the files are not Model B's head and thresholds.") from None
+    classifier = OnnxScopeClassifier(embeddings, head, band, digest, embedding_digest)
+    return lambda: classifier
+
+
+def _json_object(path: Path, key: str) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ConfigError(f"onnx.{key}: its JSON file is missing or not readable.") from None
+    if not isinstance(data, dict):
+        raise ConfigError(f"onnx.{key}: its JSON file is not an object.")
+    return data
+
+
+def _unused_ring() -> GuardRing:  # pragma: no cover (only called for a ring the settings list)
+    raise ConfigError("guardrails.rings: the scope classifier is not configured.")
 
 
 def _database_config(config: DatabaseSettings) -> DatabaseConfig:

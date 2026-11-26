@@ -1,0 +1,20 @@
+slice_name: "Model A s\u0131n\u0131f\u0131 olan bulgu / Scored findings"
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: scored
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  datasource: 5__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 0f50bdff-ce54-5341-b543-48b8e16b5339
+version: 1.0.0
+dataset_uuid: aabc11cf-1d1e-5bc3-84c7-bd12042fb82d

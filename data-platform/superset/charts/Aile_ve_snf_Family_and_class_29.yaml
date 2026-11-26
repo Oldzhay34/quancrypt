@@ -1,0 +1,34 @@
+slice_name: "Aile ve s\u0131n\u0131f / Family and class"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - algorithm_family
+  - silver_label
+  - risk_class
+  metrics:
+  - findings
+  - avg_risk_score
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1000
+  server_page_length: 10
+  order_desc: true
+  timeseries_limit_metric: findings
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  include_search: true
+  datasource: 5__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 3fae5325-d489-53d4-be53-fa03cb3d68ac
+version: 1.0.0
+dataset_uuid: aabc11cf-1d1e-5bc3-84c7-bd12042fb82d

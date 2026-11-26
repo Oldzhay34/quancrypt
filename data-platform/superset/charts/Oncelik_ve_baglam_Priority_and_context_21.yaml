@@ -1,0 +1,34 @@
+slice_name: "\xD6ncelik ve ba\u011Flam / Priority and context"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - origin
+  - priority
+  - usage_context
+  metrics:
+  - locations
+  - hndl_locations
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1000
+  server_page_length: 10
+  order_desc: true
+  timeseries_limit_metric: locations
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  include_search: true
+  datasource: 3__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: d475b5bf-b840-5318-9abc-ddf026293e70
+version: 1.0.0
+dataset_uuid: 918445c4-9a2f-5d6b-8da0-ed2dd7bc47ac

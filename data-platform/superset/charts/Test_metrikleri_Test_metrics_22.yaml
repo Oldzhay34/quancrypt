@@ -1,0 +1,48 @@
+slice_name: Test metrikleri / Test metrics
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: metric
+  metrics:
+  - value_avg
+  groupby:
+  - model_name
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: scope
+    operator: ==
+    comparator: TEST
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_scope_1
+  - expressionType: SIMPLE
+    subject: label
+    operator: ==
+    comparator: ALL
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_label_2
+  row_limit: 1000
+  orientation: vertical
+  stack: Stack
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  rich_tooltip: true
+  truncateXAxis: true
+  y_axis_format: .3f
+  x_axis_sort_asc: true
+  color_scheme: supersetColors
+  only_total: true
+  sort_series_type: sum
+  xAxisLabelRotation: 45
+  datasource: 4__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 1dd7916b-1eac-5df2-8c20-c06ac07a3fe7
+version: 1.0.0
+dataset_uuid: 0e4c719b-4059-5b10-8fa0-ec501de7bcf8

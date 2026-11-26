@@ -1,0 +1,35 @@
+slice_name: "G\xFCn ve halka / Day and ring"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - date_day
+  - deciding_ring
+  - language
+  metrics:
+  - decisions
+  - denied
+  - denied_share
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1000
+  server_page_length: 10
+  order_desc: true
+  timeseries_limit_metric: decisions
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  include_search: true
+  datasource: 2__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 28193637-25a2-50ec-b22d-9029b0e2831f
+version: 1.0.0
+dataset_uuid: bd649ca1-5f6f-5e48-a5fd-ef0164b7af32

@@ -158,7 +158,10 @@ def test_kb_search_returns_hits_with_their_sources(registry: ToolRegistry) -> No
 
 
 def test_score_findings_returns_the_baseline_model_id_and_one_score_per_finding(registry: ToolRegistry) -> None:
-    finding = {"id": "00000000-0000-0000-0000-00000000c001", "priority": "P0", "locationKind": "CODE"}
+    finding = {
+        "id": "00000000-0000-0000-0000-00000000c001", "priority": "P0", "locationKind": "CODE",
+        "algorithmFamily": "RSA", "usageContext": "SIGNATURE", "keySizeBits": 1024, "confidence": 0.9,
+    }  # fmt: skip
 
     output, _ = registry.call("score_findings", {"findings": [finding], "topology": None}, ToolContext(trace_id=TRACE))
 

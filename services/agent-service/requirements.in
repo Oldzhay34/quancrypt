@@ -1,7 +1,7 @@
 # Runtime dependencies (D-28: compiled to requirements.txt with `uv pip compile --python-version 3.12`).
 # Versions come from docs/VERSIONS.md. P4.1: the web layer, the configuration loader and the Ollama client; P4.2 (D-231):
 # the database layer (SQLAlchemy Core, Alembic, psycopg 3); P4.3 (D-238): JSON Schema validation of tool inputs and outputs.
-# P4.6 (D-252h): LangGraph (orchestration, only in src/workflows/agent_graph.py, D-11). ONNX libraries come with P7.5.
+# P4.6 (D-252h): LangGraph (orchestration, only in src/workflows/agent_graph.py, D-11). P7.5 (D-343g): onnxruntime.
 fastapi==0.142.2
 uvicorn==0.54.0
 pydantic-settings==2.16.0
@@ -14,3 +14,5 @@ alembic==1.20.0
 psycopg[binary]==3.3.6
 jsonschema==4.26.0
 langgraph==1.2.14
+# P7.5 (D-343g): Model A and Model B at inference (ONNX, CPU); numpy comes with it.
+onnxruntime==1.30.0

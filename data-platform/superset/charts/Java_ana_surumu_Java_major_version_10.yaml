@@ -1,0 +1,33 @@
+slice_name: "Java ana s\xFCr\xFCm\xFC / Java major version"
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: aggregate
+  groupby:
+  - java_major
+  - spring_boot_version
+  metrics:
+  - units
+  - vulnerable_locations
+  all_columns: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1000
+  server_page_length: 10
+  order_desc: true
+  timeseries_limit_metric: units
+  table_timestamp_format: smart_date
+  show_cell_bars: true
+  color_pn: false
+  include_search: true
+  datasource: 6__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: eea7402d-c277-5a5a-98b7-13f1b054021b
+version: 1.0.0
+dataset_uuid: 7b3797e2-e22f-5aaa-a126-cdcc283691ea

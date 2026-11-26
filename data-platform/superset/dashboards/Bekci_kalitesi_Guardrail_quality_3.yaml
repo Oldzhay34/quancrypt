@@ -1,0 +1,161 @@
+dashboard_title: "Bek\xE7i kalitesi / Guardrail quality"
+description: null
+css: ''
+slug: quancrypt-guardrails
+certified_by: null
+certification_details: null
+published: true
+uuid: f6236465-bd3e-5162-a8f3-b5ba37d29d5d
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-quancrypt-guardrails-0
+    - ROW-quancrypt-guardrails-1
+    - ROW-quancrypt-guardrails-2
+    parents:
+    - ROOT_ID
+  HEADER_ID:
+    id: HEADER_ID
+    type: HEADER
+    meta:
+      text: "Bek\xE7i kalitesi / Guardrail quality"
+  MARKDOWN-quancrypt-guardrails:
+    type: MARKDOWN
+    id: MARKDOWN-quancrypt-guardrails
+    children: []
+    meta:
+      width: 12
+      height: 12
+      code: "Kaynak / Source: `marts.mart_guardrail_quality` (kapsam kararlar\u0131\
+        ; istek metni yoktur). Yanl\u0131\u015F ret oran\u0131 etiketli setle `docs/eval_report.md`'de\
+        \ \xF6l\xE7\xFCl\xFCr. / The false refusal rate is measured on the labelled\
+        \ set in the eval report."
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-0
+  CHART-quancrypt-guardrails-0:
+    type: CHART
+    id: CHART-quancrypt-guardrails-0
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 11
+      uuid: 88549a1e-9510-5198-8e42-c9b77ff40009
+      sliceName: Karar / Decisions
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-1
+  CHART-quancrypt-guardrails-1:
+    type: CHART
+    id: CHART-quancrypt-guardrails-1
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 12
+      uuid: caef7502-dc40-5347-aff4-a5e5cfcf94fc
+      sliceName: "Ret oran\u0131 / Refusal share"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-1
+  CHART-quancrypt-guardrails-2:
+    type: CHART
+    id: CHART-quancrypt-guardrails-2
+    children: []
+    meta:
+      width: 4
+      height: 50
+      chartId: 13
+      uuid: ef57d22a-f2fe-509d-97ca-c48c51ab286d
+      sliceName: Karar veren halka / Deciding ring
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-1
+  CHART-quancrypt-guardrails-3:
+    type: CHART
+    id: CHART-quancrypt-guardrails-3
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 14
+      uuid: da5683ab-fdd6-5431-84da-e780cf1ee258
+      sliceName: Dil ve halka / Language and ring
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-2
+  CHART-quancrypt-guardrails-4:
+    type: CHART
+    id: CHART-quancrypt-guardrails-4
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 15
+      uuid: 28193637-25a2-50ec-b22d-9029b0e2831f
+      sliceName: "G\xFCn ve halka / Day and ring"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-guardrails-2
+  ROW-quancrypt-guardrails-0:
+    type: ROW
+    id: ROW-quancrypt-guardrails-0
+    children:
+    - MARKDOWN-quancrypt-guardrails
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-guardrails-1:
+    type: ROW
+    id: ROW-quancrypt-guardrails-1
+    children:
+    - CHART-quancrypt-guardrails-0
+    - CHART-quancrypt-guardrails-1
+    - CHART-quancrypt-guardrails-2
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-guardrails-2:
+    type: ROW
+    id: ROW-quancrypt-guardrails-2
+    children:
+    - CHART-quancrypt-guardrails-3
+    - CHART-quancrypt-guardrails-4
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+metadata:
+  color_scheme: ''
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  chart_configuration: {}
+  native_filter_configuration: []
+  shared_label_colors: []
+  color_scheme_domain: []
+  map_label_colors: {}
+theme_uuid: null
+version: 1.0.0

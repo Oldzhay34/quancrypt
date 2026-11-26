@@ -1,0 +1,35 @@
+slice_name: Dil ve halka / Language and ring
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: deciding_ring
+  metrics:
+  - decisions
+  - denied
+  groupby:
+  - language
+  adhoc_filters: []
+  row_limit: 1000
+  orientation: vertical
+  stack: Stack
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  rich_tooltip: true
+  truncateXAxis: true
+  y_axis_format: SMART_NUMBER
+  x_axis_sort_asc: true
+  color_scheme: supersetColors
+  only_total: true
+  sort_series_type: sum
+  xAxisLabelRotation: 45
+  datasource: 2__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: da5683ab-fdd6-5431-84da-e780cf1ee258
+version: 1.0.0
+dataset_uuid: bd649ca1-5f6f-5e48-a5fd-ef0164b7af32

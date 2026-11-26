@@ -37,7 +37,10 @@ def test_the_shipped_configuration_is_valid(config_dir: Path) -> None:
     assert settings.models.ollama.embedding_dimensions == 768
     assert settings.models.ollama.num_ctx == 8192
     assert settings.models.ollama.num_predict == 1024
-    assert settings.models.onnx.risk_model_path is None
+    # The tests run with the baseline models (tests/conftest.py); the shipped default is onnx (test_model_files.py).
+    assert (settings.models.risk_model, settings.agents.guardrails.scope_classifier) == ("rule_baseline", "topic_gate")
+    assert settings.models.onnx.risk_model_file == "risk_model-v1-dry_run.onnx"
+    assert settings.models.onnx.scope_thresholds_file == "scope_classifier-v1.thresholds.json"
     # Budgets (D-248): step, token and time per agent.
     assert {
         name: (agent.budget.max_steps, agent.budget.max_tokens, agent.budget.timeout_s)

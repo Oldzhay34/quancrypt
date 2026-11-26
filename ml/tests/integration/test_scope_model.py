@@ -30,7 +30,7 @@ def _run(tmp: Path) -> tuple[TrainScopeResult, FakeRegistry, FakeSink]:
     registry, sink = FakeRegistry(), FakeSink()
     ports = ScopeTrainingPorts(
         files=FakeScopeFiles(scope_sets()), embeddings=FakeEmbeddings(), cache=NpyEmbeddingCache(tmp / "cache"),
-        trainer=SklearnScopeTrainer(), export=ExportScopeOnnxService(SklearnScopeOnnxExporter(DIMENSIONS)),
+        trainer=SklearnScopeTrainer(), export=ExportScopeOnnxService(SklearnScopeOnnxExporter(DIMENSIONS), FileReportWriter()),
         charts=MatplotlibCharts(), registry=registry, sink=sink, reports=FileReportWriter(), clock=FixedClock(),
     )  # fmt: skip
     command = TrainScopeCommand(
@@ -52,6 +52,8 @@ def test_the_real_heads_train_export_and_report(tmp_path: Path) -> None:
     thresholds = json.loads((tmp_path / "models" / "scope_classifier-v1.thresholds.json").read_text(encoding="utf-8"))
     assert thresholds["onnx"] == onnx.name and thresholds["input_dimensions"] == DIMENSIONS
     assert thresholds["onnx_sha256"] == hashlib.sha256(onnx.read_bytes()).hexdigest()
+    fixture = json.loads((tmp_path / "models" / "scope_classifier-v1.parity.json").read_text(encoding="utf-8"))
+    assert fixture["onnx_sha256"] == thresholds["onnx_sha256"] and fixture["rows"]
     assert (tmp_path / "artifacts" / "score_histogram.png").stat().st_size > 0
     assert "## H4" in (tmp_path / "model_b.md").read_text(encoding="utf-8")
     assert sink.stored[0].model_name == "scope_classifier"

@@ -1,0 +1,41 @@
+slice_name: Korpusta algoritma ailesi / Corpus algorithm families
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: algorithm_family
+  metrics:
+  - locations
+  groupby:
+  - quantum_status
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: origin
+    operator: ==
+    comparator: CORPUS
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_origin_1
+  row_limit: 1000
+  orientation: vertical
+  stack: Stack
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  rich_tooltip: true
+  truncateXAxis: true
+  y_axis_format: SMART_NUMBER
+  x_axis_sort_asc: true
+  color_scheme: supersetColors
+  only_total: true
+  sort_series_type: sum
+  xAxisLabelRotation: 45
+  datasource: 3__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 680b250c-d9ab-55b5-8cf7-19df69e49779
+version: 1.0.0
+dataset_uuid: 918445c4-9a2f-5d6b-8da0-ed2dd7bc47ac

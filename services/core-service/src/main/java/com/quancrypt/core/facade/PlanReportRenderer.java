@@ -136,7 +136,7 @@ final class PlanReportRenderer {
             for (String note : item.noteCodes()) {
                 md.append("- ").append(t("Not", "Note")).append(": ").append(note(note)).append('\n');
             }
-            md.append("- ").append(t("Gerekçeler (SHAP)", "Reasons (SHAP)")).append(":\n");
+            md.append("- ").append(t("Gerekçeler (model açıklaması)", "Reasons (model explanation)")).append(":\n");
             if (item.riskFactors().isEmpty()) {
                 md.append("  ").append(t("Gerekçe kaydedilmemiş.", "No reason was recorded.")).append('\n');
             }

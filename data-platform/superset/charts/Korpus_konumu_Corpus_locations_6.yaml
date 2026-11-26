@@ -1,0 +1,27 @@
+slice_name: Korpus konumu / Corpus locations
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: locations
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: origin
+    operator: ==
+    comparator: CORPUS
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_origin_1
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  datasource: 3__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: e0d0f9cd-407b-53e8-91bc-9f1ae1fee33e
+version: 1.0.0
+dataset_uuid: 918445c4-9a2f-5d6b-8da0-ed2dd7bc47ac

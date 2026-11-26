@@ -1,0 +1,176 @@
+dashboard_title: "Envanter \xF6zeti / Inventory summary"
+description: null
+css: ''
+slug: quancrypt-inventory
+certified_by: null
+certification_details: null
+published: true
+uuid: 6f5ccd32-5b04-525b-a01f-458c6c6d049a
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-quancrypt-inventory-0
+    - ROW-quancrypt-inventory-1
+    - ROW-quancrypt-inventory-2
+    parents:
+    - ROOT_ID
+  HEADER_ID:
+    id: HEADER_ID
+    type: HEADER
+    meta:
+      text: "Envanter \xF6zeti / Inventory summary"
+  MARKDOWN-quancrypt-inventory:
+    type: MARKDOWN
+    id: MARKDOWN-quancrypt-inventory
+    children: []
+    meta:
+      width: 12
+      height: 12
+      code: "Kaynak / Source: `marts.mart_inventory_summary` \u2014 QBank (USER) ve\
+        \ korpus (CORPUS). Konum say\u0131lar\u0131 tekille\u015Ftirilmi\u015F alt\
+        \ s\u0131n\u0131rd\u0131r (D-318d). / Location counts are de-duplicated lower\
+        \ bounds."
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-0
+  CHART-quancrypt-inventory-0:
+    type: CHART
+    id: CHART-quancrypt-inventory-0
+    children: []
+    meta:
+      width: 3
+      height: 50
+      chartId: 16
+      uuid: 29df9806-89ef-5052-8914-3f0d1ecc75bd
+      sliceName: Kripto konumu / Crypto locations
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-1
+  CHART-quancrypt-inventory-1:
+    type: CHART
+    id: CHART-quancrypt-inventory-1
+    children: []
+    meta:
+      width: 3
+      height: 50
+      chartId: 17
+      uuid: 2b1d4951-c947-57b3-bba9-3a9cd210eed9
+      sliceName: "HNDL'ye a\xE7\u0131k konum / HNDL-exposed locations"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-1
+  CHART-quancrypt-inventory-2:
+    type: CHART
+    id: CHART-quancrypt-inventory-2
+    children: []
+    meta:
+      width: 3
+      height: 50
+      chartId: 18
+      uuid: e6fdfc32-4ce3-57fa-aeaf-33093b065a87
+      sliceName: Proje / Projects
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-1
+  CHART-quancrypt-inventory-3:
+    type: CHART
+    id: CHART-quancrypt-inventory-3
+    children: []
+    meta:
+      width: 3
+      height: 50
+      chartId: 19
+      uuid: cdc62e0e-45e3-5151-a750-c51efcf7207f
+      sliceName: Kuantum durumu / Quantum status
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-1
+  CHART-quancrypt-inventory-4:
+    type: CHART
+    id: CHART-quancrypt-inventory-4
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 20
+      uuid: c3e14e5d-5e30-5112-bf84-76a81cd9817b
+      sliceName: "Algoritma ailesi ve k\xF6ken / Algorithm family by origin"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-2
+  CHART-quancrypt-inventory-5:
+    type: CHART
+    id: CHART-quancrypt-inventory-5
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 21
+      uuid: d475b5bf-b840-5318-9abc-ddf026293e70
+      sliceName: "\xD6ncelik ve ba\u011Flam / Priority and context"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-inventory-2
+  ROW-quancrypt-inventory-0:
+    type: ROW
+    id: ROW-quancrypt-inventory-0
+    children:
+    - MARKDOWN-quancrypt-inventory
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-inventory-1:
+    type: ROW
+    id: ROW-quancrypt-inventory-1
+    children:
+    - CHART-quancrypt-inventory-0
+    - CHART-quancrypt-inventory-1
+    - CHART-quancrypt-inventory-2
+    - CHART-quancrypt-inventory-3
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-inventory-2:
+    type: ROW
+    id: ROW-quancrypt-inventory-2
+    children:
+    - CHART-quancrypt-inventory-4
+    - CHART-quancrypt-inventory-5
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+metadata:
+  color_scheme: ''
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  chart_configuration: {}
+  native_filter_configuration: []
+  shared_label_colors: []
+  color_scheme_domain: []
+  map_label_colors: {}
+theme_uuid: null
+version: 1.0.0

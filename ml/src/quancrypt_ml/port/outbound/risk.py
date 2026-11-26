@@ -135,11 +135,24 @@ class Parity:
     rows: int
     classes_equal: bool
     max_probability_difference: float
+    # The trained model's probabilities of the rows, in RISK_CLASSES order (the fixed set agent-service checks its ONNX
+    # runtime against, P7.5) and the SHA-256 of the written model file.
+    reference: tuple[tuple[float, ...], ...] = ()
+    sha256: str = ""
 
 
 class OnnxExporter(Protocol):
     def export(self, model: TrainedModel, rows: Sequence[RiskRow], path: Path) -> Parity:
-        """Writes the ONNX file and compares its answers with the model's on the given rows."""
+        """Stages the ONNX model of `path` beside it and compares the staged content's answers with the model's on the
+        given rows. `path` itself is not touched."""
+        ...
+
+    def promote(self, path: Path) -> None:
+        """The staged model becomes `path` (only after its parity passed, D-346c)."""
+        ...
+
+    def discard(self, path: Path) -> None:
+        """Removes the staged model; `path` stays as it was."""
         ...
 
 

@@ -43,4 +43,5 @@ docs/
 # Modeller ve deney kayıtları
 models/*.onnx
 models/*.thresholds.json
+models/*.parity.json
 mlruns/

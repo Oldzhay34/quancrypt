@@ -1,0 +1,38 @@
+slice_name: "Model A s\u0131n\u0131f\u0131 / Model A class"
+description: null
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  viz_type: pie
+  groupby:
+  - risk_class
+  metric: findings
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: risk_class
+    operator: IS NOT NULL
+    comparator: null
+    clause: WHERE
+    isExtra: false
+    filterOptionName: filter_risk_class_1
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  labels_outside: true
+  label_type: key_percent
+  number_format: SMART_NUMBER
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  donut: true
+  outerRadius: 70
+  innerRadius: 30
+  datasource: 5__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: a9dcf30c-9658-524b-8db7-136d228ebda3
+version: 1.0.0
+dataset_uuid: aabc11cf-1d1e-5bc3-84c7-bd12042fb82d

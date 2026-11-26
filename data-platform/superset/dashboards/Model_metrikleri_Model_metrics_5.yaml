@@ -1,0 +1,129 @@
+dashboard_title: Model metrikleri / Model metrics
+description: null
+css: ''
+slug: quancrypt-models
+certified_by: null
+certification_details: null
+published: true
+uuid: 1146ba23-a1c3-5ee5-a9bf-0baa3cd8eef1
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    children:
+    - ROW-quancrypt-models-0
+    - ROW-quancrypt-models-1
+    - ROW-quancrypt-models-2
+    parents:
+    - ROOT_ID
+  HEADER_ID:
+    id: HEADER_ID
+    type: HEADER
+    meta:
+      text: Model metrikleri / Model metrics
+  MARKDOWN-quancrypt-models:
+    type: MARKDOWN
+    id: MARKDOWN-quancrypt-models
+    children: []
+    meta:
+      width: 12
+      height: 12
+      code: "Kaynak / Source: `marts.mart_model_metrics` (`ml_outputs.model_metric`).\
+        \ Yaln\u0131z yaz\u0131lm\u0131\u015F s\xFCr\xFCmler g\xF6r\xFCn\xFCr; deneme\
+        \ ko\u015Fular\u0131 yaz\u0131lmaz (D-328h). / Dry runs are not stored."
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-models-0
+  CHART-quancrypt-models-0:
+    type: CHART
+    id: CHART-quancrypt-models-0
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 22
+      uuid: 1dd7916b-1eac-5df2-8c20-c06ac07a3fe7
+      sliceName: Test metrikleri / Test metrics
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-models-1
+  CHART-quancrypt-models-1:
+    type: CHART
+    id: CHART-quancrypt-models-1
+    children: []
+    meta:
+      width: 6
+      height: 50
+      chartId: 23
+      uuid: 40e620b9-9f57-53c9-b1c0-fd87f8a62612
+      sliceName: "S\xFCr\xFCmler / Versions"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-models-1
+  CHART-quancrypt-models-2:
+    type: CHART
+    id: CHART-quancrypt-models-2
+    children: []
+    meta:
+      width: 12
+      height: 50
+      chartId: 24
+      uuid: 62133d0e-5420-52bc-a4b6-1e37ffd734d6
+      sliceName: "T\xFCm metrikler / All metrics"
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-quancrypt-models-2
+  ROW-quancrypt-models-0:
+    type: ROW
+    id: ROW-quancrypt-models-0
+    children:
+    - MARKDOWN-quancrypt-models
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-models-1:
+    type: ROW
+    id: ROW-quancrypt-models-1
+    children:
+    - CHART-quancrypt-models-0
+    - CHART-quancrypt-models-1
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  ROW-quancrypt-models-2:
+    type: ROW
+    id: ROW-quancrypt-models-2
+    children:
+    - CHART-quancrypt-models-2
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    meta:
+      background: BACKGROUND_TRANSPARENT
+metadata:
+  color_scheme: ''
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  chart_configuration: {}
+  native_filter_configuration: []
+  shared_label_colors: []
+  color_scheme_domain: []
+theme_uuid: null
+version: 1.0.0

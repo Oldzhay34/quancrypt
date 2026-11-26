@@ -4,13 +4,14 @@ SHELL := /bin/bash
 # Python used for verification (D-48: the image has 3.12.15, the development machine 3.12.x).
 PYTHON ?= 3.12
 UV ?= uv
+ARGS ?=
 IMAGE ?= agent-service:1.0.0
 PORT ?= 8083
 
 # Tools come from the pinned requirements (D-28); nothing is installed into the system Python.
 RUN := $(UV) run --python $(PYTHON) --no-project --with-requirements requirements-dev.txt
 
-.PHONY: help compile verify run image index index-force gen-contracts integration eval
+.PHONY: help compile verify run image index index-force gen-contracts integration eval models-check
 
 help: ## Hedefleri listeler
 	@echo "agent-service Makefile"
@@ -25,7 +26,7 @@ verify: ## ruff, mypy --strict, import-linter ve pytest (Ollama'ya bağlı testl
 	$(RUN) ruff format --check .
 	$(RUN) mypy
 	$(RUN) lint-imports
-	$(RUN) pytest -m "not integration"
+	$(RUN) pytest -m "not integration and not models"
 
 run: ## Servisi yerelde çalıştırır (127.0.0.1:$(PORT); Ollama adresi OLLAMA_BASE_URL, varsayılan 127.0.0.1:11434)
 	$(UV) run --python $(PYTHON) --no-project --with-requirements requirements.txt \
@@ -50,9 +51,12 @@ gen-contracts: ## contracts/openapi'den src/tools/contracts/ pydantic modellerin
 	$(CODEGEN) --input ../../contracts/openapi/core-service.yaml --output src/tools/contracts/core_service.py
 	$(CODEGEN) --allow-remote-refs --input ../../contracts/openapi/analyzer-service.yaml --output src/tools/contracts/analyzer_service
 
+models-check: ## ONNX model testleri (P7.5): kök models/ altındaki Model A ve Model B dosyaları ve ml'in parite kümeleri (make verify dışında)
+	$(RUN) pytest -m models
+
 integration: ## Araç entegrasyon testleri: çalışan core-service ve analyzer-service ister (make verify dışında, D-238)
 	$(RUN) pytest -m integration -p no:cacheprovider
 
-eval: ## Değerlendirme (P4.7): çalışan yığın (app ve demo profili, PROJECT_ROOT=reference-system), Ollama ve ortamda AGENT_DB_*, INTERNAL_SERVICE_TOKEN, QUANCRYPT_SESSION_TOKEN gerekir; core-service'te yeni bir değerlendirme projesi açar; docs/eval_report.md ve docs/eval_results.jsonl yazar, bir hedef tutmaz veya ölçülemezse 3 ile biter
+eval: ## Değerlendirme (P4.7): çalışan yığın (app ve demo profili, PROJECT_ROOT=reference-system), Ollama ve ortamda AGENT_DB_*, INTERNAL_SERVICE_TOKEN, QUANCRYPT_SESSION_TOKEN gerekir; core-service'te yeni bir değerlendirme projesi açar; docs/eval_report.md, eval_summary.<varyant>.json ve eval_results.<varyant>.jsonl yazar, bir hedef tutmaz veya ölçülemezse 3 ile biter. P7.5: önce servis GUARD_SCOPE_CLASSIFIER=topic_gate RISK_MODEL=rule_baseline ile ve make eval ARGS="--variant baseline", sonra varsayılan servisle make eval
 	PYTHONPATH=. $(UV) run --python $(PYTHON) --no-project --with-requirements requirements.txt \
-		python scripts/evaluate.py
+		python scripts/evaluate.py $(ARGS)

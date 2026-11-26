@@ -91,10 +91,19 @@ class PlannerAgent(BaseAgent[PlannerState]):
             "score_findings",
             {
                 "findings": [
-                    {"id": f["id"], "priority": f["priority"], "locationKind": f["locationKind"]}
+                    {
+                        "id": f["id"],
+                        "priority": f["priority"],
+                        "locationKind": f["locationKind"],
+                        "algorithmFamily": f["algorithmFamily"],
+                        "usageContext": f["usageContext"],
+                        "keySizeBits": f["keySizeBits"],
+                        "confidence": f["confidence"],
+                    }  # fmt: skip
                     for f in state.findings
                 ],
                 "topology": state.topology,
+                "runtime": {"javaVersion": state.runtime[0], "springBootVersion": state.runtime[1]},
             },
             self._context(context),
         )

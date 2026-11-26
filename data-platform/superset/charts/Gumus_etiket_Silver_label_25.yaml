@@ -1,0 +1,31 @@
+slice_name: "G\xFCm\xFC\u015F etiket / Silver label"
+description: null
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  viz_type: pie
+  groupby:
+  - silver_label
+  metric: findings
+  adhoc_filters: []
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  labels_outside: true
+  label_type: key_percent
+  number_format: SMART_NUMBER
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  donut: true
+  outerRadius: 70
+  innerRadius: 30
+  datasource: 5__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 1e4d0100-d4a5-5263-9db8-0b301c1909c4
+version: 1.0.0
+dataset_uuid: aabc11cf-1d1e-5bc3-84c7-bd12042fb82d

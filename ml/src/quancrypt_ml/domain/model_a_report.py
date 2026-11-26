@@ -262,6 +262,14 @@ def build_model_card(facts: ModelAFacts) -> str:
         "- Model yalnız analizcinin kanonik alanlarını görür; kodun iş bağlamını bilmez.",
         "- Gümüş etiket kuralının ağ yolu yaklaşımı (TLS anahtar değişimi, D-323h) baseline'ı etkiler.",
         "",
+        "## Çıkarım (agent-service, P7.5)",
+        "- core-service'in bulgu API'si `mode`, `padding`, `hash` ve `library` alanlarını taşımaz; çıkarımda bu dört "
+        "özellik eğitimdeki eksik değer olan `~MISSING`, `is_outlier_project` 0 olur (D-343b). Eğitim ile çıkarım "
+        "arasındaki bu fark tahminleri kaydırabilir; etkisi ölçülmedi.",
+        "- Çıkarımdaki gerekçe SHAP değildir: her özellik tek tek bilinmeyen değeriyle değiştirilir ve tahmin edilen "
+        "sınıfın olasılığındaki düşüş ölçülür (oklüzyon); en etkili 3 özellik plana gerekçe olarak girer (D-343c). "
+        "SHAP değerleri yalnız eğitim raporunda ve `ml_outputs.risk_explanation`'dadır.",
+        "",
         "## Adalet ve kapsam notları",
         "- Model kişisel veri işlemez; girdiler kodlu kripto alanlarıdır. Proje anahtarı özellik değildir.",
         "",

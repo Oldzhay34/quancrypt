@@ -49,6 +49,8 @@ discovery:
 # languages' lists apply to every request. These lists are a draft for the user's approval at the P4.4 gate.
 guardrails:
   rings: [rule_filter, scope_classifier, llm_self_check]
+  # Ring 2 (P7.5, D-344c): onnx (Model B) or topic_gate (the interim gate of D-246, only to measure the baseline).
+  scope_classifier: ${GUARD_SCOPE_CLASSIFIER:-onnx}
   max_request_chars: 4000
   self_check_max_tokens: 8
   # Interim ring 2 (D-246): a request whose embedding is below this cosine similarity to every anchor is denied.

@@ -130,6 +130,15 @@ services:
       INGEST_API_URL: ${INGEST_API_URL:-http://ingest-api:8084/api/v1/events}
       LANGSMITH_TRACING: "false"
       LANGCHAIN_TRACING_V2: "false"
+      # onnxruntime 1.30 uploads telemetry to a Microsoft collector unless this is set (D-347); also forced in the code.
+      ORT_DISABLE_TELEMETRY: "1"
+      # Model A and Model B (P7.5, D-343a): the ONNX files of ml, read-only from the root models/ folder. With onnx a missing
+      # file stops the service; rule_baseline and topic_gate are only for the evaluation baseline (D-343f).
+      MODELS_DIR: /models
+      RISK_MODEL: ${RISK_MODEL:-onnx}
+      GUARD_SCOPE_CLASSIFIER: ${GUARD_SCOPE_CLASSIFIER:-onnx}
+    volumes:
+      - ./models:/models:ro
     extra_hosts:
       # Only this service reaches the host (docker-local, section 2).
       - "host.docker.internal:host-gateway"
@@ -344,6 +353,48 @@ services:
         condition: service_completed_successfully
     stop_grace_period: 30s
 
+  # Superset (P7.5, D-24, D-40, D-344i): warehouse mart'ları üzerindeki altı pano. Metadata SQLite dosyası superset-home
+  # volume'ündedir. `superset-init` tek seferlik migration, rol kurulumu ve .env'deki yönetici kullanıcıyı yapar.
+  # Panolar data-platform/superset/ altındaki sürümlü demetten `make superset-import` ile yüklenir; warehouse bağlantısı
+  # salt okunur warehouse_reader rolüyledir (parola demette değil, içe aktarmada ortamdan verilir). Yerellik: CSP yalnız
+  # sunucunun kendi kökenine izin verir (Scarf pikseli, harita ve yazı tipi CDN'leri yüklenmez; superset_config.py).
+  superset-init:
+    profiles: [data]
+    build:
+      context: ./infra/superset
+    image: quancrypt-superset:6.1.0
+    command: ["sh", "-c", "superset db upgrade && superset init && python /app/pythonpath/quancrypt_init.py"]
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-}
+    volumes:
+      - superset-home:/app/superset_home
+    networks:
+      - quancrypt
+    restart: "no"
+
+  superset:
+    profiles: [data]
+    image: quancrypt-superset:6.1.0
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER:-admin}
+      WAREHOUSE_READER_PASSWORD: ${WAREHOUSE_READER_PASSWORD:-}
+    volumes:
+      - superset-home:/app/superset_home
+      - ./data-platform/superset:/bundle:ro
+    ports:
+      - "127.0.0.1:8088:8088"
+    networks:
+      - quancrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+
 networks:
   # Uygulama ve veri servisleri.
   quancrypt: {}
@@ -357,3 +408,4 @@ networks:
 volumes:
   pgdata: {}
   mlflow-artifacts: {}
+  superset-home: {}

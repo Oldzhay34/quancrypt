@@ -146,13 +146,26 @@ class FakeRegistry:
 
 
 class FakeExporter:
+    """Stages like the real exporter: `path` is written only by promote() (D-346c)."""
+
     def __init__(self, parity: Parity | None = None) -> None:
         self._parity = parity
+        self._staged: set[Path] = set()
+        self.promoted: list[Path] = []
 
     def export(self, model: TrainedModel, rows: Sequence[RiskRow], path: Path) -> Parity:
+        self._staged.add(path)
+        return self._parity or Parity(len(rows), True, 1e-7)
+
+    def promote(self, path: Path) -> None:
+        assert path in self._staged
+        self._staged.discard(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"onnx")
-        return self._parity or Parity(len(rows), True, 1e-7)
+        self.promoted.append(path)
+
+    def discard(self, path: Path) -> None:
+        self._staged.discard(path)
 
 
 @dataclass

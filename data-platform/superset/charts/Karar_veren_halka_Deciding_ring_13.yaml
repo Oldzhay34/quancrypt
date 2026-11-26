@@ -1,0 +1,31 @@
+slice_name: Karar veren halka / Deciding ring
+description: null
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  viz_type: pie
+  groupby:
+  - deciding_ring
+  metric: decisions
+  adhoc_filters: []
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels: true
+  labels_outside: true
+  label_type: key_percent
+  number_format: SMART_NUMBER
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  donut: true
+  outerRadius: 70
+  innerRadius: 30
+  datasource: 2__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: ef57d22a-f2fe-509d-97ca-c48c51ab286d
+version: 1.0.0
+dataset_uuid: bd649ca1-5f6f-5e48-a5fd-ef0164b7af32

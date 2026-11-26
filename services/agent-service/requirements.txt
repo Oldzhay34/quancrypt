@@ -27,6 +27,8 @@ distro==1.9.0
     # via langsmith
 fastapi==0.142.2
     # via -r requirements.in
+flatbuffers==25.12.19
+    # via onnxruntime
 greenlet==3.5.6
     # via sqlalchemy
 h11==0.16.0
@@ -85,6 +87,10 @@ mako==1.4.3
     # via alembic
 markupsafe==3.0.4
     # via mako
+numpy==2.5.5
+    # via onnxruntime
+onnxruntime==1.30.0
+    # via -r requirements.in
 opentelemetry-api==1.45.1
     # via fastapi
 orjson==3.13.0
@@ -97,6 +103,9 @@ packaging==26.3
     # via
     #   langchain-core
     #   langsmith
+    #   onnxruntime
+protobuf==7.36.2
+    # via onnxruntime
 psycopg==3.3.6
     # via -r requirements.in
 psycopg-binary==3.3.6

@@ -178,7 +178,7 @@ export const REPORT_TR = [
     '### 3.1. src/main/java/Pay3.java — Pay3#sign',
     '',
     '- Strateji: FIX_WEAK_CLASSIC',
-    '- Gerekçeler (SHAP):',
+    '- Gerekçeler (model açıklaması):',
     '  1. weak_hash: 0.312340',
     '  2. on_service_path: 0.100000',
     '',

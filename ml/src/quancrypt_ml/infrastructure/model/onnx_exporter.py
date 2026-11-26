@@ -6,6 +6,7 @@ given rows."""
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,10 @@ update_registered_converter(
 )  # fmt: skip
 
 
+def _staged(path: Path) -> Path:
+    return path.with_suffix(path.suffix + ".tmp")
+
+
 def _feeds(rows: Sequence[RiskRow]) -> dict[str, Any]:
     data = frame(rows)
     feeds: dict[str, Any] = {c: data[[c]].to_numpy(dtype=np.float64) for c in NUMERIC}
@@ -66,13 +71,20 @@ class SklearnOnnxExporter:
             estimator, initial_types=initial, target_opset=TARGET_OPSET, options={id(clf): {"zipmap": False}}
         )
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_bytes(onx.SerializeToString())
-        temporary.replace(path)
-        session = rt.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+        content = onx.SerializeToString()
+        _staged(path).write_bytes(content)
+        # Parity is measured on the staged bytes themselves; the file reaches `path` only through promote() (D-346c).
+        session = rt.InferenceSession(content, providers=["CPUExecutionProvider"])
         outputs = session.run(None, _feeds(rows))
         onnx_probabilities = np.asarray(outputs[1], dtype=np.float64)
         reference = estimator.predict_proba(frame(rows))
         same = bool(np.array_equal(np.argmax(onnx_probabilities, axis=1), np.argmax(reference, axis=1)))
         difference = float(np.abs(onnx_probabilities - reference).max()) if len(rows) else 0.0
-        return Parity(len(rows), same, difference)
+        rounded = tuple(tuple(float(p) for p in row) for row in np.asarray(reference, dtype=np.float64))
+        return Parity(len(rows), same, difference, rounded, hashlib.sha256(content).hexdigest())
+
+    def promote(self, path: Path) -> None:
+        _staged(path).replace(path)
+
+    def discard(self, path: Path) -> None:
+        _staged(path).unlink(missing_ok=True)

@@ -1,0 +1,20 @@
+slice_name: Kripto konumu / Crypto locations
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: locations
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  datasource: 3__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 29df9806-89ef-5052-8914-3f0d1ecc75bd
+version: 1.0.0
+dataset_uuid: 918445c4-9a2f-5d6b-8da0-ed2dd7bc47ac

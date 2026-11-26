@@ -1,0 +1,34 @@
+slice_name: "\xD6ncelik ve g\xFCm\xFC\u015F etiket / Priority by silver label"
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  viz_type: echarts_timeseries_bar
+  x_axis: priority
+  metrics:
+  - findings
+  groupby:
+  - silver_label
+  adhoc_filters: []
+  row_limit: 1000
+  orientation: vertical
+  stack: Stack
+  show_legend: true
+  legendType: scroll
+  legendOrientation: top
+  rich_tooltip: true
+  truncateXAxis: true
+  y_axis_format: SMART_NUMBER
+  x_axis_sort_asc: true
+  color_scheme: supersetColors
+  only_total: true
+  sort_series_type: sum
+  xAxisLabelRotation: 45
+  datasource: 5__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 5fc0ba22-827a-5e1a-a1f5-c114cbeb17d1
+version: 1.0.0
+dataset_uuid: aabc11cf-1d1e-5bc3-84c7-bd12042fb82d

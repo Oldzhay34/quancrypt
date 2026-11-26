@@ -2269,7 +2269,7 @@ components:
         riskFactors:
           type: array
           maxItems: 10
-          description: SHAP katkıları, en etkiliden başlayarak sıralı.
+          description: Modelin gerekçe katkıları (eğitimde SHAP, agent-service çıkarımında oklüzyon farkı, D-343c), en etkiliden başlayarak sıralı. Alan adı `shapValue` her iki durumda da kullanılır.
           items:
             $ref: '#/components/schemas/RiskFactor'
       additionalProperties: false

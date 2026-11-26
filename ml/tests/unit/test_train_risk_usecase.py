@@ -36,7 +36,7 @@ class World:
         ports = {
             "data": FakeData(self.rows), "splitter": FixedSplitter(), "trainer": self.trainer,
             "explainer": FakeExplainer(), "charts": FakeCharts(), "zero_shot": self.llm, "registry": self.registry,
-            "export": ExportOnnxService(FakeExporter()), "sink": self.sink, "reports": self.reports, "clock": FixedClock(),
+            "export": ExportOnnxService(FakeExporter(), FakeReports()), "sink": self.sink, "reports": self.reports, "clock": FixedClock(),
         }  # fmt: skip
         ports.update(overrides)
         self.service = TrainRiskModelService(RiskTrainingPorts(**ports))  # type: ignore[arg-type]
@@ -104,14 +104,16 @@ def test_no_gold_labels_and_a_failed_parity_and_an_unreachable_llm_stop_the_run(
     world.service = TrainRiskModelService(
         RiskTrainingPorts(
             FakeData([replace(r, gold_label=None) for r in world.rows]), FixedSplitter(), FakeTrainer(), FakeExplainer(),
-            FakeCharts(), ScriptedLLM(), FakeRegistry(), ExportOnnxService(FakeExporter()), FakeSink(), FakeReports(),
+            FakeCharts(), ScriptedLLM(), FakeRegistry(), ExportOnnxService(FakeExporter(), FakeReports()), FakeSink(), FakeReports(),
             FixedClock(),
         )
     )  # fmt: skip
     with pytest.raises(RiskTrainingError, match="no gold labels"):
         world.service.execute(world.command())
     with pytest.raises(RiskTrainingError, match="parity"):
-        World(tmp_path, export=ExportOnnxService(FakeExporter(Parity(3, True, 1e-3)))).service.execute(world.command())
+        World(tmp_path, export=ExportOnnxService(FakeExporter(Parity(3, True, 1e-3)), FakeReports())).service.execute(
+            world.command()
+        )
     with pytest.raises(RiskTrainingError, match="local LLM"):
         World(tmp_path, zero_shot=ScriptedLLM(down=True)).service.execute(world.command())
     with pytest.raises(RiskTrainingError, match="GOLD or SILVER"):

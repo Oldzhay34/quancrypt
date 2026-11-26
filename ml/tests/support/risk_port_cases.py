@@ -93,6 +93,8 @@ def family_case_attributions_are_strongest_first(family: ModelFamily, folder: Pa
 def family_case_the_exported_model_answers_like_the_trained_one(family: ModelFamily, folder: Path) -> None:
     model = family.trainer.fit(family.trainer.algorithms[0], ROWS, _labels(ROWS))
     parity = family.exporter.export(model, ROWS[:9], folder / "model.onnx")
+    assert not (folder / "model.onnx").exists()  # staged only, until the parity passed (D-346c)
+    family.exporter.promote(folder / "model.onnx")
     assert (folder / "model.onnx").stat().st_size > 0
     assert parity.rows == 9 and parity.classes_equal and parity.max_probability_difference <= 1e-4
 

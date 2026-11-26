@@ -537,7 +537,8 @@ class PlanItemInput(BaseModel):
     riskFactors: Annotated[
         list[RiskFactor],
         Field(
-            description="SHAP katkıları, en etkiliden başlayarak sıralı.", max_length=10
+            description="Modelin gerekçe katkıları (eğitimde SHAP, agent-service çıkarımında oklüzyon farkı, D-343c), en etkiliden başlayarak sıralı. Alan adı `shapValue` her iki durumda da kullanılır.",
+            max_length=10,
         ),
     ]
 

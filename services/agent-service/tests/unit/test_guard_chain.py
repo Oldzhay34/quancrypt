@@ -136,5 +136,12 @@ def test_a_chain_without_the_scope_classifier_logs_that_ring_2_is_absent(caplog:
         caplog.clear()
         GuardChain([StubRing("RULE_FILTER", "UNSURE"), StubRing("SCOPE_CLASSIFIER", "UNSURE")])
 
-    assert any("scope classifier ring (Model B) is not in the chain" in message for message in absent)
+    assert any("scope classifier ring is not in the chain" in message for message in absent)
     assert not any("scope classifier" in message for message in caplog.messages)
+
+
+def test_a_ring_is_found_by_its_name() -> None:
+    rule, scope = StubRing("RULE_FILTER", "UNSURE"), StubRing("SCOPE_CLASSIFIER", "ALLOW")
+    chain = GuardChain([rule, scope])
+    assert chain.ring("SCOPE_CLASSIFIER") is scope
+    assert chain.ring("LLM_SELF_CHECK") is None

@@ -23,6 +23,11 @@ os.environ.setdefault("AGENT_DB_APP_PASSWORD", "unit-test-app-password")
 os.environ.setdefault("AGENT_DB_MIGRATOR_PASSWORD", "unit-test-migrator-password")
 os.environ.setdefault("INTERNAL_SERVICE_TOKEN", "unit-test-internal-token-0123456789abcdef")
 os.environ.setdefault("QUANCRYPT_SESSION_TOKEN", "unit-test-session-token-0123456789abcdef")
+# The ONNX models are git-ignored build outputs of ml (models/): the tests that build the application use the rule
+# baseline and the interim topic gate; the model files are tested apart (`models` marker, `make models-check`) and
+# the refusal of a missing or foreign model file in tests/unit/test_model_files.py.
+os.environ.setdefault("RISK_MODEL", "rule_baseline")
+os.environ.setdefault("GUARD_SCOPE_CLASSIFIER", "topic_gate")
 
 _ENTITY_TABLES = (
     "project_ref, chat_session, chat_message, message_evidence, agent_run, agent_step, tool_call, scope_decision, "

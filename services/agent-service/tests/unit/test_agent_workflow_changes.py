@@ -41,6 +41,8 @@ def finding(fid: str, family: str, priority: str, path: str, line: int | None) -
         "priority": priority,
         "locationKind": "CODE",
         "lineStart": line,
+        "keySizeBits": None,
+        "confidence": 0.9,
     }
 
 

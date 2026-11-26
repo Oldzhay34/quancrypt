@@ -200,6 +200,23 @@ class OllamaProvider:
     def close(self) -> None:
         self._client.close()
 
+    def embedding_digest(self) -> str | None:
+        """The Ollama digest of the configured embedding model (`GET /api/tags`), or None when it cannot be read.
+        Model B checks it once before its first answer (P7.5, D-344b): the same tag pulled again may be another
+        model."""
+        timeout = httpx.Timeout(self._config.health_timeout_s)
+        try:
+            response = self._client.get("/api/tags", timeout=timeout)
+            response.raise_for_status()
+            models = response.json().get("models", [])
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return None
+        for model in models:
+            if isinstance(model, dict) and model.get("name") == self._config.embedding_model:
+                digest = model.get("digest")
+                return digest if isinstance(digest, str) else None
+        return None
+
     # ---- internals ----
 
     def _probe(self) -> LLMStatus:

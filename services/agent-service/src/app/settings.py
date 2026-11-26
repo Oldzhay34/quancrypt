@@ -123,6 +123,7 @@ class GuardrailsSettings(_Strict):
     """The scope keeper (P4.4, D-242): ring order, the rule filter's lists and the language rule."""
 
     rings: tuple[Literal["rule_filter", "scope_classifier", "llm_self_check"], ...] = Field(min_length=1)
+    scope_classifier: Literal["onnx", "topic_gate"] = "onnx"
     max_request_chars: int = Field(ge=100, le=100_000)
     self_check_max_tokens: int = Field(ge=1, le=64)
     # Interim ring 2 (D-246): in-scope anchor sentences and the cosine similarity a request must reach to pass.
@@ -393,14 +394,21 @@ class OllamaSettings(_Strict):
         return self
 
 
+_MODEL_FILE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"  # a file name in models_dir, never a path
+
+
 class OnnxSettings(_Strict):
-    risk_model_path: str | None
-    scope_model_path: str | None
+    models_dir: str = Field(min_length=1, max_length=1024)
+    risk_model_file: str = Field(pattern=_MODEL_FILE)
+    risk_model_id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    scope_model_file: str = Field(pattern=_MODEL_FILE)
+    scope_thresholds_file: str = Field(pattern=_MODEL_FILE)
 
 
 class ModelsConfig(_Strict):
     llm: LLMSettings
     ollama: OllamaSettings
+    risk_model: Literal["onnx", "rule_baseline"] = "onnx"
     onnx: OnnxSettings
 
 

@@ -115,3 +115,9 @@ def test_the_report_and_card_say_what_kind_of_run_it_was() -> None:
     assert "**TUTMADI.**" in gold and "0.790" in gold
     assert "H3: tutmadı" in build_model_card(_facts("GOLD", 0.79, 0.5))
     assert "`risk_class` en olası sınıftır" in build_model_card(_facts("GOLD", 0.79, 0.5))
+
+
+def test_the_card_names_the_inference_gap_and_the_occlusion_reasons() -> None:
+    card = build_model_card(_facts("SILVER", 0.95, 0.5))
+    assert "`~MISSING`, `is_outlier_project` 0 olur (D-343b)" in card
+    assert "gerekçe SHAP değildir" in card and "(oklüzyon)" in card

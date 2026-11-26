@@ -116,3 +116,14 @@ def test_scope_and_injection_records_are_validated(tmp_path: Path) -> None:
         load_injection(write(tmp_path, [injection]))
     with pytest.raises(TestCaseError, match="unknown carrier"):
         load_injection(write(tmp_path, [injection | {"carrier": "email", "expectation": "no_tool_call"}]))
+
+
+def test_the_scope_test_split_is_read_in_ml_s_shape(tmp_path: Path) -> None:
+    row = {"id": "t1", "seed_id": "g1", "lang": "tr", "text": "RSA nerede?", "label": "IN_SCOPE",
+           "category": "inventory", "source": "synthetic_reviewed"}  # fmt: skip
+    (case,) = load_scope(write(tmp_path, [row]))
+    assert (case.id, case.language, case.expected) == ("t1", "tr", "IN_SCOPE")
+    with pytest.raises(TestCaseError):
+        load_scope(write(tmp_path, [{**row, "label": "MAYBE"}]))
+    shipped = load_sets(EXAMPLES, "scope_set.jsonl").scope
+    assert len(shipped) == 117 and {c.expected for c in shipped} == {"IN_SCOPE", "OUT_OF_SCOPE"}

@@ -1,0 +1,20 @@
+slice_name: Anomali / Anomalies
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  viz_type: big_number_total
+  metric: anomalies
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  datasource: 1__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: e7f80b62-67df-5628-8faa-ce7d4c5640c1
+version: 1.0.0
+dataset_uuid: dfa409ff-5859-5bae-ad01-c6b98d351ca2

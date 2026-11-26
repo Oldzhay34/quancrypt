@@ -1,0 +1,33 @@
+slice_name: Projeler / Projects
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  viz_type: table
+  query_mode: raw
+  all_columns:
+  - archetype_name
+  - hdbscan_cluster_no
+  - finding_count
+  - analysis_unit_count
+  - findings_per_unit
+  - is_anomaly
+  - anomaly_score
+  groupby: []
+  metrics: []
+  percent_metrics: []
+  adhoc_filters: []
+  order_by_cols:
+  - '["anomaly_score", true]'
+  row_limit: 1000
+  server_page_length: 10
+  table_timestamp_format: smart_date
+  include_search: true
+  datasource: 1__table
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: ac405031-6067-590a-a480-962c286dc148
+version: 1.0.0
+dataset_uuid: dfa409ff-5859-5bae-ad01-c6b98d351ca2

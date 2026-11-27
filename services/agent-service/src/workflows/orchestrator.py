@@ -18,7 +18,7 @@ import queue
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
@@ -41,6 +41,7 @@ from src.memory.short_term import (
     StepName,
     StepRecord,
     StepStatus,
+    UsageLog,
 )
 from src.memory.short_term import Evidence as StoredEvidence
 from src.prompts.system_prompts import refusal
@@ -117,6 +118,14 @@ def _step_event(record: StepRecord) -> SseEvent:
             "tools": [call.name for call in record.tool_calls if call.name],
         },
     )
+
+
+@dataclass(frozen=True)
+class UsageReport:
+    period_start: datetime
+    period_end: datetime
+    prompt_tokens: int
+    completion_tokens: int
 
 
 class UsageMeter:
@@ -233,6 +242,7 @@ class Orchestrator:
         *,
         conversation: ConversationMemory,
         audit: AuditLog,
+        usage: UsageLog,
         scope_log: ScopeDecisionLog,
         consent: ConsentReader,
         call_tool: ToolCaller,
@@ -246,6 +256,7 @@ class Orchestrator:
     ) -> None:
         self._conversation = conversation
         self._audit = audit
+        self._usage = usage
         self._scope_log = scope_log
         self._consent = consent
         self._call_tool = call_tool
@@ -275,6 +286,14 @@ class Orchestrator:
 
     def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
         return self._conversation.list_sessions(project_id, page, size)
+
+    def usage(self) -> UsageReport:
+        """The tokens spent in the current week, which starts on Monday 00:00 UTC (D-358d)."""
+        now = self._clock().astimezone(UTC)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+        end = start + timedelta(days=7)
+        totals = self._usage.token_totals(start, end)
+        return UsageReport(start, end, totals.prompt_tokens, totals.completion_tokens)
 
     def list_messages(self, session_id: UUID, page: int, size: int) -> MessagePage:
         return self._conversation.list_messages(session_id, page, size)

@@ -351,6 +351,20 @@ class AuditLog(Protocol):
     def list_runs_by_trace(self, trace_id: str) -> tuple[RunSummary, ...]: ...
 
 
+@dataclass(frozen=True)
+class TokenTotals:
+    """Tokens the recorded agent steps spent in a period."""
+
+    prompt_tokens: int
+    completion_tokens: int
+
+
+class UsageLog(Protocol):
+    def token_totals(self, since: datetime, until: datetime) -> TokenTotals:
+        """Sum over the steps started in [since, until), for the whole installation (D-358)."""
+        ...
+
+
 class ScopeDecisionLog(Protocol):
     def record(self, decision: ScopeDecisionRecord, *, warehouse_consent: bool) -> ScopeDecisionResult:
         """Write the decision and, when `warehouse_consent` is true and the session is known, the outbox event

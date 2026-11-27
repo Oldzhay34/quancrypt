@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -401,3 +402,13 @@ def test_only_knowledge_base_evidence_carries_a_title_on_the_stream() -> None:
         "title": "FIPS 203",
     }
     assert "title" not in shown[1]
+
+
+def test_the_usage_period_starts_on_monday_midnight_utc() -> None:
+    w = world()
+
+    report = w.orchestrator.usage()
+
+    assert (report.period_start.weekday(), report.period_start.hour, report.period_start.second) == (0, 0, 0)
+    assert (report.period_end - report.period_start).days == 7
+    assert report.period_start <= datetime.now(UTC) < report.period_end

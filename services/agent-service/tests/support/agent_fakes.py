@@ -22,7 +22,7 @@ from src.llm.provider import (
     TokenUsage,
 )
 from src.memory.long_term import KbHit, RuntimeVersions
-from src.memory.short_term import FinalRunStatus, RunTrigger, StepRecord, ToolCallRecord, ToolCode
+from src.memory.short_term import FinalRunStatus, RunTrigger, StepRecord, TokenTotals, ToolCallRecord, ToolCode
 from src.tools.base_tool import (
     ToolContext,
     ToolError,
@@ -205,6 +205,10 @@ class RecordingAuditLog:
 
     def list_runs_by_trace(self, trace_id: str) -> tuple[Any, ...]:
         return ()
+
+    def token_totals(self, since: datetime, until: datetime) -> TokenTotals:
+        inside = [s for s in self.steps if since <= s.started_at < until]
+        return TokenTotals(sum(s.prompt_tokens for s in inside), sum(s.completion_tokens for s in inside))
 
 
 def new_run(trace: str = "a" * 32) -> tuple[UUID, str]:

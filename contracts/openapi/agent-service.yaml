@@ -17,6 +17,30 @@ tags:
 security:
 - bearerAuth: []
 paths:
+  /api/v1/usage:
+    get:
+      operationId: GetUsage
+      summary: GetUsage
+      tags:
+      - Oturum
+      description: 'İçinde bulunulan haftada (Pazartesi 00:00 UTC''den) ajan adımlarında harcanan token toplamı. Tüm kurulum içindir; proje
+        ve kullanıcı ayrımı yoktur. Kapsam bekçisinin LLM öz-denetiminde harcanan token''lar adım kaydında olmadığı için toplama girmez (D-358).'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      responses:
+        '200':
+          description: Haftalık kullanım.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/sessions:
     get:
       operationId: ListSessions
@@ -543,6 +567,27 @@ components:
       - last_message_at
       - preview
       additionalProperties: false
+    Usage:
+      type: object
+      additionalProperties: false
+      properties:
+        period_start:
+          type: string
+          format: date-time
+        period_end:
+          type: string
+          format: date-time
+        prompt_tokens:
+          type: integer
+          minimum: 0
+        completion_tokens:
+          type: integer
+          minimum: 0
+      required:
+      - period_start
+      - period_end
+      - prompt_tokens
+      - completion_tokens
     SessionPage:
       type: object
       properties:

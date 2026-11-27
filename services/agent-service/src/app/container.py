@@ -204,6 +204,7 @@ def build_container(settings: AppSettings) -> Container:
     orchestrator = Orchestrator(
         conversation=conversation,
         audit=audit,
+        usage=audit,
         scope_log=scope_decisions,
         consent=consent_reader,
         call_tool=registry.call,

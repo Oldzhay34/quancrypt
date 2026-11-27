@@ -10,3 +10,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# Written by `make index` (D-358f)
+data/processed/kb_chunks.jsonl
+data/vector_db/index_manifest.json

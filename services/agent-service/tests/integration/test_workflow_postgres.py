@@ -53,6 +53,7 @@ def orchestrator(database: Database, *, consent: bool) -> tuple[Orchestrator, Po
     built = Orchestrator(
         conversation=memory,
         audit=PostgresAuditLog(database, utc_now, uuid4),
+        usage=PostgresAuditLog(database, utc_now, uuid4),
         scope_log=PostgresScopeDecisionLog(database, utc_now, uuid4),
         consent=FakeConsent(consent),
         call_tool=FakeTools(),

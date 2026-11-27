@@ -149,6 +149,7 @@ def world(
     orchestrator = Orchestrator(
         conversation=memory,
         audit=audit,
+        usage=audit,
         scope_log=scope_log,
         consent=fake_consent,
         call_tool=fake_tools,

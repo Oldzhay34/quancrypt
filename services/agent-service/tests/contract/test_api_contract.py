@@ -8,6 +8,7 @@ import json
 import threading
 import time
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -424,3 +425,18 @@ def test_a_long_token_that_starts_in_the_preview_is_redacted_whole(setup: tuple[
 
     assert "eyJ" not in item["preview"]
     assert "bbbb" not in item["preview"]
+
+
+def test_usage_returns_the_current_week_and_needs_the_token(setup: tuple[TestClient, World]) -> None:
+    client, _ = setup
+    sid = new_session(client)
+    client.post(f"/api/v1/sessions/{sid}/messages", json={"content": "Projemde RSA nerede?"}, headers=AUTH)
+
+    body = client.get("/api/v1/usage", headers=AUTH).json()
+
+    assert set(body) == {"period_start", "period_end", "prompt_tokens", "completion_tokens"}
+    start = datetime.fromisoformat(body["period_start"].replace("Z", "+00:00"))
+    end = datetime.fromisoformat(body["period_end"].replace("Z", "+00:00"))
+    assert (start.weekday(), start.hour, start.minute, (end - start).days) == (0, 0, 0, 7)
+    assert body["prompt_tokens"] >= 0 and body["completion_tokens"] >= 0
+    assert client.get("/api/v1/usage").status_code == 401

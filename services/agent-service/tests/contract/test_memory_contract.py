@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -54,6 +55,7 @@ from src.memory.short_term import (
     ScopeDecisionRecord,
     SessionNotFoundError,
     StepRecord,
+    TokenTotals,
     ToolCallRecord,
 )
 from tests.support.embedding import DIMENSIONS, MODEL, BagOfWordsEmbedder
@@ -314,6 +316,20 @@ class AuditContract:
         with pytest.raises(DuplicateRecordError):
             audit.record_step(self.step(run_id, 1))
         audit.record_step(self.step(run_id, 2, step_name="INPUT_GUARD", agent_code=None))
+
+    def test_the_token_totals_cover_the_steps_started_inside_the_period(self, audit: Any) -> None:
+        since = datetime(2031, 3, 3, tzinfo=UTC)
+        until = since + timedelta(days=7)
+        assert audit.token_totals(since, until) == TokenTotals(0, 0)
+        run_id = audit.start_run(None, "MESSAGE", TRACE)
+        moments = (since - timedelta(seconds=1), since, until - timedelta(seconds=1), until)
+        for ordinal, moment in enumerate(moments, start=1):
+            audit.record_step(
+                self.step(run_id, ordinal, prompt_tokens=10**ordinal, completion_tokens=ordinal, started_at=moment)
+            )
+
+        # The start belongs to the period, the end does not.
+        assert audit.token_totals(since, until) == TokenTotals(100 + 1000, 2 + 3)
 
     def test_a_step_needs_an_existing_run(self, audit: AuditLog) -> None:
         with pytest.raises(RunNotFoundError):

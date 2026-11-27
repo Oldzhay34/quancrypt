@@ -52,6 +52,7 @@ from src.memory.short_term import (
     SessionSummary,
     StepRecord,
     StoredCheckpoint,
+    TokenTotals,
     trim_to_window,
 )
 
@@ -168,6 +169,7 @@ class InMemoryAuditLog:
     def __init__(self, conversation: InMemoryConversationMemory | None = None) -> None:
         self._conversation = conversation
         self.runs: dict[UUID, _Run] = {}
+        self.steps: list[StepRecord] = []
 
     def start_run(self, session_id: UUID | None, trigger: RunTrigger, trace_id: str) -> UUID:
         if not TRACE_ID.fullmatch(trace_id):
@@ -185,6 +187,7 @@ class InMemoryAuditLog:
         if step.ordinal in run.ordinals:
             raise DuplicateRecordError("this record was written before")
         run.ordinals.add(step.ordinal)
+        self.steps.append(step)
         return uuid4()
 
     def finish_run(self, run_id: UUID, status: FinalRunStatus) -> None:
@@ -193,6 +196,10 @@ class InMemoryAuditLog:
             raise RunNotRunningError("the run is already finished or does not exist")
         finished: datetime = utc_now()
         run.summary = replace(run.summary, status=status, finished_at=finished)
+
+    def token_totals(self, since: datetime, until: datetime) -> TokenTotals:
+        inside = [s for s in self.steps if since <= s.started_at < until]
+        return TokenTotals(sum(s.prompt_tokens for s in inside), sum(s.completion_tokens for s in inside))
 
     def list_runs_by_trace(self, trace_id: str) -> tuple[RunSummary, ...]:
         if not TRACE_ID.fullmatch(trace_id):

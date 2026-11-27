@@ -70,6 +70,7 @@ from src.memory.short_term import (
     SessionSummary,
     StepRecord,
     StoredCheckpoint,
+    TokenTotals,
     trim_to_window,
 )
 
@@ -623,6 +624,20 @@ class PostgresAuditLog:
                 raise RunNotRunningError("the run is already finished or does not exist")
 
         self._db.run(work)
+
+    def token_totals(self, since: datetime, until: datetime) -> TokenTotals:
+        def work(conn: Connection) -> TokenTotals:
+            row = conn.execute(
+                text(
+                    "SELECT COALESCE(sum(prompt_tokens), 0) AS prompt, "
+                    "COALESCE(sum(completion_tokens), 0) AS completion "
+                    "FROM agent_step WHERE started_at >= :since AND started_at < :until"
+                ),
+                {"since": since, "until": until},
+            ).one()
+            return TokenTotals(int(row.prompt), int(row.completion))
+
+        return self._db.run(work)
 
     def list_runs_by_trace(self, trace_id: str) -> tuple[RunSummary, ...]:
         if not TRACE_ID.fullmatch(trace_id):

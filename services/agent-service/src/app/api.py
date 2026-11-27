@@ -235,6 +235,16 @@ def install_api(
             "created_at": session.created_at.isoformat().replace("+00:00", "Z"),
         }
 
+    @router.get("/usage")
+    def get_usage() -> dict[str, Any]:
+        report = orchestrator.usage()
+        return {
+            "period_start": report.period_start.isoformat().replace("+00:00", "Z"),
+            "period_end": report.period_end.isoformat().replace("+00:00", "Z"),
+            "prompt_tokens": report.prompt_tokens,
+            "completion_tokens": report.completion_tokens,
+        }
+
     @router.get("/sessions")
     def list_sessions(
         project_id: UUID, page: int = Query(default=0, ge=0), size: int = Query(default=50, ge=1, le=200)

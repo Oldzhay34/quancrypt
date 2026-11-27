@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.18; crypto-domain"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 | Bileşen | Bilgi |

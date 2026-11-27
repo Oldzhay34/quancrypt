@@ -7,7 +7,7 @@ version_tag: "JDK 24 (JEP 497, Closed/Delivered)"
 applies_to:
   java: ">=24"
 language: tr
-status: draft
+status: approved
 ---
 
 JEP 497 ("Quantum-Resistant Module-Lattice-Based Digital Signature Algorithm") durumu Closed/Delivered'dır ve JDK 24'te yayımlanmıştır.

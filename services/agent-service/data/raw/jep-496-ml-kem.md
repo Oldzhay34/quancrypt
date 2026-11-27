@@ -7,7 +7,7 @@ version_tag: "JDK 24 (JEP 496, Closed/Delivered)"
 applies_to:
   java: ">=24"
 language: tr
-status: draft
+status: approved
 ---
 
 JEP 496 ("Quantum-Resistant Module-Lattice-Based Key Encapsulation Mechanism") durumu Closed/Delivered'dır ve JDK 24'te yayımlanmıştır.

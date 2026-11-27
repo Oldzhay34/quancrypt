@@ -6,7 +6,7 @@ source_type: VENDOR_DOC
 version_tag: "Spring Boot referans belgesi, SSL sayfası"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Spring Boot, TLS malzemesini adlandırılmış SSL paketleriyle (SSL bundles) tanımlar. Her paketin kullanıcı verdiği bir adı vardır ve paket ada göre başvurulur.

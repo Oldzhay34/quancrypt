@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.19; crypto-domain"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Quancrypt'in hedef kalıbında anahtar malzemesi bir `KeyMaterialProvider` arayüzünün arkasından gelir ve arayüzün üç uygulaması vardır:

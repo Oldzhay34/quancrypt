@@ -7,7 +7,7 @@ version_tag: "Quancrypt proje dokümanı s.19; crypto-domain"
 applies_to:
   java: ">=24"
 language: tr
-status: draft
+status: approved
 ---
 
 Uygulama içi RSA şifrelemenin hedef kalıbı KEM-DEM'dir: ML-KEM ile ortak sır kapsüllenir, sır HKDF ile bir AES-256-GCM anahtarına türetilir ve veri bu anahtarla şifrelenir. `javax.crypto.KEM` API'si JDK 21'den beri vardır; ML-KEM gerçeklemesi JDK 24 ile gelir.

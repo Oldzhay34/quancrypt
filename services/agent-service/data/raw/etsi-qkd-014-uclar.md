@@ -6,7 +6,7 @@ source_type: SPECIFICATION
 version_tag: "ETSI GS QKD 014 V1.1.1 (2019-02)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 ETSI GS QKD 014 V1.1.1 (Şubat 2019), "Quantum Key Distribution (QKD); Protocol and data format of REST-based key delivery API", bir QKD ağının bir uygulamaya anahtar sunması için HTTPS üzerinden REST protokolünü ve JSON veri biçimini tanımlar.

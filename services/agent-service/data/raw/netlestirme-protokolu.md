@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.17"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Planlama agent'ı plan çıkarmadan önce, kodun yanıtlayamadığı en fazla beş soruyu sorar ve yanıtları yerel proje profiline kaydeder:

@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.17, 20; crypto-domain"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Saha cihazı bağlantıları (MQTT üzerinden TLS) için geçiş stratejisi: cihazda hibrit anahtar değişimi; zayıf mikrodenetleyicilerde TLS'i gateway'de sonlandırma. OpenSSL 3.5 ve sonrası X25519MLKEM768'i varsayılan olarak sunar; cihazda grup ayarı `openssl.cnf` içindedir.

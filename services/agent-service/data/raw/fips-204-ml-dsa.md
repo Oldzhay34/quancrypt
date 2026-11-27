@@ -6,7 +6,7 @@ source_type: STANDARD
 version_tag: "FIPS 204 (13 Ağustos 2024)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 NIST FIPS 204, "Module-Lattice-Based Digital Signature Standard", 13 Ağustos 2024'te yayımlanmıştır. Standart, sayısal imza oluşturmak ve doğrulamak için bir algoritma grubunu (ML-DSA) tanımlar.

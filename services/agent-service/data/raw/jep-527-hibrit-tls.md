@@ -6,7 +6,7 @@ source_type: JEP
 version_tag: "JDK 27 (JEP 527, Closed/Delivered)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 JEP 527 ("Post-Quantum Hybrid Key Exchange for TLS 1.3") durumu Closed/Delivered'dır ve JDK 27'de yayımlandı.

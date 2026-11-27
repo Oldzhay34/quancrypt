@@ -6,7 +6,7 @@ source_type: STANDARD
 version_tag: "NIST IR 8547 ipd (Kasım 2024, taslak)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 NIST IR 8547, "Transition to Post-Quantum Cryptography Standards", 12 Kasım 2024'te ilk kamuya açık taslak (initial public draft) olarak yayımlanmıştır. Rapor, NIST'in kuantuma açık algoritmalardan post-kuantum imza ve anahtar kurma şemalarına geçişe ilişkin beklenen yaklaşımını anlatır. Bu bir taslaktır; yorum süresi 10 Ocak 2025'te kapanmıştır.

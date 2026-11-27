@@ -6,7 +6,7 @@ source_type: STANDARD
 version_tag: "FIPS 205 (13 Ağustos 2024)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 NIST FIPS 205, "Stateless Hash-Based Digital Signature Standard", 13 Ağustos 2024'te yayımlanmıştır. Standart, durumsuz özet tabanlı sayısal imza algoritmasını (SLH-DSA) tanımlar; NIST sayfası bunun SPHINCS+'a dayandığını belirtir.

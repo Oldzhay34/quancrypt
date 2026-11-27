@@ -6,7 +6,7 @@ source_type: GOVERNMENT_GUIDANCE
 version_tag: "NSA, QKD ve Quantum Cryptography sayfası"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 NSA'ya göre kuantum anahtar dağıtımı (QKD) yazılımla kurulamaz; özel donanım ve fiziksel kanal gerektirir. Proje dokümanına göre QKD fiziksel kanal gerektirir; Quancrypt onu yalnızca donanımı olan kurumlar için arayüz düzeyinde destekler.

@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.16–17"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Proje dokümanındaki ayar kataloğu, bir geliştiricinin hibrit veya post-kuantum geçişte dokunacağı katmanları şöyle sıralar:

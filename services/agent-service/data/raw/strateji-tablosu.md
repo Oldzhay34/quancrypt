@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.18–19; crypto-domain"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 Quancrypt bulguları dört öncelik düzeyinde sınıflandırır ve her düzey için bir geçiş stratejisi önerir.

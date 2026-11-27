@@ -6,7 +6,7 @@ source_type: STANDARD
 version_tag: "FIPS 203 (13 Ağustos 2024)"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 NIST FIPS 203, "Module-Lattice-Based Key-Encapsulation Mechanism Standard", 13 Ağustos 2024'te yayımlanmıştır. Standart, ML-KEM adlı bir anahtar kapsülleme mekanizmasını tanımlar ve üç parametre kümesi içerir: ML-KEM-512, ML-KEM-768 ve ML-KEM-1024.

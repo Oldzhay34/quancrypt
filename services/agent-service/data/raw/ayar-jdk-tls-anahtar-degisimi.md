@@ -6,7 +6,7 @@ source_type: INTERNAL
 version_tag: "Quancrypt proje dokümanı s.16; crypto-domain"
 applies_to: {}
 language: tr
-status: draft
+status: approved
 ---
 
 JDK'nın TLS anahtar değişim grupları `jdk.tls.namedGroups` sistem özelliğiyle ayarlanır. JDK 27'de X25519MLKEM768 hibrit grubu zaten listenin başındadır (JEP 527).

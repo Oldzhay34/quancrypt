@@ -41,12 +41,12 @@ def test_the_shipped_configuration_is_valid(config_dir: Path) -> None:
     assert (settings.models.risk_model, settings.agents.guardrails.scope_classifier) == ("rule_baseline", "topic_gate")
     assert settings.models.onnx.risk_model_file == "risk_model-v1-dry_run.onnx"
     assert settings.models.onnx.scope_thresholds_file == "scope_classifier-v1.thresholds.json"
-    # Budgets (D-248): step, token and time per agent.
+    # Budgets (D-248, the supervisor's tokens D-355): step, token and time per agent.
     assert {
         name: (agent.budget.max_steps, agent.budget.max_tokens, agent.budget.timeout_s)
         for name, agent in settings.agents.agents.items()
     } == {
-        "supervisor": (6, 2048, 120),
+        "supervisor": (6, 4096, 120),
         "discovery": (40, 8192, 420),
         "topology": (8, 0, 360),
         "planner": (40, 16384, 300),

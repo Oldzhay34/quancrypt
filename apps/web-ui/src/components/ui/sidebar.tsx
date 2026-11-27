@@ -27,14 +27,14 @@ export interface SidebarLabels {
 export function Sidebar({
     brand,
     items,
-    footerItems,
+    footer,
     labels,
     action,
     children,
 }: {
     brand: string;
     items: SidebarItem[];
-    footerItems: SidebarItem[];
+    footer?: (collapsed: boolean, close: () => void) => ReactNode;
     labels: SidebarLabels;
     action?: (collapsed: boolean, close: () => void) => ReactNode;
     children?: (close: () => void) => ReactNode;
@@ -55,7 +55,7 @@ export function Sidebar({
             className={({ isActive }) =>
                 cn(
                     'flex shrink-0 items-center gap-3 overflow-hidden rounded-lg px-2 py-2 text-sm whitespace-nowrap text-foreground no-underline hover:bg-accent',
-                    isActive && 'bg-accent font-semibold',
+                    isActive && 'bg-accent font-semibold shadow-[inset_3px_0_0_var(--highlight)]',
                 )
             }
         >
@@ -116,7 +116,7 @@ export function Sidebar({
                 <div className={cn('flex min-h-0 flex-1 flex-col pt-3', collapsed && 'md:invisible')}>
                     {children?.(close)}
                 </div>
-                {footerItems.map(link)}
+                {footer?.(collapsed, close)}
             </nav>
         </div>
     );

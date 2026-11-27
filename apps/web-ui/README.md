@@ -73,9 +73,9 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
   `http://127.0.0.1:8083` ve (Dashboard bağlantısının yoklaması için) `http://127.0.0.1:8088`, `frame-ancestors 'none'`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
 - Yalnızca `GET` ve `HEAD` kabul edilir. Dış kaynak (CDN, yazı tipi) yoktur.
 - Anahtar yalnızca `Authorization: Bearer` başlığında gider; URL'ye, loga veya hata iletisine yazılmaz.
-- `localStorage`'da yalnızca üç kişisel olmayan bilgi durur: dil seçimi (`quancrypt.lang`), "ilk çalıştırma görüldü"
+- `localStorage`'da yalnızca dört kişisel olmayan bilgi durur: dil seçimi (`quancrypt.lang`), "ilk çalıştırma görüldü"
   işareti (`consentSeen:<projectId>:<noticeVersion>`, D-288) ve proje başına sohbet oturumunun kimliği
-  (`chatSession:<projectId>`, rastgele UUID; D-291c). Oturum anahtarı ve seçili proje `sessionStorage`'dadır.
+  (`chatSession:<projectId>`, rastgele UUID; D-291c) ve seçilen demo planı (`quancrypt.plan`; D-358a). Oturum anahtarı ve seçili proje `sessionStorage`'dadır.
 - Kalan risk: tarayıcının genel geçmişi veya otomatik tamamlaması ilk açılan `#token=` adresini saklayabilir (fragment
   yaklaşımının doğası). Anahtar her `quancrypt init`'te yenilenir (D-273).
 - nginx dışındaki katman kuralları: modülden dışarı çıkan göreli içe aktarma ESLint ile yasaktır (D-290c).
@@ -86,3 +86,10 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
 - Sohbet ekranı tam yüksekliktir; Durdur, yanıt sürerken giriş kutusunda Gönder'in yerine çıkar.
 - Proje analizi `/analysis` sekmesindedir. Her tarama kendi oturumunu açar; yalnız tarama içeren oturumlar sohbet geçmişinde görünmez.
 - Yanıtlar ve tarama arka planda sürer, aynı anda en çok 2; başka sayfada biten için bildirim kartı çıkar (D-351).
+
+## Tema, kullanım ve abonelik (P5.6, D-358)
+
+- Zemin ve metin antrasit/gri tondadır; marka vurgusu altın sarısıdır (`#eaaa00`, D-360).
+- Ayarlar'a basınca menü açılır: Onaylar, Kullanım, Abonelik, Ayarlar ve dil seçimi.
+- Kullanım (`/settings/usage`) agent-service `GET /api/v1/usage` toplamını seçili planın haftalık sınırına oranlar; sınır uygulanmaz.
+- Abonelik (`/subscription`) demodur: ödeme alınmaz, seçim yalnız bu tarayıcıda saklanır (`quancrypt.plan`).

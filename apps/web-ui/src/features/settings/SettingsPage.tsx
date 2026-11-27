@@ -3,7 +3,7 @@ import { errorMessageKey, CONSENT_TYPES } from '@/shared/api';
 import type { ConsentType } from '@/shared/api';
 import { useI18n } from '@/shared/i18n';
 import { useProject } from '@/shared/project';
-import { Button, ErrorBanner, Page, Spinner } from '@/shared/ui';
+import { Button, ErrorBanner, Page, Spinner, Tabs } from '@/shared/ui';
 import {
     NoticeText,
     useConsents,
@@ -45,6 +45,13 @@ export function SettingsPage() {
 
     return (
         <Page title={t('settings.title')}>
+            <Tabs
+                label={t('settings.tabs')}
+                items={[
+                    { to: '/settings', label: t('menu.consents') },
+                    { to: '/settings/usage', label: t('menu.usage') },
+                ]}
+            />
             <h2>{t('settings.consents.title')}</h2>
             <p>{t('settings.consents.help')}</p>
             {failure ? <ErrorBanner>{t(errorMessageKey(failure))}</ErrorBanner> : null}

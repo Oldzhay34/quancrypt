@@ -1,11 +1,10 @@
 import { useI18n } from '@/shared/i18n';
-import type { Language } from '@/shared/i18n';
 import { useProject } from '@/shared/project';
 import { SUPERSET_URL, useSupersetReachable } from '@/shared/superset';
 import styles from './Layout.module.css';
 
 export function Header() {
-    const { t, language, setLanguage } = useI18n();
+    const { t } = useI18n();
     const { project, projects, selectProject } = useProject();
     const dashboardUp = useSupersetReachable();
 
@@ -33,14 +32,6 @@ export function Header() {
                     {t('header.dashboard')}
                 </a>
             ) : null}
-            <select
-                aria-label={t('lang.label')}
-                value={language}
-                onChange={(event) => setLanguage(event.target.value as Language)}
-            >
-                <option value="tr">Türkçe</option>
-                <option value="en">English</option>
-            </select>
         </header>
     );
 }

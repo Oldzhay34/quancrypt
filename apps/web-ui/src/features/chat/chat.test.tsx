@@ -15,6 +15,12 @@ function openChat(backend: FakeBackend) {
     return renderApp(backend, { path: '/chat' });
 }
 
+/** Leaves the screen through the sidebar's settings menu. */
+async function openSettings(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Ayarlar' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Ayarlar' }));
+}
+
 function openAnalysis(backend: FakeBackend) {
     backend.consents = [activeConsent('MODEL_TRAINING')];
     return renderApp(backend, { path: '/analysis' });
@@ -599,7 +605,7 @@ describe('analysis: the project scan', () => {
 
         await user.click(await screen.findByRole('button', { name: 'İlk taramayı başlat' }));
         await waitFor(() => expect(backend.find('POST', '/initial-scan')).toHaveLength(1));
-        await user.click(screen.getByRole('link', { name: 'Ayarlar' }));
+        await openSettings(user);
         handle.push(done('scan'));
         handle.close();
 
@@ -719,11 +725,7 @@ describe('chat: parallel answers and notices (D-351)', () => {
 
         await typeAndSend(user, QUESTION);
         await started(backend, 1);
-        await user.click(
-            within(screen.getByRole('navigation', { name: 'Ana menü' })).getByRole('link', {
-                name: 'Ayarlar',
-            }),
-        );
+        await openSettings(user);
         expect(handle.cancelled).toBe(false);
         handle.push(sse('token', { text: 'yanıt' }) + done());
         handle.close();

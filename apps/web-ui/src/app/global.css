@@ -23,6 +23,8 @@
     --color-muted-foreground: var(--muted);
     --color-destructive: var(--danger);
     --color-glow: var(--glow);
+    --color-highlight: var(--highlight);
+    --color-highlight-foreground: var(--on-highlight);
     --animate-accordion-down: accordion-down 0.2s ease-out;
     --animate-accordion-up: accordion-up 0.2s ease-out;
     @keyframes accordion-down {
@@ -43,6 +45,7 @@
     }
 }
 
+/* Greys for the surfaces and gold (#eaaa00) as the brand accent (D-360). Gold is not used as text on a light background. */
 :root {
     --bg: #f6f7f9;
     --surface: #ffffff;
@@ -53,7 +56,9 @@
     --on-accent: #ffffff;
     --danger: #b3261e;
     --hover: #eceff3;
-    --glow: #1488fc;
+    --glow: #eaaa00;
+    --highlight: #eaaa00;
+    --on-highlight: #1b1f24;
     color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -63,11 +68,10 @@
         --text: #e8ebef;
         --muted: #9aa5b1;
         --border: #343a42;
-        --accent: #6b93ff;
-        --on-accent: #0b1020;
+        --accent: #eaaa00;
+        --on-accent: #14171b;
         --danger: #ff8a80;
         --hover: #2a2f37;
-        --glow: #1172e2;
     }
 }
 @layer base {

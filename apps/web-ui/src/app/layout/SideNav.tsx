@@ -1,8 +1,9 @@
-import { Boxes, KeyRound, ListChecks, ScanSearch, Settings } from 'lucide-react';
+import { Boxes, KeyRound, ListChecks, ScanSearch } from 'lucide-react';
 import { Sidebar } from '@/components/ui/sidebar';
 import { ChatHistory, NewChatButton } from '@/features/chat';
 import { useI18n } from '@/shared/i18n';
 import type { MessageKey } from '@/shared/i18n';
+import { SettingsMenu } from './SettingsMenu';
 
 const ICON = 'h-5 w-5';
 interface Entry {
@@ -16,8 +17,6 @@ const PAGES: Entry[] = [
     { to: '/topology', label: 'nav.topology', icon: <Boxes className={ICON} /> },
     { to: '/plan', label: 'nav.plan', icon: <ListChecks className={ICON} /> },
 ];
-const FOOTER: Entry[] = [{ to: '/settings', label: 'nav.settings', icon: <Settings className={ICON} /> }];
-
 export function SideNav() {
     const { t } = useI18n();
     const translate = (entry: Entry) => ({ ...entry, label: t(entry.label) });
@@ -25,7 +24,7 @@ export function SideNav() {
         <Sidebar
             brand={t('app.title')}
             items={PAGES.map(translate)}
-            footerItems={FOOTER.map(translate)}
+            footer={(collapsed, close) => <SettingsMenu collapsed={collapsed} onNavigate={close} />}
             labels={{
                 nav: t('nav.label'),
                 open: t('nav.open'),

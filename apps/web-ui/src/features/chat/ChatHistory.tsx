@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -118,13 +119,16 @@ function History({ projectId, onNavigate }: { projectId: string; onNavigate?: ()
                 {group(t('chat.sessions.earlier'), earlier)}
             </div>
             {removal.error ? <ErrorBanner>{t(errorMessageKey(removal.error))}</ErrorBanner> : null}
-            {deleteId !== null ? (
-                <DeleteHistoryDialog
-                    busy={removal.isPending}
-                    onConfirm={() => removal.mutate(deleteId, { onSuccess: () => setDeleteId(null) })}
-                    onClose={closeDialog}
-                />
-            ) : null}
+            {deleteId !== null
+                ? createPortal(
+                      <DeleteHistoryDialog
+                          busy={removal.isPending}
+                          onConfirm={() => removal.mutate(deleteId, { onSuccess: () => setDeleteId(null) })}
+                          onClose={closeDialog}
+                      />,
+                      document.body,
+                  )
+                : null}
         </section>
     );
 }

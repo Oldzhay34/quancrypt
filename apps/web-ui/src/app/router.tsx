@@ -1,5 +1,6 @@
 import { createBrowserRouter, createMemoryRouter, Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
+import { SubscriptionPage, UsagePage } from '@/features/billing';
 import { AnalysisPage, ChatPage } from '@/features/chat';
 import { ConsentPage } from '@/features/consent';
 import { InventoryPage } from '@/features/inventory';
@@ -19,6 +20,8 @@ export const appRoutes: RouteObject[] = [
                     { index: true, element: <Navigate to="/chat" replace /> },
                     { path: 'consent', element: <ConsentPage /> },
                     { path: 'settings', element: <SettingsPage /> },
+                    { path: 'settings/usage', element: <UsagePage /> },
+                    { path: 'subscription', element: <SubscriptionPage /> },
                     {
                         element: <ConsentGate />,
                         children: [

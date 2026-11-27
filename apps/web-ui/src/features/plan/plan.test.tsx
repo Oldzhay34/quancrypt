@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { chooseLanguage } from '@/test/language';
 import { renderApp } from '@/test/renderApp';
 import { captureDownloads, reviewBackend } from '@/test/review';
 import { PLAN_ITEMS, REPORT_TR } from '@/test/reviewFixtures';
@@ -167,7 +168,7 @@ describe('plan screen: report', () => {
         await user.click(await screen.findByRole('tab', { name: 'Rapor' }));
         await screen.findByRole('heading', { name: 'Quancrypt geçiş planı raporu' });
 
-        await user.selectOptions(screen.getByLabelText('Dil'), 'en');
+        await chooseLanguage(user, 'English');
 
         expect(
             await screen.findByRole('heading', { name: 'Quancrypt migration plan report' }),

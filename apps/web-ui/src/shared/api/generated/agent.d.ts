@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetUsage
+         * @description İçinde bulunulan haftada (Pazartesi 00:00 UTC'den) ajan adımlarında harcanan token toplamı. Tüm kurulum içindir; proje ve kullanıcı ayrımı yoktur. Kapsam bekçisinin LLM öz-denetiminde harcanan token'lar adım kaydında olmadığı için toplama girmez (D-358).
+         */
+        get: operations["GetUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -183,6 +203,14 @@ export interface components {
             last_message_at: string;
             /** @description İlk kullanıcı mesajının başı; yalnız tarama yanıtı olan oturumda null. */
             preview: string | null;
+        };
+        Usage: {
+            /** Format: date-time */
+            period_start: string;
+            /** Format: date-time */
+            period_end: string;
+            prompt_tokens: number;
+            completion_tokens: number;
         };
         SessionPage: {
             items: components["schemas"]["SessionSummary"][];
@@ -400,6 +428,32 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    GetUsage: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description İzleme kimliği; yoksa servis üretir ve yanıtta döner. */
+                "X-Trace-Id"?: components["parameters"]["TraceId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Haftalık kullanım. */
+            200: {
+                headers: {
+                    "X-Trace-Id": components["headers"]["TraceId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Usage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     ListSessions: {
         parameters: {
             query: {

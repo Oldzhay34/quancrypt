@@ -307,8 +307,17 @@ export class FakeBackend {
         return null;
     }
 
+    /** What `GET /api/v1/usage` answers (D-358d). */
+    usage = {
+        period_start: '2026-11-23T00:00:00Z',
+        period_end: '2026-11-30T00:00:00Z',
+        prompt_tokens: 5000,
+        completion_tokens: 1000,
+    };
+
     /** The chat endpoints of agent-service and the scan endpoints of core-service; null for any other path. */
     private chatRoute(method: string, path: string, body: unknown): Response | null {
+        if (method === 'GET' && path === '/api/v1/usage') return json(200, this.usage);
         if (method === 'GET' && path === '/api/v1/sessions') {
             const items = [...this.sessions.entries()]
                 .filter(([, found]) => found.messages.length > 0)

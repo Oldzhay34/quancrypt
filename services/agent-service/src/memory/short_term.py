@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, Protocol
 from uuid import UUID
@@ -139,6 +139,31 @@ class IdempotencyKey:
             raise InvalidRecordError("the request digest must be 64 lowercase hexadecimal digits")
 
 
+# The list shows this many characters. The store hands over the whole message, so that no secret is cut in half before
+# the API layer redacts it (D-353).
+PREVIEW_CHARS = 80
+
+
+@dataclass(frozen=True)
+class SessionSummary:
+    """A session in the list of a project (D-350f): `preview` is the start of its first user message (whole and
+    unredacted), None when the session holds only a scan answer."""
+
+    id: UUID
+    language: Language
+    created_at: datetime
+    last_message_at: datetime
+    preview: str | None
+
+
+@dataclass(frozen=True)
+class SessionPage:
+    items: tuple[SessionSummary, ...]
+    page: int
+    size: int
+    total: int
+
+
 @dataclass(frozen=True)
 class MessagePage:
     items: tuple[ChatMessage, ...]
@@ -162,6 +187,8 @@ class ToolCallRecord:
     status: ToolCallStatus
     duration_ms: int
     called_at: datetime
+    # The registered tool name, for the live step events (D-350f). It is not stored (agent_db keeps the code only).
+    name: str | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
         if self.duration_ms < 0:
@@ -281,6 +308,10 @@ class ConversationMemory(Protocol):
         ...
 
     def get_session(self, session_id: UUID) -> ChatSession | None: ...
+
+    def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
+        """The project's sessions that hold at least one message, newest activity first; `size` at most 200."""
+        ...
 
     def delete_session(self, session_id: UUID) -> None:
         """Delete the session, its messages and evidence; audit rows stay anonymous (D-225). Raises

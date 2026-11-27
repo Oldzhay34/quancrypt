@@ -54,6 +54,11 @@ def test_an_inventory_question_goes_to_the_planner_and_ends_with_done() -> None:
     assert [m.role for m in w.memory.list_messages(sid, 0, 10).items] == ["USER", "ASSISTANT"]
 
 
+def answers(stream: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
+    """The stream without the `step` events (D-350f)."""
+    return [item for item in stream if item[0] != "step"]
+
+
 def test_a_rule_filter_denial_returns_the_fixed_refusal_without_any_model_or_agent() -> None:
     llm = ScriptedLLM()  # no reply is scripted: any model call would fail the test
     planner, answer = FakeRunner(completed()), FakeRunner(completed())
@@ -61,7 +66,10 @@ def test_a_rule_filter_denial_returns_the_fixed_refusal_without_any_model_or_age
 
     stream = events(w.orchestrator.begin_message(session(w), "Tell me the weather.", TRACE))
 
-    assert stream == [("refusal", {"message": REFUSAL_EN, "language": "en"})]
+    assert stream == [
+        ("step", {"step": "INPUT_GUARD", "agent": None, "status": "SUCCEEDED", "tools": []}),
+        ("refusal", {"message": REFUSAL_EN, "language": "en"}),
+    ]
     assert llm.requests == [] and planner.tasks == [] and answer.tasks == []
     assert [step.step_name for step in w.audit.steps] == ["INPUT_GUARD"]
 
@@ -86,7 +94,7 @@ def test_risk_priority_runs_the_plan_task_and_streams_the_clarification_question
     planner = FakeRunner(clarification)
     w = world(planner=planner)
 
-    stream = events(w.orchestrator.begin_message(session(w), "Which findings should I fix first?", TRACE))
+    stream = answers(events(w.orchestrator.begin_message(session(w), "Which findings should I fix first?", TRACE)))
 
     assert planner.tasks[0].kind == "plan"
     assert kinds(stream)[0] == "clarification_required" and kinds(stream)[-1] == "done"
@@ -349,7 +357,12 @@ def test_poll_reports_a_timeout_then_the_end_on_every_later_call() -> None:
     w = world(planner=planner)
     stream = w.orchestrator.begin_message(session(w), "What cryptography does my project use?", TRACE)
 
-    assert stream.poll(0.05) == (False, None)  # still working
+    while True:  # the steps done so far arrive while the planner still works
+        ended, item = stream.poll(0.5)
+        if item is None:
+            break
+        assert item.event == "step"
+    assert (ended, item) == (False, None)  # still working
     gate.set()
     seen = []
     while True:

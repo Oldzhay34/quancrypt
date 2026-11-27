@@ -57,6 +57,7 @@ _EVENT_SCHEMAS = {
     "clarification_required": "ClarificationRequiredEvent",
     "refusal": "RefusalEvent",
     "done": "DoneEvent",
+    "step": "StepEvent",
     "error": "ErrorEvent",
 }
 
@@ -364,3 +365,62 @@ def test_a_chunked_body_above_64_kib_is_refused_and_a_401_carries_cors_headers(
     assert big.status_code == 400 and big.json()["type"].endswith("/validation-failed")
     assert refused.status_code == 401
     assert refused.headers["access-control-allow-origin"] == "http://127.0.0.1:8080"
+
+
+def test_the_stream_reports_each_step_with_codes_only(setup: tuple[TestClient, World]) -> None:
+    client, _ = setup
+    sid = new_session(client)
+
+    response = client.post(f"/api/v1/sessions/{sid}/messages", json={"content": "My secret question"}, headers=AUTH)
+
+    steps = [data for event, data in sse(response.text) if event == "step"]
+    assert steps
+    for data in steps:
+        assert_fits("StepEvent", data)
+        assert set(data) == {"step", "agent", "status", "tools"}
+        assert "secret" not in json.dumps(data)
+
+
+def test_sessions_are_listed_for_one_project_newest_first(setup: tuple[TestClient, World]) -> None:
+    client, _ = setup
+    first, second, empty = new_session(client), new_session(client), new_session(client)
+    for sid, content in ((first, "q1 " + "x" * 200), (second, "q2")):
+        client.post(f"/api/v1/sessions/{sid}/messages", json={"content": content}, headers=AUTH)
+
+    page = client.get("/api/v1/sessions", params={"project_id": str(PROJECT), "size": 10}, headers=AUTH)
+
+    assert page.status_code == 200
+    assert_fits("SessionPage", page.json())
+    items = page.json()["items"]
+    assert [item["id"] for item in items] == [second, first]
+    assert empty not in {item["id"] for item in items}
+    assert len(items[1]["preview"]) == 80 and page.json()["total"] == 2
+    other = client.get("/api/v1/sessions", params={"project_id": str(uuid4())}, headers=AUTH)
+    assert other.json()["items"] == []
+    assert client.get("/api/v1/sessions", headers=AUTH).status_code == 400
+    assert client.get("/api/v1/sessions", params={"project_id": "nope"}, headers=AUTH).status_code == 400
+    assert client.get("/api/v1/sessions", params={"project_id": str(PROJECT)}).status_code == 401
+
+
+def test_the_list_preview_is_redacted_before_it_is_cut(setup: tuple[TestClient, World]) -> None:
+    client, _ = setup
+    sid = new_session(client)
+    secret = "password=Sup3rSecretValue-0123456789"
+    client.post(f"/api/v1/sessions/{sid}/messages", json={"content": "x" * 60 + " " + secret}, headers=AUTH)
+
+    [item] = client.get("/api/v1/sessions", params={"project_id": str(PROJECT)}, headers=AUTH).json()["items"]
+
+    assert "Sup3rSecret" not in item["preview"]
+    assert len(item["preview"]) <= 80
+
+
+def test_a_long_token_that_starts_in_the_preview_is_redacted_whole(setup: tuple[TestClient, World]) -> None:
+    client, _ = setup
+    sid = new_session(client)
+    token = "eyJ" + "a" * 300 + ".eyJ" + "b" * 200 + "." + "c" * 43
+    client.post(f"/api/v1/sessions/{sid}/messages", json={"content": "token: nedir " + token}, headers=AUTH)
+
+    [item] = client.get("/api/v1/sessions", params={"project_id": str(PROJECT)}, headers=AUTH).json()["items"]
+
+    assert "eyJ" not in item["preview"]
+    assert "bbbb" not in item["preview"]

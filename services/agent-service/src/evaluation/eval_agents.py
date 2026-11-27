@@ -5,7 +5,8 @@ Three runs, each measured where its question can be answered (D-260, D-262, D-26
 - Live over HTTP (`LiveRunner`): a fresh core-service project, one initial scan of the QBank payment service (D-203),
   then every golden question and every scope seed request in a session of its own (no history leaks between
   questions). The SSE stream is read as it arrives: the first event's arrival is the "first part" of NFR-02, the
-  terminal event's the total. The tool outputs of the run (the scan's findings and topology from core-service) are
+  terminal event's the total; `step` events (D-350f) report progress, not answer, and do not count as the first part.
+  The tool outputs of the run (the scan's findings and topology from core-service) are
   fetched afterwards for the fabrication check.
 - In process, the task router (`route_golden`): the intent of every golden question, with the real model.
 - In process, injection (`InjectionRunner`): each injection case is put into the tool outputs that reach a language
@@ -180,7 +181,7 @@ class LiveRunner:
             if response.status_code != 200:
                 raise RunnerError(f"the stream was refused (HTTP {response.status_code})")
             for event, data in parse_sse(response.iter_lines()):
-                if first is None:
+                if first is None and event != "step":
                     first = self._clock() - started
                 events.append((event, data))
                 if event in _TERMINAL:

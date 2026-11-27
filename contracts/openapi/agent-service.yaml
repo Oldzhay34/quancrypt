@@ -18,6 +18,39 @@ security:
 - bearerAuth: []
 paths:
   /api/v1/sessions:
+    get:
+      operationId: ListSessions
+      summary: ListSessions
+      tags:
+      - Oturum
+      description: 'Bir projenin en az bir mesajı olan sohbet oturumlarını, son mesaj zamanına göre en yeniden eskiye, sayfalı döner
+        (D-350f).'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Oturum sayfası.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       operationId: CreateSession
       summary: CreateSession
@@ -146,6 +179,8 @@ paths:
                   $ref: '#/components/schemas/RefusalEvent'
                 done:
                   $ref: '#/components/schemas/DoneEvent'
+                step:
+                  $ref: '#/components/schemas/StepEvent'
                 error:
                   $ref: '#/components/schemas/ErrorEvent'
         '400':
@@ -197,6 +232,8 @@ paths:
                   $ref: '#/components/schemas/RefusalEvent'
                 done:
                   $ref: '#/components/schemas/DoneEvent'
+                step:
+                  $ref: '#/components/schemas/StepEvent'
                 error:
                   $ref: '#/components/schemas/ErrorEvent'
         '400':
@@ -478,6 +515,102 @@ components:
       - project_id
       - language
       - created_at
+      additionalProperties: false
+    SessionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        language:
+          $ref: '#/components/schemas/Language'
+        created_at:
+          type: string
+          format: date-time
+        last_message_at:
+          type: string
+          format: date-time
+        preview:
+          type:
+          - string
+          - 'null'
+          maxLength: 80
+          description: İlk kullanıcı mesajının başı; yalnız tarama yanıtı olan oturumda null.
+      required:
+      - id
+      - language
+      - created_at
+      - last_message_at
+      - preview
+      additionalProperties: false
+    SessionPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionSummary'
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 200
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - items
+      - page
+      - size
+      - total
+      additionalProperties: false
+    StepEvent:
+      type: object
+      description: '`event: step`. Bir ajan ya da iş akışı adımı tamamlandı (D-350f): yalnız kodlar ve araç adları; argüman, sonuç
+        veya metin yoktur. Adımlar saklanmaz.'
+      properties:
+        step:
+          type: string
+          enum:
+          - INPUT_GUARD
+          - ROUTE
+          - GATHER_CONTEXT
+          - PLAN
+          - ACT
+          - VERIFY
+          - REPORT
+          - ANSWER
+          - OUTPUT_GUARD
+        agent:
+          type:
+          - string
+          - 'null'
+          enum:
+          - SUPERVISOR
+          - DISCOVERY
+          - TOPOLOGY
+          - PLANNER
+          - null
+          description: İş akışı düğümlerinde null.
+        status:
+          type: string
+          enum:
+          - SUCCEEDED
+          - FAILED
+          - STOPPED
+          - BUDGET_EXCEEDED
+        tools:
+          type: array
+          items:
+            type: string
+            maxLength: 64
+      required:
+      - step
+      - agent
+      - status
+      - tools
       additionalProperties: false
     SendMessageRequest:
       type: object

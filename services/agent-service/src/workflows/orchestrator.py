@@ -37,6 +37,7 @@ from src.memory.short_term import (
     ScopeDecisionRecord,
     SessionCreated,
     SessionNotFoundError,
+    SessionPage,
     StepName,
     StepRecord,
     StepStatus,
@@ -89,7 +90,7 @@ class UpstreamUnavailableError(Exception):
 
 @dataclass(frozen=True)
 class SseEvent:
-    event: Literal["token", "evidence", "clarification_required", "refusal", "done", "error"]
+    event: Literal["token", "evidence", "clarification_required", "step", "refusal", "done", "error"]
     data: Mapping[str, Any]
 
 
@@ -103,6 +104,19 @@ class AgentSet:
 
 # Builds fresh agents (fresh toolboxes, so each run has its own call journal) around the given model.
 AgentFactory = Callable[[LLMProvider], AgentSet]
+
+
+def _step_event(record: StepRecord) -> SseEvent:
+    """One audited step as a `step` event (D-350f): codes and tool names only, never arguments, results or text."""
+    return SseEvent(
+        "step",
+        {
+            "step": record.step_name,
+            "agent": record.agent_code,
+            "status": record.status,
+            "tools": [call.name for call in record.tool_calls if call.name],
+        },
+    )
 
 
 class UsageMeter:
@@ -154,10 +168,17 @@ class EventStream:
     keep the request's trace id.
     """
 
-    def __init__(self, slot: _Slot, events: Iterator[SseEvent], language: Language) -> None:
+    def __init__(
+        self,
+        slot: _Slot,
+        events: Iterator[SseEvent],
+        language: Language,
+        channel: queue.Queue[object] | None = None,
+    ) -> None:
+        """`channel` is the queue the run's step events are put into while its graph works (D-350f)."""
         self._slot = slot
         self._stop = slot.stop  # this run's flag
-        self._queue: queue.Queue[object] = queue.Queue()
+        self._queue: queue.Queue[object] = channel if channel is not None else queue.Queue()
         context = contextvars.copy_context()
         self._worker = threading.Thread(
             target=context.run, args=(self._work, events, language), name="agent-run", daemon=True
@@ -252,6 +273,9 @@ class Orchestrator:
         self._slot(session_id).stop.set()  # a running answer stops at its next node boundary
         self._conversation.delete_session(session_id)
 
+    def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
+        return self._conversation.list_sessions(project_id, page, size)
+
     def list_messages(self, session_id: UUID, page: int, size: int) -> MessagePage:
         return self._conversation.list_messages(session_id, page, size)
 
@@ -267,19 +291,33 @@ class Orchestrator:
     def begin_message(self, session_id: UUID, content: str, trace_id: str) -> EventStream:
         session = self._session(session_id)
         slot = self._acquire(session_id)
-        return EventStream(slot, self._message_events(session, content, trace_id, slot), session.language)
+        channel: queue.Queue[object] = queue.Queue()
+        events = self._message_events(session, content, trace_id, slot, channel)
+        return EventStream(slot, events, session.language, channel)
 
     def begin_initial_scan(self, session_id: UUID, root: str, trace_id: str) -> EventStream:
         session = self._session(session_id)
         slot = self._acquire(session_id)
-        return EventStream(slot, self._scan_events(session, root, trace_id, slot), session.language)
+        channel: queue.Queue[object] = queue.Queue()
+        events = self._scan_events(session, root, trace_id, slot, channel)
+        return EventStream(slot, events, session.language, channel)
 
-    def _message_events(self, session: ChatSession, content: str, trace_id: str, slot: _Slot) -> Iterator[SseEvent]:
+    def _context(self, trace_id: str, run_id: UUID, channel: queue.Queue[object]) -> AgentContext:
+        return AgentContext(
+            trace_id=trace_id,
+            run_id=run_id,
+            clock=self._clock,
+            on_step=lambda record: channel.put(_step_event(record)),
+        )
+
+    def _message_events(
+        self, session: ChatSession, content: str, trace_id: str, slot: _Slot, channel: queue.Queue[object]
+    ) -> Iterator[SseEvent]:
         # D-252e: a checkpoint is written from the session's second user message on (one-off sessions write none).
         persist = any(message.role == "USER" for message in self._conversation.recent_messages(session.id))
         self._conversation.append_user_message(session.id, content)
         run_id = self._audit.start_run(session.id, "MESSAGE", trace_id)
-        context = AgentContext(trace_id=trace_id, run_id=run_id, clock=self._clock)
+        context = self._context(trace_id, run_id, channel)
         meter = UsageMeter(self._llm)
         agents = self._agents(meter)
         deps = GraphDeps(
@@ -311,9 +349,11 @@ class Orchestrator:
         }
         yield from self._run(workflow.run(state, session.id, persist), state, session, context, meter, slot)
 
-    def _scan_events(self, session: ChatSession, root: str, trace_id: str, slot: _Slot) -> Iterator[SseEvent]:
+    def _scan_events(
+        self, session: ChatSession, root: str, trace_id: str, slot: _Slot, channel: queue.Queue[object]
+    ) -> Iterator[SseEvent]:
         run_id = self._audit.start_run(session.id, "INITIAL_SCAN", trace_id)
-        context = AgentContext(trace_id=trace_id, run_id=run_id, clock=self._clock)
+        context = self._context(trace_id, run_id, channel)
         meter = UsageMeter(self._llm)
         agents = self._agents(meter)
         deps = GraphDeps(
@@ -470,19 +510,20 @@ class Orchestrator:
     def _recorder(self, context: AgentContext) -> Callable[[StepName, StepStatus, datetime, TokenUsage], None]:
         def record(name: StepName, status: StepStatus, started: datetime, usage: TokenUsage) -> None:
             duration = max(0, round((self._clock() - started).total_seconds() * 1000))
-            self._audit.record_step(
-                StepRecord(
-                    run_id=context.run_id,
-                    ordinal=context.next_ordinal(),
-                    step_name=name,
-                    agent_code=None,
-                    status=status,
-                    duration_ms=duration,
-                    prompt_tokens=usage.prompt_tokens,
-                    completion_tokens=usage.completion_tokens,
-                    started_at=started,
-                )
+            step = StepRecord(
+                run_id=context.run_id,
+                ordinal=context.next_ordinal(),
+                step_name=name,
+                agent_code=None,
+                status=status,
+                duration_ms=duration,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                started_at=started,
             )
+            self._audit.record_step(step)
+            if context.on_step is not None:
+                context.on_step(step)
 
         return record
 

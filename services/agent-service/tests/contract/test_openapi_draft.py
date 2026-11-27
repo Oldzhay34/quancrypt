@@ -14,6 +14,7 @@ import yaml
 CONTRACT = Path(__file__).resolve().parents[4] / "contracts" / "openapi" / "agent-service.yaml"
 
 EXPECTED_OPERATIONS = {
+    ("get", "/api/v1/sessions"),
     ("post", "/api/v1/sessions"),
     ("get", "/api/v1/sessions/{id}/messages"),
     ("post", "/api/v1/sessions/{id}/messages"),
@@ -24,7 +25,7 @@ EXPECTED_OPERATIONS = {
     ("delete", "/api/v1/sessions/{id}"),
 }
 
-SSE_EVENTS = {"token", "evidence", "clarification_required", "refusal", "done", "error"}
+SSE_EVENTS = {"token", "evidence", "clarification_required", "refusal", "done", "step", "error"}
 
 
 @pytest.fixture(scope="module")

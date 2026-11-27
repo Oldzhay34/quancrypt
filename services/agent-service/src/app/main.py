@@ -60,6 +60,7 @@ def create_app(settings: AppSettings | None = None, container: Container | None 
         session.token.get_secret_value(),
         session.ui_origins,
         settings.agents.guardrails.max_request_chars,
+        container.redactor.redact,
     )
 
     @app.middleware("http")

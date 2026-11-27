@@ -134,6 +134,31 @@ class ConversationContract:
         assert page.items[1].evidence == evidence
         assert page.total == 3
 
+    def test_list_sessions_is_per_project_newest_activity_first_and_skips_empty_ones(
+        self, memory: ConversationMemory
+    ) -> None:
+        older = memory.create_session(PROJECT, KEY, "tr").session.id
+        newer = memory.create_session(PROJECT, KEY, "en").session.id
+        scan_only = memory.create_session(PROJECT, KEY, "tr").session.id
+        memory.create_session(PROJECT, KEY, "tr")  # no message: not listed
+        memory.append_user_message(older, "u" * 500)
+        memory.append_user_message(newer, "second")
+        memory.append_assistant_message(scan_only, "scan answer")
+        memory.append_user_message(older, "follow-up")  # moves `older` back to the top
+
+        page = memory.list_sessions(PROJECT, 0, 10)
+
+        assert [s.id for s in page.items] == [older, scan_only, newer]
+        assert page.total == 3
+        by_id = {s.id: s for s in page.items}
+        assert by_id[older].preview == "u" * 500
+        assert by_id[scan_only].preview is None
+        assert (by_id[newer].preview, by_id[newer].language) == ("second", "en")
+        assert [s.id for s in memory.list_sessions(PROJECT, 1, 2).items] == [newer]
+        assert memory.list_sessions(uuid4(), 0, 10).items == ()
+        with pytest.raises(InvalidRecordError):
+            memory.list_sessions(PROJECT, 0, 201)
+
     def test_list_messages_pages_oldest_first(self, memory: ConversationMemory) -> None:
         session = memory.create_session(PROJECT, KEY, "tr").session.id
         for index in range(5):

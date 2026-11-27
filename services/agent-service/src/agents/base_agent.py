@@ -77,6 +77,8 @@ class AgentContext:
     trace_id: str
     run_id: UUID
     clock: Clock = field(default=lambda: datetime.now(UTC))
+    # Called after each step is audited, for the live step events of the answer (D-350f).
+    on_step: Callable[[StepRecord], None] | None = None
     _counter: Iterator[int] = field(default_factory=lambda: itertools.count(1), repr=False)
 
     def next_ordinal(self) -> int:
@@ -313,20 +315,21 @@ class BaseAgent[S: AgentState](ABC):
     ) -> None:
         prompt_tokens, completion_tokens = meter.phase_tokens()
         duration_ms = max(0, round((context.clock() - started).total_seconds() * 1000))
-        self._audit.record_step(
-            StepRecord(
-                run_id=context.run_id,
-                ordinal=context.next_ordinal(),
-                step_name=step_name,
-                agent_code=self._agent_code,
-                status=status,
-                duration_ms=duration_ms,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                started_at=started,
-                tool_calls=meter.new_tool_calls(),
-            )
+        record = StepRecord(
+            run_id=context.run_id,
+            ordinal=context.next_ordinal(),
+            step_name=step_name,
+            agent_code=self._agent_code,
+            status=status,
+            duration_ms=duration_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            started_at=started,
+            tool_calls=meter.new_tool_calls(),
         )
+        self._audit.record_step(record)
+        if context.on_step is not None:
+            context.on_step(record)
 
     # ---- helpers for subclasses ----
 

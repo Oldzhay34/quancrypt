@@ -66,6 +66,8 @@ from src.memory.short_term import (
     ScopeDecisionResult,
     SessionCreated,
     SessionNotFoundError,
+    SessionPage,
+    SessionSummary,
     StepRecord,
     StoredCheckpoint,
     trim_to_window,
@@ -309,6 +311,35 @@ class PostgresConversationMemory:
 
     def get_session(self, session_id: UUID) -> ChatSession | None:
         return self._db.run(lambda conn: self._select_session(conn, session_id))
+
+    def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
+        if page < 0 or not 1 <= size <= 200:
+            raise InvalidRecordError("page must be 0 or more and size between 1 and 200")
+
+        def work(conn: Connection) -> SessionPage:
+            total = conn.execute(
+                text(
+                    "SELECT count(*) FROM chat_session s WHERE s.project_id = :pid "
+                    "AND EXISTS (SELECT 1 FROM chat_message m WHERE m.session_id = s.id)"
+                ),
+                {"pid": project_id},
+            ).scalar_one()
+            rows = conn.execute(
+                text(
+                    "SELECT s.id, s.language, s.created_at, latest.at AS last_message_at, "
+                    "first.content AS preview FROM chat_session s "
+                    "JOIN LATERAL (SELECT max(m.created_at) AS at FROM chat_message m "
+                    "WHERE m.session_id = s.id) latest ON latest.at IS NOT NULL "
+                    "LEFT JOIN LATERAL (SELECT m.content FROM chat_message m "
+                    "WHERE m.session_id = s.id AND m.role = 'USER' ORDER BY m.ordinal LIMIT 1) first ON true "
+                    "WHERE s.project_id = :pid ORDER BY latest.at DESC, s.id LIMIT :size OFFSET :offset"
+                ),
+                {"pid": project_id, "size": size, "offset": page * size},
+            ).all()
+            items = tuple(SessionSummary(r.id, r.language, r.created_at, r.last_message_at, r.preview) for r in rows)
+            return SessionPage(items, page, size, total)
+
+        return self._db.run(work)
 
     @staticmethod
     def _select_session(conn: Connection, session_id: UUID) -> ChatSession | None:

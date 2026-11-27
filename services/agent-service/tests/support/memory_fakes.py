@@ -48,6 +48,8 @@ from src.memory.short_term import (
     ScopeDecisionResult,
     SessionCreated,
     SessionNotFoundError,
+    SessionPage,
+    SessionSummary,
     StepRecord,
     StoredCheckpoint,
     trim_to_window,
@@ -92,6 +94,21 @@ class InMemoryConversationMemory:
 
     def get_session(self, session_id: UUID) -> ChatSession | None:
         return self.sessions.get(session_id)
+
+    def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
+        if page < 0 or not 1 <= size <= 200:
+            raise InvalidRecordError("page must be 0 or more and size between 1 and 200")
+        found = []
+        for session in self.sessions.values():
+            messages = self.messages[session.id]
+            if session.project_id != project_id or not messages:
+                continue
+            first = next((m.content for m in messages if m.role == "USER"), None)
+            last = max(m.created_at for m in messages)
+            found.append(SessionSummary(session.id, session.language, session.created_at, last, first))
+        found.sort(key=lambda s: s.id)
+        found.sort(key=lambda s: s.last_message_at, reverse=True)
+        return SessionPage(tuple(found[page * size : (page + 1) * size]), page, size, len(found))
 
     def delete_session(self, session_id: UUID) -> None:
         if session_id not in self.sessions:

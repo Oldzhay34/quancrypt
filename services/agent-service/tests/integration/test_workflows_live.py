@@ -113,4 +113,7 @@ def test_uc5_weather_gets_the_fixed_refusal(client: httpx.Client, scanned: dict[
     )
 
     assert response.status_code == 200
-    assert _sse(response) == [("refusal", {"message": REFUSAL_TR, "language": "tr"})]
+    assert _sse(response) == [
+        ("step", {"step": "INPUT_GUARD", "agent": None, "status": "SUCCEEDED", "tools": []}),
+        ("refusal", {"message": REFUSAL_TR, "language": "tr"}),
+    ]

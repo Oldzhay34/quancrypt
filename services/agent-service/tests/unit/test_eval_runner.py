@@ -131,6 +131,25 @@ def test_an_answer_collects_text_evidence_clarifications_and_timing() -> None:
     assert sent.headers["Authorization"] == f"Bearer {TARGET.session_token}"
 
 
+def test_step_events_do_not_count_as_the_first_part_of_the_answer() -> None:
+    now = [0.0]
+    ticks = iter([0.0, 7.0, 9.0])  # session timing starts at 0; the first non-step event arrives at 7
+    stack = Stack(
+        frames(
+            ("step", {"step": "INPUT_GUARD", "agent": None, "status": "SUCCEEDED", "tools": []}),
+            ("step", {"step": "ROUTE", "agent": None, "status": "SUCCEEDED", "tools": []}),
+            ("token", {"text": "27 bulgu"}),
+            ("done", {"message_id": str(uuid4()), "usage": {}, "llm_disabled": False}),
+        )
+    )
+    live = runner(stack)
+    live._clock = lambda: next(ticks, now[0])
+
+    record = live.ask("gq-01", "Envanter?", "tr")
+
+    assert (record.first_token_s, record.total_s) == (7.0, 9.0)
+
+
 def test_refusals_errors_and_refused_streams_are_recorded_not_raised() -> None:
     refusal = runner(Stack(frames(("refusal", {"message": "ret", "language": "tr"}))))
     error = runner(Stack(frames(("error", {"code": "budget_exceeded", "message": "m"}))))

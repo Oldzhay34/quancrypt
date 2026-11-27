@@ -15,7 +15,7 @@ import hmac
 import json
 import logging
 import re
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
@@ -31,6 +31,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from src.app.logging_setup import trace_id_var
 from src.llm.provider import LLMHealth
 from src.memory.short_term import (
+    PREVIEW_CHARS,
     IdempotencyConflictError,
     IdempotencyKey,
     InvalidRecordError,
@@ -187,7 +188,12 @@ class GateMiddleware:
 
 
 def install_api(
-    app: FastAPI, orchestrator: Orchestrator, session_token: str, ui_origins: Sequence[str], max_message_chars: int
+    app: FastAPI,
+    orchestrator: Orchestrator,
+    session_token: str,
+    ui_origins: Sequence[str],
+    max_message_chars: int,
+    redact: Callable[[str], str],
 ) -> None:
     # Order: the gate runs inside CORS (so a 401 still carries the CORS headers) and before routing parses a body.
     app.add_middleware(GateMiddleware, token=session_token)
@@ -227,6 +233,27 @@ def install_api(
             "project_id": str(session.project_id),
             "language": session.language,
             "created_at": session.created_at.isoformat().replace("+00:00", "Z"),
+        }
+
+    @router.get("/sessions")
+    def list_sessions(
+        project_id: UUID, page: int = Query(default=0, ge=0), size: int = Query(default=50, ge=1, le=200)
+    ) -> dict[str, Any]:
+        result = orchestrator.list_sessions(project_id, page, size)
+        return {
+            "items": [
+                {
+                    "id": str(item.id),
+                    "language": item.language,
+                    "created_at": item.created_at.isoformat().replace("+00:00", "Z"),
+                    "last_message_at": item.last_message_at.isoformat().replace("+00:00", "Z"),
+                    "preview": None if item.preview is None else redact(item.preview)[:PREVIEW_CHARS],
+                }
+                for item in result.items
+            ],
+            "page": result.page,
+            "size": result.size,
+            "total": result.total,
         }
 
     @router.delete("/sessions/{session_id}", status_code=204)

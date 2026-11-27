@@ -119,8 +119,9 @@ class AgentToolbox:
 
     def invoke(self, name: str, arguments: Mapping[str, Any], context: ToolContext) -> ToolResult:
         code = self._registry.tool_code(name)
+        known = name if code != "UNKNOWN" else None
         if name not in self.names():
-            self._record(context, code, "DENIED", 0)
+            self._record(context, code, "DENIED", 0, known)
             _LOG.warning("agent %s called a tool outside its allow-list: %s", self._agent, _safe_name(name))
             raise ToolNotAllowedError(f"the agent {self._agent} may not call {_safe_name(name)}")
         started = time.monotonic()
@@ -128,12 +129,12 @@ class AgentToolbox:
             output, duration = self._registry.call(name, arguments, context)
         except ToolUnavailableError as exc:
             status: ToolCallStatus = "TIMED_OUT" if exc.timed_out else "FAILED"
-            self._record(context, code, status, elapsed_ms(started))
+            self._record(context, code, status, elapsed_ms(started), known)
             raise
         except ToolError:
-            self._record(context, code, "FAILED", elapsed_ms(started))
+            self._record(context, code, "FAILED", elapsed_ms(started), known)
             raise
-        self._record(context, code, "SUCCEEDED", duration)
+        self._record(context, code, "SUCCEEDED", duration, known)
         return ToolResult(context.call_id, name, code, "SUCCEEDED", duration, output)
 
     def records(self) -> tuple[ToolCallRecord, ...]:
@@ -141,8 +142,10 @@ class AgentToolbox:
         with self._lock:
             return tuple(self._records)
 
-    def _record(self, context: ToolContext, code: ToolCode, status: ToolCallStatus, duration_ms: int) -> None:
-        record = ToolCallRecord(context.call_id, code, status, duration_ms, self._registry.now())
+    def _record(
+        self, context: ToolContext, code: ToolCode, status: ToolCallStatus, duration_ms: int, name: str | None
+    ) -> None:
+        record = ToolCallRecord(context.call_id, code, status, duration_ms, self._registry.now(), name)
         with self._lock:
             self._records.append(record)
 

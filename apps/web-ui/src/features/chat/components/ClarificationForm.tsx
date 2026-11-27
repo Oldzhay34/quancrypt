@@ -25,13 +25,16 @@ interface ClarificationFormProps {
     /** A turn is still streaming: the answers are saved when it has ended (the session is busy until then). */
     busy: boolean;
     saving: boolean;
+    /** As many answers are running as allowed (D-351): the question cannot be sent again yet. */
+    blocked: boolean;
     /** The message to show when saving failed. */
     failure: MessageKey | null;
     onSubmit: (answers: ClarificationAnswer[]) => void;
 }
 
 /** The clarification questions with structured inputs; what is asked and offered comes from the service's definitions. */
-export function ClarificationForm({ questions, busy, saving, failure, onSubmit }: ClarificationFormProps) {
+export function ClarificationForm(props: ClarificationFormProps) {
+    const { questions, busy, blocked, saving, failure, onSubmit } = props;
     const { t, language } = useI18n();
     const [drafts, setDrafts] = useState<Record<string, Draft>>(() => initialDrafts(questions));
     const [problems, setProblems] = useState<Record<string, Problem>>({});
@@ -58,7 +61,7 @@ export function ClarificationForm({ questions, busy, saving, failure, onSubmit }
 
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        if (busy || saving) return;
+        if (busy || blocked || saving) return;
         const result = buildAnswers(questions, drafts);
         setProblems(result.problems);
         if (Object.keys(result.problems).length === 0) onSubmit(result.answers);
@@ -131,7 +134,7 @@ export function ClarificationForm({ questions, busy, saving, failure, onSubmit }
             })}
             {failure ? <ErrorBanner>{t(failure)}</ErrorBanner> : null}
             <div className={styles.actions}>
-                <Button type="submit" variant="primary" disabled={busy || saving}>
+                <Button type="submit" variant="primary" disabled={busy || blocked || saving}>
                     {saving ? t('chat.clarify.saving') : t('chat.clarify.submit')}
                 </Button>
                 {busy ? <p className={styles.waiting}>{t('chat.clarify.waiting')}</p> : null}

@@ -681,7 +681,7 @@ export interface components {
             /** Format: uuid */
             findingId: string;
             riskScore: number;
-            /** @description SHAP katkıları, en etkiliden başlayarak sıralı. */
+            /** @description Modelin gerekçe katkıları (eğitimde SHAP, agent-service çıkarımında oklüzyon farkı, D-343c), en etkiliden başlayarak sıralı. Alan adı `shapValue` her iki durumda da kullanılır. */
             riskFactors: components["schemas"]["RiskFactor"][];
         };
         PlanInput: {

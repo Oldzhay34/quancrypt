@@ -1,38 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import {
-    ApiError,
-    errorMessageKey,
-    getScanSummary,
-    getTopology,
-    listScans,
-    readSseStream,
-    SseError,
-    useApi,
-} from '@/shared/api';
+import { useCallback, useEffect } from 'react';
+import { ApiError, getScanSummary, getTopology, listScans, useApi } from '@/shared/api';
 import type { ClarificationAnswer, Topology, ScanSummary } from '@/shared/api/types';
-import { useI18n } from '@/shared/i18n';
-import type { MessageKey } from '@/shared/i18n';
-import { useActiveSession } from '@/shared/session';
-import {
-    answerClarifications,
-    createSession,
-    deleteSession,
-    listMessages,
-    streamInitialScan,
-    streamMessage,
-} from './api';
-import { chatReducer, initialChatState } from './chatState';
-import { decodeAgentEvent, ProtocolError } from './events';
-import { forgetSessionId, loadSessionId, saveSessionId } from './sessionStore';
-
-function failureKey(error: unknown): MessageKey {
-    if (error instanceof ProtocolError || error instanceof SseError) return 'chat.error.protocol';
-    if (error instanceof ApiError && error.code === 'protocol') return 'chat.error.protocol';
-    return errorMessageKey(error);
-}
-
-const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
+import { answerClarifications, deleteSession, listMessages, listSessions } from './api';
+import { initialChatState } from './chatState';
+import { draftKey, MAX_PARALLEL, scanKey, useChatRuns } from './runs';
 
 /**
  * The stored history of a session (`['chat-messages', id]`); not asked for before there is a session. `onGone` is called when the
@@ -51,6 +23,15 @@ export function useMessages(sessionId: string | null, onGone: () => void) {
                 throw error;
             }
         },
+    });
+}
+
+/** The project's chat sessions for the list; refreshed after every turn and deletion. */
+export function useSessions(projectId: string) {
+    const api = useApi();
+    return useQuery({
+        queryKey: ['chat-sessions', projectId],
+        queryFn: ({ signal }) => listSessions(api, projectId, signal),
     });
 }
 
@@ -78,152 +59,117 @@ export function useLatestScan(projectId: string) {
     });
 }
 
+const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
+
 /**
- * Everything the chat screen does with the service. The session is created on the first message or scan (not on opening the
- * screen, so looking around leaves no empty session behind) and remembered per project (D-291c). One turn runs at a time: a
- * message or a scan is streamed, its events go through the reducer, and the stored history is reloaded when it ends. Leaving the
- * screen cancels the request; the service then stops the run. The header's Stop button is enabled only while a turn streams.
+ * Everything the chat screen does with the service, as a view of the app-wide runs store (D-351). The session is created
+ * on the first message (not on opening the screen) and remembered per project (D-291c). One turn runs per chat
+ * and at most {@link MAX_PARALLEL} in all; leaving the screen keeps them running.
  */
 export function useChatController(projectId: string) {
     const api = useApi();
-    const { language } = useI18n();
-    const client = useQueryClient();
-    const { setSessionId: announce } = useActiveSession();
-    const [sessionId, setSessionId] = useState<string | null>(() => loadSessionId(projectId));
-    const [state, dispatch] = useReducer(chatReducer, initialChatState);
-    const abort = useRef<AbortController | null>(null);
-    const creating = useRef<Promise<string> | null>(null);
-    const running = useRef(false);
+    const runs = useChatRuns();
+    const sessionId = runs.selected(projectId);
+    const key = sessionId ?? draftKey(projectId);
+    const state = runs.entries.get(key)?.state ?? initialChatState;
+    const busy = runs.runningKeys.has(key);
+    const blocked = !busy && runs.runningKeys.size >= MAX_PARALLEL;
+    const { discard, view, canStart, start, dispatch } = runs;
+
+    useEffect(() => {
+        view(key);
+        return () => view(null);
+    }, [key, view]);
 
     const forget = useCallback(() => {
-        forgetSessionId(projectId);
-        setSessionId(null);
-    }, [projectId]);
-
+        if (sessionId) discard(projectId, sessionId);
+    }, [discard, projectId, sessionId]);
     const messages = useMessages(sessionId, forget);
 
-    useEffect(
-        () => () => {
-            abort.current?.abort();
-            announce(null);
-        },
-        [announce],
+    const send = useCallback(
+        (text: string) => start(projectId, 'message', text, sessionId),
+        [projectId, sessionId, start],
     );
-
-    const ensureSession = useCallback((): Promise<string> => {
-        if (sessionId) return Promise.resolve(sessionId);
-        creating.current ??= createSession(api, projectId, language)
-            .then((session) => {
-                saveSessionId(projectId, session.id);
-                setSessionId(session.id);
-                return session.id;
-            })
-            .finally(() => {
-                creating.current = null;
-            });
-        return creating.current;
-    }, [api, language, projectId, sessionId]);
-
-    const run = useCallback(
-        async (kind: 'message' | 'scan', payload: string) => {
-            if (running.current) return;
-            running.current = true;
-            const controller = new AbortController();
-            abort.current = controller;
-            dispatch({ type: 'start', kind, question: kind === 'message' ? payload : null });
-            let id: string | null = null;
-            let ended = false;
-            try {
-                id = await ensureSession();
-                announce(id);
-                const body =
-                    kind === 'message'
-                        ? await streamMessage(api, id, payload, controller.signal)
-                        : await streamInitialScan(api, id, payload, controller.signal);
-                dispatch({ type: 'accepted' });
-                for await (const message of readSseStream(body, controller.signal)) {
-                    const event = decodeAgentEvent(message);
-                    if (event === null) continue;
-                    if (event.type === 'done' || event.type === 'refusal' || event.type === 'error')
-                        ended = true;
-                    dispatch({ type: 'event', event });
-                }
-                if (!ended && !controller.signal.aborted)
-                    dispatch({ type: 'failed', key: 'chat.error.protocol' });
-            } catch (error) {
-                if (!controller.signal.aborted) {
-                    dispatch({ type: 'failed', key: failureKey(error) });
-                    if (id !== null && isNotFound(error)) forget();
-                }
-            } finally {
-                announce(null);
-                running.current = false;
-                abort.current = null;
-                if (id !== null && !controller.signal.aborted) {
-                    await Promise.all([
-                        client.invalidateQueries({ queryKey: ['chat-messages', id] }),
-                        kind === 'scan'
-                            ? client.invalidateQueries({ queryKey: ['scan-summary', projectId] })
-                            : Promise.resolve(),
-                    ]);
-                    dispatch({ type: 'synced' });
-                }
-            }
-        },
-        [announce, api, client, ensureSession, forget, projectId],
-    );
-
-    const send = useCallback((text: string) => run('message', text), [run]);
-    const startScan = useCallback((root: string) => run('scan', root), [run]);
+    const stopRun = runs.stop;
+    const stop = useCallback(() => stopRun(key), [stopRun, key]);
 
     const saveAnswers = useMutation({
-        mutationFn: (answers: ClarificationAnswer[]) =>
-            answerClarifications(api, sessionId as string, answers),
+        mutationFn: (request: { sessionId: string; answers: ClarificationAnswer[] }) =>
+            answerClarifications(api, request.sessionId, request.answers),
     });
     const pending = state.clarification;
     const { mutateAsync: saveAsync } = saveAnswers;
-    /** Saves the answers, then sends the question that needed them again: the plan flow continues (D-291d). */
+    /** Saves the answers, then sends the question again to the chat that asked, wherever the user is by then (D-291d). */
     const submitClarifications = useCallback(
         async (answers: ClarificationAnswer[]) => {
             if (!pending || !sessionId) return;
-            await saveAsync(answers);
-            dispatch({ type: 'clearClarification' });
-            await run('message', pending.question);
+            await saveAsync({ sessionId, answers });
+            // Two other answers may have started meanwhile: the form stays, so that the question is not lost.
+            if (!canStart(projectId, sessionId)) return;
+            dispatch(sessionId, { type: 'clearClarification' });
+            await start(projectId, 'message', pending.question, sessionId);
         },
-        [pending, run, saveAsync, sessionId],
+        [canStart, dispatch, pending, projectId, saveAsync, sessionId, start],
     );
-
-    const removeHistory = useMutation({
-        mutationFn: async () => {
-            if (!sessionId) return;
-            abort.current?.abort();
-            try {
-                await deleteSession(api, sessionId);
-            } catch (error) {
-                if (!isNotFound(error)) throw error;
-            }
-        },
-        onSuccess: () => {
-            client.removeQueries({ queryKey: ['chat-messages', sessionId] });
-            forget();
-            dispatch({ type: 'reset' });
-        },
-    });
 
     return {
         sessionId,
         state,
-        busy: state.turn?.status === 'streaming',
+        busy,
+        blocked,
+        epoch: runs.epoch,
         messages,
         send,
-        startScan,
+        stop,
+        canStop: runs.stoppable.has(key),
+        stopping: runs.stopping.has(key),
         submitClarifications,
-        savingAnswers: saveAnswers.isPending,
-        answersError: saveAnswers.error,
+        savingAnswers: saveAnswers.isPending && saveAnswers.variables?.sessionId === sessionId,
+        answersError: saveAnswers.variables?.sessionId === sessionId ? saveAnswers.error : null,
         resetAnswersError: saveAnswers.reset,
-        removeHistory: removeHistory.mutate,
-        removingHistory: removeHistory.isPending,
-        removeError: removeHistory.error,
-        resetRemoveError: removeHistory.reset,
     };
+}
+
+/** The project's scan as a view of the runs store (D-356c): its steps and answer stay until the next scan or a reload. */
+export function useScanController(projectId: string) {
+    const { entries, runningKeys, stoppable, stopping, start, stop, view } = useChatRuns();
+    const key = scanKey(projectId);
+    const state = entries.get(key)?.state ?? initialChatState;
+    const busy = runningKeys.has(key);
+
+    useEffect(() => {
+        view(key);
+        return () => view(null);
+    }, [key, view]);
+
+    return {
+        state,
+        busy,
+        blocked: !busy && runningKeys.size >= MAX_PARALLEL,
+        start: useCallback((root: string) => void start(projectId, 'scan', root, null), [projectId, start]),
+        stop: useCallback(() => stop(key), [stop, key]),
+        canStop: stoppable.has(key),
+        stopping: stopping.has(key),
+    };
+}
+
+/** Deletes a chat for good (D-225) and drops everything the app keeps about it. */
+export function useDeleteChat(projectId: string) {
+    const api = useApi();
+    const client = useQueryClient();
+    const { discard } = useChatRuns();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            try {
+                await deleteSession(api, id);
+            } catch (error) {
+                if (!isNotFound(error)) throw error;
+            }
+        },
+        onSuccess: (_, id) => {
+            client.removeQueries({ queryKey: ['chat-messages', id] });
+            void client.invalidateQueries({ queryKey: ['chat-sessions', projectId] });
+            discard(projectId, id);
+        },
+    });
 }

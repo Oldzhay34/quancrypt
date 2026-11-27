@@ -238,7 +238,7 @@ describe('settings', () => {
 });
 
 describe('layout', () => {
-    it('shows the project name, the five menu entries and a disabled Stop button without an active session', async () => {
+    it('shows the project name, the menu entries and no Stop button without a running answer', async () => {
         const backend = new FakeBackend();
         backend.consents = [activeConsent('MODEL_TRAINING')];
         renderApp(backend);
@@ -250,8 +250,9 @@ describe('layout', () => {
             within(nav)
                 .getAllByRole('link')
                 .map((link) => link.textContent),
-        ).toEqual(['Sohbet', 'Envanter', 'Topoloji', 'Plan', 'Ayarlar']);
-        expect(screen.getByRole('button', { name: 'Durdur' })).toBeDisabled();
+        ).toEqual(['Analiz', 'Envanter', 'Topoloji', 'Plan', 'Ayarlar']);
+        expect(within(nav).getByRole('button', { name: 'Yeni sohbet' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Durdur' })).toBeNull();
     });
 
     it('lets the user pick a project when there are several, and remembers the choice for the tab', async () => {
@@ -296,7 +297,7 @@ describe('layout', () => {
         await user.selectOptions(await screen.findByRole('combobox', { name: 'Dil' }), 'en');
 
         expect(await screen.findByRole('heading', { name: 'Chat' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
         expect(document.documentElement.lang).toBe('en');
     });
 });

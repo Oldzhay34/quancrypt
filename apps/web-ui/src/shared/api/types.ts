@@ -18,6 +18,9 @@ export type Evidence = AgentSchemas['Evidence'];
 export type ClarificationQuestion = AgentSchemas['ClarificationQuestion'];
 export type ClarificationAnswer = AgentSchemas['ClarificationAnswer'];
 export type ClarificationList = AgentSchemas['ClarificationList'];
+export type SessionSummary = AgentSchemas['SessionSummary'];
+export type SessionPage = AgentSchemas['SessionPage'];
+export type StepEvent = AgentSchemas['StepEvent'];
 export type AnswerKind = ClarificationQuestion['answer_kind'];
 
 // core-service (scan summary, P5.3)

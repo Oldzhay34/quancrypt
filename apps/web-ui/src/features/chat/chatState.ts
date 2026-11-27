@@ -1,5 +1,5 @@
 import type { MessageKey } from '@/shared/i18n';
-import type { ClarificationQuestion, Evidence } from '@/shared/api/types';
+import type { ClarificationQuestion, Evidence, StepEvent } from '@/shared/api/types';
 import type { AgentEvent } from './events';
 
 /**
@@ -34,6 +34,8 @@ export interface PendingClarification {
 export interface ChatState {
     turn: Turn | null;
     clarification: PendingClarification | null;
+    /** The steps of the last answer of this screen, kept after the turn is synced; never stored (D-350f). */
+    steps: StepEvent[];
 }
 
 export type ChatAction =
@@ -45,7 +47,10 @@ export type ChatAction =
     | { type: 'clearClarification' }
     | { type: 'reset' };
 
-export const initialChatState: ChatState = { turn: null, clarification: null };
+export const initialChatState: ChatState = { turn: null, clarification: null, steps: [] };
+
+/** A run has a handful of steps; this only bounds a misbehaving stream. */
+const MAX_STEPS = 100;
 
 const ERROR_KEYS = {
     stopped: 'chat.error.stopped',
@@ -63,6 +68,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     switch (action.type) {
         case 'start':
             return {
+                steps: [],
                 clarification: null,
                 turn: {
                     kind: action.kind,
@@ -95,6 +101,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                               ...state,
                               clarification: { questions: event.questions, question: turn.question },
                           };
+                case 'step':
+                    return state.steps.length >= MAX_STEPS
+                        ? state
+                        : { ...state, steps: [...state.steps, event.step] };
                 case 'refusal':
                     return { ...state, turn: { ...turn, status: 'refused', refusal: event.message } };
                 case 'done':

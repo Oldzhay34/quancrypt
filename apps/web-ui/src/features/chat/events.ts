@@ -1,7 +1,7 @@
 import type { SseMessage } from '@/shared/api';
-import type { ClarificationQuestion, Evidence } from '@/shared/api/types';
+import type { ClarificationQuestion, Evidence, StepEvent } from '@/shared/api/types';
 
-/** The six event types of the agent-service streams (contract `x-sse-events`), checked at runtime: the body comes from the network. */
+/** The seven event types of the agent-service streams (contract `x-sse-events`), checked at runtime: the body comes from the network. */
 export type AgentErrorCode = 'stopped' | 'budget_exceeded' | 'llm_unavailable' | 'internal_error';
 
 export type AgentEvent =
@@ -9,6 +9,7 @@ export type AgentEvent =
     | { type: 'evidence'; evidence: Evidence }
     | { type: 'clarification_required'; questions: ClarificationQuestion[] }
     | { type: 'refusal'; message: string }
+    | { type: 'step'; step: StepEvent }
     | { type: 'done'; messageId: string; llmDisabled: boolean }
     | { type: 'error'; code: AgentErrorCode };
 
@@ -24,6 +25,19 @@ type Json = Record<string, unknown>;
 
 const ERROR_CODES: readonly string[] = ['stopped', 'budget_exceeded', 'llm_unavailable', 'internal_error'];
 const EVIDENCE_KINDS: readonly string[] = ['code_location', 'tool_call', 'knowledge_base'];
+const STEP_CODES: readonly string[] = [
+    'INPUT_GUARD',
+    'ROUTE',
+    'GATHER_CONTEXT',
+    'PLAN',
+    'ACT',
+    'VERIFY',
+    'REPORT',
+    'ANSWER',
+    'OUTPUT_GUARD',
+];
+const AGENT_CODES: readonly string[] = ['SUPERVISOR', 'DISCOVERY', 'TOPOLOGY', 'PLANNER'];
+const STEP_STATUSES: readonly string[] = ['SUCCEEDED', 'FAILED', 'STOPPED', 'BUDGET_EXCEEDED'];
 const ANSWER_KINDS: readonly string[] = ['OPTION', 'OPTION_WITH_TEXT', 'TEXT'];
 
 const isRecord = (value: unknown): value is Json =>
@@ -98,6 +112,22 @@ function decodeQuestion(value: unknown): ClarificationQuestion {
     };
 }
 
+function decodeStep(data: Json): StepEvent {
+    const step = text(data.step, 'step.step');
+    const status = text(data.status, 'step.status');
+    const agent = data.agent === null ? null : text(data.agent, 'step.agent');
+    if (!STEP_CODES.includes(step) || !STEP_STATUSES.includes(status))
+        throw new ProtocolError('step: unknown code');
+    if (agent !== null && !AGENT_CODES.includes(agent)) throw new ProtocolError('step.agent: unknown agent');
+    if (!Array.isArray(data.tools)) throw new ProtocolError('step.tools: list expected');
+    return {
+        step: step as StepEvent['step'],
+        agent: agent as StepEvent['agent'],
+        status: status as StepEvent['status'],
+        tools: data.tools.slice(0, 20).map((tool: unknown) => text(tool, 'step.tools').slice(0, 64)),
+    };
+}
+
 /** The typed event of an SSE message, `null` for an event type the UI does not know, `ProtocolError` for a malformed one. */
 export function decodeAgentEvent(message: SseMessage): AgentEvent | null {
     switch (message.event) {
@@ -111,6 +141,8 @@ export function decodeAgentEvent(message: SseMessage): AgentEvent | null {
                 throw new ProtocolError('questions: a list is expected');
             return { type: 'clarification_required', questions: questions.map(decodeQuestion) };
         }
+        case 'step':
+            return { type: 'step', step: decodeStep(parse(message.data)) };
         case 'refusal':
             return { type: 'refusal', message: text(parse(message.data).message, 'refusal.message') };
         case 'done': {

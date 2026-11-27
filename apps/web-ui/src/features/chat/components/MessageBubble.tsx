@@ -1,3 +1,4 @@
+import { ShieldCheck } from 'lucide-react';
 import { Fragment } from 'react';
 import type { Evidence } from '@/shared/api/types';
 import { useI18n } from '@/shared/i18n';
@@ -29,28 +30,36 @@ export function MessageBubble({ author, text, evidence = [], refusal = false }: 
     const asRefusal = refusal || (author === 'assistant' && isRefusalText(text));
     return (
         <article className={`${styles.bubble} ${styles[author]}`}>
-            <h3 className={styles.author}>{label}</h3>
-            {asRefusal ? (
-                <RefusalCard message={text} />
-            ) : (
-                <>
-                    <p className={styles.text}>
-                        {splitUnverified(text).map((part, index) =>
-                            part.unverified ? (
-                                <mark key={index} className={styles.unverified}>
-                                    {part.text}
-                                </mark>
-                            ) : (
-                                <Fragment key={index}>{part.text}</Fragment>
-                            ),
-                        )}
-                    </p>
-                    {hasUnverified(text) ? (
-                        <p className={styles.unverifiedNote}>{t('chat.unverified.note')}</p>
-                    ) : null}
-                </>
-            )}
-            {evidence.length > 0 ? <EvidenceChips evidence={evidence} /> : null}
+            {/* Who wrote it is read out, and shown by the layout: the user's bubble on the right, the answer as text. */}
+            <h3 className={styles.srOnly}>{label}</h3>
+            {author !== 'user' ? (
+                <span aria-hidden="true" className={styles.mark}>
+                    <ShieldCheck className="h-4 w-4" />
+                </span>
+            ) : null}
+            <div className={styles.body}>
+                {asRefusal ? (
+                    <RefusalCard message={text} />
+                ) : (
+                    <>
+                        <p className={styles.text}>
+                            {splitUnverified(text).map((part, index) =>
+                                part.unverified ? (
+                                    <mark key={index} className={styles.unverified}>
+                                        {part.text}
+                                    </mark>
+                                ) : (
+                                    <Fragment key={index}>{part.text}</Fragment>
+                                ),
+                            )}
+                        </p>
+                        {hasUnverified(text) ? (
+                            <p className={styles.unverifiedNote}>{t('chat.unverified.note')}</p>
+                        ) : null}
+                    </>
+                )}
+                {evidence.length > 0 ? <EvidenceChips evidence={evidence} /> : null}
+            </div>
         </article>
     );
 }

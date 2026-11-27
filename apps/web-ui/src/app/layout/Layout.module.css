@@ -1,18 +1,21 @@
 .shell {
-    min-height: 100vh;
     display: flex;
+    height: 100vh;
+    height: 100dvh;
+}
+.column {
+    display: flex;
+    flex: 1;
     flex-direction: column;
+    min-width: 0;
+    min-height: 0;
 }
 .header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 1rem;
-    padding: 0.6rem 1rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-}
-.brand {
-    flex: none;
+    padding: 0.5rem 1rem;
 }
 .project {
     flex: 1;
@@ -20,65 +23,37 @@
 }
 .header select {
     font: inherit;
-    padding: 0.3rem;
+    padding: 0.3rem 0.5rem;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 6px;
-}
-.body {
-    flex: 1;
-    display: flex;
-}
-.nav {
-    width: 12rem;
-    padding: 1rem 0.75rem;
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-.link,
-.active {
-    padding: 0.45rem 0.75rem;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text);
-}
-.active {
-    background: var(--accent);
-    color: var(--on-accent);
+    border-radius: 999px;
 }
 .main {
     flex: 1;
-    padding: 1.5rem;
+    min-height: 0;
+    overflow-y: auto;
 }
-@media (max-width: 700px) {
-    .body {
+@media (max-width: 767px) {
+    .shell {
         flex-direction: column;
-    }
-    .nav {
-        width: auto;
-        flex-direction: row;
-        flex-wrap: wrap;
-        border-right: 0;
-        border-bottom: 1px solid var(--border);
     }
 }
 .dashboard {
     flex: none;
 }
 
-/* Printing a screen (the plan report): only the content, without the menu and the header. */
+/* Printing a screen (the plan report): only the content, without the menu and the header, over as many pages as needed. */
 @media print {
-    .header,
-    .nav {
+    .header {
         display: none;
     }
-    .shell {
+    .shell,
+    .column {
         display: block;
+        height: auto;
     }
     .main {
-        padding: 0;
+        overflow: visible;
     }
 }

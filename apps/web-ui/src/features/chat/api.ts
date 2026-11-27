@@ -5,6 +5,8 @@ import type {
     ClarificationList,
     MessagePage,
     Session,
+    SessionPage,
+    SessionSummary,
 } from '@/shared/api/types';
 
 const PAGE_SIZE = 200;
@@ -36,6 +38,19 @@ export async function listMessages(
         if (messages.length >= response.data.total || response.data.items.length === 0) break;
     }
     return messages;
+}
+
+/** The project's chat sessions that hold a message, newest activity first (the first 100). */
+export async function listSessions(
+    api: ApiClient,
+    projectId: string,
+    signal?: AbortSignal,
+): Promise<SessionSummary[]> {
+    const response = await api.request<SessionPage>('agent', 'GET', '/api/v1/sessions', {
+        query: { project_id: projectId, page: 0, size: 100 },
+        signal,
+    });
+    return response.data.items;
 }
 
 export async function deleteSession(api: ApiClient, sessionId: string): Promise<void> {

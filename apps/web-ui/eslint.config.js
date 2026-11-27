@@ -46,6 +46,11 @@ export default tseslint.config(
         rules: { 'no-restricted-imports': restrict(noApp, noFeatureInternals, stayInModule('../../**')) },
     },
     {
+        // The shadcn-style primitives and helpers sit below everything else, like shared (P5.5).
+        files: ['src/components/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
+        rules: { 'no-restricted-imports': restrict(sharedMayNotImport) },
+    },
+    {
         files: ['src/app/**/*.{ts,tsx}'],
         rules: { 'no-restricted-imports': restrict(noFeatureInternals) },
     },

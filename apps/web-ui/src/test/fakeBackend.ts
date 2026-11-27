@@ -92,6 +92,8 @@ export interface ScanOverview {
 export interface StreamPlan {
     /** Written and closed at once; leave it out to drive the stream with the returned handle. */
     text?: string;
+    /** Appended as soon as the stream opens: the service stores the user's message before it answers. */
+    storedAtOpen?: ChatMessage[];
     /** Appended to the session's history when the stream ends. */
     stored?: ChatMessage[];
     /** Runs when the stream ends (a scan stores its result here). */
@@ -167,6 +169,7 @@ export class FakeBackend {
         if (!entry) return problem(500, 'internal-error');
         entry.session = session;
         const { handle, plan } = entry;
+        session.messages.push(...(plan.storedAtOpen ?? []));
         const response = new Response(handle.body, {
             status: 200,
             headers: { 'Content-Type': 'text/event-stream' },
@@ -306,6 +309,18 @@ export class FakeBackend {
 
     /** The chat endpoints of agent-service and the scan endpoints of core-service; null for any other path. */
     private chatRoute(method: string, path: string, body: unknown): Response | null {
+        if (method === 'GET' && path === '/api/v1/sessions') {
+            const items = [...this.sessions.entries()]
+                .filter(([, found]) => found.messages.length > 0)
+                .map(([id, found]) => ({
+                    id,
+                    language: 'tr',
+                    created_at: found.messages[0]?.created_at ?? '2026-10-24T10:00:00Z',
+                    last_message_at: found.messages.at(-1)?.created_at ?? '2026-10-24T10:00:00Z',
+                    preview: found.messages.find((m) => m.role === 'user')?.content.slice(0, 80) ?? null,
+                }));
+            return json(200, { items, page: 0, size: 100, total: items.length });
+        }
         if (method === 'POST' && path === '/api/v1/sessions') {
             const request = body as { project_id: string; language: string };
             const id = `00000000-0000-4000-8000-${String(++this.nextSession).padStart(12, '0')}`;

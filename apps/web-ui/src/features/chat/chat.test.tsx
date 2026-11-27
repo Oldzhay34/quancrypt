@@ -15,6 +15,11 @@ function openChat(backend: FakeBackend) {
     return renderApp(backend, { path: '/chat' });
 }
 
+function openAnalysis(backend: FakeBackend) {
+    backend.consents = [activeConsent('MODEL_TRAINING')];
+    return renderApp(backend, { path: '/analysis' });
+}
+
 const message = (id: number, role: ChatMessage['role'], content: string, extra: Partial<ChatMessage> = {}) =>
     ({
         id: `00000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
@@ -47,7 +52,7 @@ describe('chat: sending a question', () => {
         const user = userEvent.setup();
         openChat(backend);
 
-        expect(screen.getByRole('button', { name: 'Durdur' })).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Durdur' })).toBeNull();
         await typeAndSend(user, QUESTION);
 
         // The session is created on the first message and remembered for the project.
@@ -111,7 +116,7 @@ describe('chat: sending a question', () => {
         await waitFor(() => expect(within(log()).getAllByText('Merhaba dünya')).toHaveLength(1));
         expect(within(log()).getAllByText(QUESTION)).toHaveLength(1);
         expect(within(log()).getByText('Pay.java:12')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Durdur' })).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Durdur' })).toBeNull();
         expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled();
     });
 
@@ -192,7 +197,7 @@ describe('chat: sending a question', () => {
 });
 
 describe('chat: stop', () => {
-    it('stops exactly the running session from the header, keeps the partial text and says so', async () => {
+    it('stops exactly the running session from the message box, keeps the partial text and says so', async () => {
         const backend = new FakeBackend();
         const handle = backend.queueStream({ stored: [message(1, 'user', QUESTION)] });
         const user = userEvent.setup();
@@ -201,7 +206,7 @@ describe('chat: stop', () => {
         await typeAndSend(user, QUESTION);
         handle.push(sse('token', { text: 'yarım kalan' }));
         await within(log()).findByText('yarım kalan');
-        const stop = screen.getByRole('button', { name: 'Durdur' });
+        const stop = await screen.findByRole('button', { name: 'Durdur' });
         await waitFor(() => expect(stop).toBeEnabled());
         await user.click(stop);
 
@@ -299,7 +304,7 @@ describe('chat: history', () => {
         await findLog();
         await within(log()).findByText('Yanıt');
 
-        await user.click(screen.getByRole('button', { name: 'Geçmişi sil' }));
+        await user.click(await screen.findByRole('button', { name: `Geçmişi sil: ${QUESTION}` }));
         const dialog = screen.getByRole('dialog', { name: 'Sohbet geçmişi silinsin mi?' });
         expect(backend.find('DELETE', '/api/v1/sessions')).toHaveLength(0);
 
@@ -307,7 +312,7 @@ describe('chat: history', () => {
         expect(screen.queryByRole('dialog')).toBeNull();
         expect(backend.find('DELETE', '/api/v1/sessions')).toHaveLength(0);
 
-        await user.click(screen.getByRole('button', { name: 'Geçmişi sil' }));
+        await user.click(screen.getByRole('button', { name: `Geçmişi sil: ${QUESTION}` }));
         await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Geçmişi sil' }));
 
         await waitFor(() => expect(backend.find('DELETE', '/api/v1/sessions')).toHaveLength(1));
@@ -318,7 +323,9 @@ describe('chat: history', () => {
         expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
         expect(await screen.findByText(/Henüz mesaj yok/)).toBeInTheDocument();
         expect(screen.queryByText('Yanıt')).toBeNull();
-        expect(screen.getByRole('button', { name: 'Geçmişi sil' })).toBeDisabled();
+        await waitFor(() =>
+            expect(screen.queryByRole('button', { name: `Geçmişi sil: ${QUESTION}` })).toBeNull(),
+        );
     });
 });
 
@@ -431,7 +438,7 @@ describe('chat: clarification form', () => {
     });
 });
 
-describe('chat: initial scan', () => {
+describe('analysis: the project scan', () => {
     const SCAN: Scan = {
         id: '33333333-3333-4333-8333-333333333333',
         projectId: PROJECT.id,
@@ -491,7 +498,7 @@ describe('chat: initial scan', () => {
             },
         });
         const user = userEvent.setup();
-        openChat(backend);
+        openAnalysis(backend);
 
         expect(await screen.findByText('Bu proje henüz taranmadı.')).toBeInTheDocument();
         const root = screen.getByRole('textbox', { name: 'Analiz kökü' });
@@ -532,10 +539,10 @@ describe('chat: initial scan', () => {
         expect(screen.getByRole('button', { name: 'Yeniden tara' })).toBeInTheDocument();
     });
 
-    it('shows the latest scan when the chat opens, and says so when its topology was not recorded', async () => {
+    it('shows the latest scan when the screen opens, and says so when its topology was not recorded', async () => {
         const backend = new FakeBackend();
         backend.overview = overview(null);
-        openChat(backend);
+        openAnalysis(backend);
 
         const summary = await screen.findByRole('region', { name: 'Tarama özeti' });
         expect(within(summary).getByText('Toplam bulgu: 28')).toBeInTheDocument();
@@ -546,19 +553,309 @@ describe('chat: initial scan', () => {
         const backend = new FakeBackend();
         const handle = backend.queueStream({});
         const user = userEvent.setup();
-        openChat(backend);
+        openAnalysis(backend);
 
         await user.click(await screen.findByRole('button', { name: 'İlk taramayı başlat' }));
 
-        // The running note shows in the scan panel and in the conversation.
-        expect(await screen.findAllByText('Tarama sürüyor. Bu birkaç dakika sürebilir…')).toHaveLength(2);
+        expect(await screen.findByText('Tarama sürüyor. Bu birkaç dakika sürebilir…')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'İlk taramayı başlat' })).toBeDisabled();
-        expect(screen.getByRole('button', { name: 'Durdur' })).toBeEnabled();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Durdur' })).toBeEnabled());
 
         handle.push(done('scan'));
         handle.close();
         await waitFor(() =>
             expect(screen.queryByText('Tarama sürüyor. Bu birkaç dakika sürebilir…')).toBeNull(),
         );
+    });
+
+    it('leaves the chosen chat alone, keeps its answer on this screen and is not listed as a chat', async () => {
+        const backend = new FakeBackend();
+        backend.addSession([message(1, 'user', 'eski soru'), message(2, 'assistant', 'eski yanıt')]);
+        window.localStorage.setItem(SESSION_KEY, SESSION_ID);
+        const handle = backend.queueStream({
+            stored: [message(3, 'assistant', '27 bulgu kaydedildi.')],
+        });
+        const user = userEvent.setup();
+        openAnalysis(backend);
+
+        await user.click(await screen.findByRole('button', { name: 'İlk taramayı başlat' }));
+        await waitFor(() => expect(backend.find('POST', '/initial-scan')).toHaveLength(1));
+        handle.push(sse('token', { text: '27 bulgu kaydedildi.' }) + done('scan'));
+        handle.close();
+
+        expect(await screen.findByText('27 bulgu kaydedildi.')).toBeInTheDocument();
+        expect(window.localStorage.getItem(SESSION_KEY)).toBe(SESSION_ID);
+        const history = screen.getByRole('region', { name: 'Sohbetler' });
+        expect(await within(history).findAllByRole('button', { name: /eski soru/ })).toHaveLength(2);
+        expect(within(history).queryByText('27 bulgu kaydedildi.')).toBeNull();
+        expect(within(history).queryByText('İlk tarama')).toBeNull();
+    });
+
+    it('says on another screen that the analysis finished and goes back to it', async () => {
+        const backend = new FakeBackend();
+        const handle = backend.queueStream({});
+        const user = userEvent.setup();
+        openAnalysis(backend);
+
+        await user.click(await screen.findByRole('button', { name: 'İlk taramayı başlat' }));
+        await waitFor(() => expect(backend.find('POST', '/initial-scan')).toHaveLength(1));
+        await user.click(screen.getByRole('link', { name: 'Ayarlar' }));
+        handle.push(done('scan'));
+        handle.close();
+
+        expect(await screen.findByText('Analiz tamamlandı')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Analize git' }));
+        expect(await screen.findByRole('heading', { name: 'Analiz' })).toBeInTheDocument();
+    });
+});
+
+describe('chat: the chat list and the steps (D-350)', () => {
+    const step = (over: Record<string, unknown> = {}) =>
+        sse('step', {
+            step: 'ACT',
+            agent: 'DISCOVERY',
+            status: 'SUCCEEDED',
+            tools: ['analyze_crypto'],
+            ...over,
+        });
+
+    it('shows the steps of the answer with their tools and keeps them after the answer', async () => {
+        const backend = new FakeBackend();
+        const handle = backend.queueStream({
+            stored: [message(1, 'user', QUESTION), message(2, 'assistant', 'yanıt')],
+        });
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, QUESTION);
+        await waitFor(() => expect(backend.find('POST', '/messages')).toHaveLength(1));
+        handle.push(step());
+        expect(await screen.findByText('Keşif: İşlem')).toBeInTheDocument();
+        expect(screen.getByText('analyze_crypto')).toBeInTheDocument();
+        handle.push(sse('token', { text: 'yanıt' }) + done());
+        handle.close();
+
+        // The finished list closes but stays; opening it shows the step again.
+        const trigger = await screen.findByRole('button', { name: '1 adım tamamlandı' });
+        await user.click(trigger);
+        expect(screen.getByText('Keşif: İşlem')).toBeInTheDocument();
+    });
+
+    it('lists the project chats, opens another one and starts a new one', async () => {
+        const backend = new FakeBackend();
+        backend.addSession([message(1, 'user', 'eski soru'), message(2, 'assistant', 'eski yanıt')]);
+        const user = userEvent.setup();
+        openChat(backend);
+
+        const list = await screen.findByRole('region', { name: 'Sohbetler' });
+        await user.click(await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*eski soru/ }));
+        expect(await within(log()).findByText('eski yanıt')).toBeInTheDocument();
+        expect(window.localStorage.getItem(SESSION_KEY)).toBe(SESSION_ID);
+
+        await user.click(screen.getByRole('button', { name: 'Yeni sohbet' }));
+        expect(await within(log()).findByText(/Henüz mesaj yok/)).toBeInTheDocument();
+        expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
+    });
+
+    it('filters the list by what the first question said', async () => {
+        const backend = new FakeBackend();
+        backend.addSession([message(1, 'user', 'RSA nerede?')]);
+        backend.addSession([message(2, 'user', 'TLS ayarı')], '33333333-3333-4333-8333-333333333333');
+        const user = userEvent.setup();
+        openChat(backend);
+
+        const list = await screen.findByRole('region', { name: 'Sohbetler' });
+        await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*RSA nerede/ });
+        await user.type(within(list).getByRole('searchbox', { name: 'Sohbet ara' }), 'tls');
+        expect(
+            within(list).queryByRole('button', { name: /^(?!Geçmişi sil).*RSA nerede/ }),
+        ).not.toBeInTheDocument();
+        expect(within(list).getByRole('button', { name: /^(?!Geçmişi sil).*TLS ayarı/ })).toBeInTheDocument();
+    });
+});
+
+describe('chat: parallel answers and notices (D-351)', () => {
+    const started = async (backend: FakeBackend, count: number) =>
+        waitFor(() => expect(backend.find('POST', '/messages')).toHaveLength(count));
+    const newChat = () => screen.getByRole('button', { name: 'Yeni sohbet' });
+
+    it('keeps an answer running while another chat asks, caps at two, and notifies when the first ends', async () => {
+        const backend = new FakeBackend();
+        const first = backend.queueStream({
+            stored: [message(1, 'user', 'birinci soru'), message(2, 'assistant', 'birinci yanıt')],
+        });
+        backend.queueStream({});
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, 'birinci soru');
+        await started(backend, 1);
+        await user.click(newChat());
+        await typeAndSend(user, 'ikinci soru');
+        await started(backend, 2);
+        expect(first.cancelled).toBe(false);
+
+        // A third chat cannot send while two answers run.
+        await user.click(newChat());
+        expect(await screen.findByText(/en çok 2 yanıt/)).toBeInTheDocument();
+        await user.type(screen.getByRole('textbox', { name: 'Mesajınız' }), 'üçüncü');
+        expect(screen.getByRole('button', { name: 'Gönder' })).toBeDisabled();
+
+        first.push(sse('token', { text: 'birinci yanıt' }) + done());
+        first.close();
+
+        const notices = await screen.findByRole('status', { name: 'Bildirimler' });
+        expect(await within(notices).findByText('Yanıt hazır')).toBeInTheDocument();
+        await user.click(within(notices).getByRole('button', { name: 'Sohbete git' }));
+        expect(await within(log()).findByText('birinci yanıt')).toBeInTheDocument();
+        expect(within(notices).queryByText('Yanıt hazır')).not.toBeInTheDocument();
+    });
+
+    it('goes on after the user leaves the chat screen and notifies there', async () => {
+        const backend = new FakeBackend();
+        const handle = backend.queueStream({ stored: [message(1, 'user', QUESTION)] });
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, QUESTION);
+        await started(backend, 1);
+        await user.click(
+            within(screen.getByRole('navigation', { name: 'Ana menü' })).getByRole('link', {
+                name: 'Ayarlar',
+            }),
+        );
+        expect(handle.cancelled).toBe(false);
+        handle.push(sse('token', { text: 'yanıt' }) + done());
+        handle.close();
+
+        expect(await screen.findByText('Yanıt hazır')).toBeInTheDocument();
+    });
+
+    it('shows no notice for the chat on screen', async () => {
+        const backend = new FakeBackend();
+        backend.queueStream({
+            text: sse('token', { text: 'ekrandaki yanıt' }) + done(),
+            stored: [message(1, 'user', QUESTION), message(2, 'assistant', 'ekrandaki yanıt')],
+        });
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, QUESTION);
+
+        expect(await within(log()).findByText('ekrandaki yanıt')).toBeInTheDocument();
+        expect(screen.queryByText('Yanıt hazır')).not.toBeInTheDocument();
+    });
+});
+
+describe('chat: failed steps (D-352)', () => {
+    it('says in words that a step failed and keeps the list above the answer', async () => {
+        const backend = new FakeBackend();
+        backend.queueStream({
+            text:
+                sse('step', { step: 'ACT', agent: 'DISCOVERY', status: 'FAILED', tools: [] }) +
+                sse('token', { text: 'kısmi yanıt' }) +
+                done(),
+            stored: [message(1, 'user', QUESTION), message(2, 'assistant', 'kısmi yanıt')],
+        });
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, QUESTION);
+
+        const trigger = await screen.findByRole('button', { name: '1 adım, 1 tanesi tamamlanamadı' });
+        await user.click(trigger);
+        expect(screen.getByText('başarısız')).toBeInTheDocument();
+        const answer = await within(log()).findByText('kısmi yanıt');
+        expect(trigger.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+});
+
+describe('chat: switching and limits around dialogs and forms', () => {
+    const OTHER = '33333333-3333-4333-8333-333333333333';
+
+    it('deletes the chat the dialog was opened for, even when another chat was opened meanwhile', async () => {
+        const backend = new FakeBackend();
+        backend.addSession([message(1, 'user', QUESTION), message(2, 'assistant', 'Yanıt')]);
+        backend.addSession([message(3, 'user', 'TLS ayarı')], OTHER);
+        window.localStorage.setItem(SESSION_KEY, SESSION_ID);
+        const user = userEvent.setup();
+        openChat(backend);
+        await findLog();
+        await within(log()).findByText('Yanıt');
+
+        await user.click(await screen.findByRole('button', { name: `Geçmişi sil: ${QUESTION}` }));
+        const list = screen.getByRole('region', { name: 'Sohbetler' });
+        await user.click(await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*TLS ayarı/ }));
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Geçmişi sil' }));
+
+        await waitFor(() => expect(backend.find('DELETE', '/api/v1/sessions')).toHaveLength(1));
+        expect(backend.find('DELETE', '/api/v1/sessions')[0]?.url.pathname).toBe(
+            `/api/v1/sessions/${SESSION_ID}`,
+        );
+        expect(window.localStorage.getItem(SESSION_KEY)).toBe(OTHER);
+    });
+
+    it('keeps the clarification form while two other answers run', async () => {
+        const backend = new FakeBackend();
+        const asking = backend.queueStream({ stored: [message(1, 'user', 'planı çıkar')] });
+        backend.queueStream({});
+        backend.queueStream({});
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, 'planı çıkar');
+        asking.push(sse('clarification_required', { questions: [QUESTIONS[2]] }) + done());
+        asking.close();
+        const submit = await screen.findByRole('button', { name: 'Yanıtları kaydet ve planı sürdür' });
+        await waitFor(() => expect(submit).toBeEnabled());
+        const list = screen.getByRole('region', { name: 'Sohbetler' });
+        const askingChat = await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*planı çıkar/ });
+
+        for (const [index, text] of ['ikinci soru', 'üçüncü soru'].entries()) {
+            await user.click(screen.getByRole('button', { name: 'Yeni sohbet' }));
+            await typeAndSend(user, text);
+            await waitFor(() => expect(backend.find('POST', '/messages')).toHaveLength(index + 2));
+        }
+        await user.click(askingChat);
+
+        const again = await screen.findByRole('button', { name: 'Yanıtları kaydet ve planı sürdür' });
+        expect(again).toBeDisabled();
+        expect(screen.getByText(/en çok 2 yanıt/)).toBeInTheDocument();
+    });
+});
+
+describe('chat: switching while an answer runs (D-353)', () => {
+    const newChat = () => screen.getByRole('button', { name: 'Yeni sohbet' });
+    const box = () => screen.getByRole('textbox', { name: 'Mesajınız' });
+
+    it('does not carry typed text to another chat', async () => {
+        const backend = new FakeBackend();
+        backend.addSession([message(1, 'user', 'eski soru'), message(2, 'assistant', 'eski yanıt')]);
+        const user = userEvent.setup();
+        openChat(backend);
+
+        const list = await screen.findByRole('region', { name: 'Sohbetler' });
+        await user.type(await screen.findByRole('textbox', { name: 'Mesajınız' }), 'yarım kalan');
+        await user.click(await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*eski soru/ }));
+
+        expect(box()).toHaveValue('');
+    });
+
+    it('lists the running chat at once and shows its question only once after coming back', async () => {
+        const backend = new FakeBackend();
+        const handle = backend.queueStream({ storedAtOpen: [message(1, 'user', QUESTION)] });
+        const user = userEvent.setup();
+        openChat(backend);
+
+        await typeAndSend(user, QUESTION);
+        await waitFor(() => expect(backend.find('POST', '/messages')).toHaveLength(1));
+        handle.push(sse('step', { step: 'INPUT_GUARD', agent: null, status: 'SUCCEEDED', tools: [] }));
+        const list = screen.getByRole('region', { name: 'Sohbetler' });
+        const running = await within(list).findByRole('button', { name: /^(?!Geçmişi sil).*RSA nerede/ });
+        await user.click(newChat());
+        await user.click(running);
+
+        await waitFor(() => expect(within(log()).getAllByText(QUESTION)).toHaveLength(1));
+        handle.close();
     });
 });

@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ApiProvider } from '@/shared/api';
+import { ChatRunsProvider } from '@/features/chat';
 import { AuthProvider, NoTokenScreen, SessionInvalidScreen, useAuth } from '@/shared/auth';
 import { I18nProvider } from '@/shared/i18n';
 import { ProjectProvider } from '@/shared/project';
-import { ActiveSessionProvider } from '@/shared/session';
 
 function newQueryClient(): QueryClient {
     // A failed request is shown, not retried in the background: a 401 must reach the "session invalid" screen at once.
@@ -19,7 +19,7 @@ function Authenticated({ children }: { children: ReactNode }) {
     if (status === 'rejected') return <SessionInvalidScreen />;
     return (
         <ProjectProvider>
-            <ActiveSessionProvider>{children}</ActiveSessionProvider>
+            <ChatRunsProvider>{children}</ChatRunsProvider>
         </ProjectProvider>
     );
 }

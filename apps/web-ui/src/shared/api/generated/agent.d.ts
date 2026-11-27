@@ -11,7 +11,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * ListSessions
+         * @description Bir projenin en az bir mesajı olan sohbet oturumlarını, son mesaj zamanına göre en yeniden eskiye, sayfalı döner (D-350f).
+         */
+        get: operations["ListSessions"];
         put?: never;
         /**
          * CreateSession
@@ -168,6 +172,36 @@ export interface components {
             language: components["schemas"]["Language"];
             /** Format: date-time */
             created_at: string;
+        };
+        SessionSummary: {
+            /** Format: uuid */
+            id: string;
+            language: components["schemas"]["Language"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_message_at: string;
+            /** @description İlk kullanıcı mesajının başı; yalnız tarama yanıtı olan oturumda null. */
+            preview: string | null;
+        };
+        SessionPage: {
+            items: components["schemas"]["SessionSummary"][];
+            page: number;
+            size: number;
+            total: number;
+        };
+        /** @description `event: step`. Bir ajan ya da iş akışı adımı tamamlandı (D-350f): yalnız kodlar ve araç adları; argüman, sonuç veya metin yoktur. Adımlar saklanmaz. */
+        StepEvent: {
+            /** @enum {string} */
+            step: "INPUT_GUARD" | "ROUTE" | "GATHER_CONTEXT" | "PLAN" | "ACT" | "VERIFY" | "REPORT" | "ANSWER" | "OUTPUT_GUARD";
+            /**
+             * @description İş akışı düğümlerinde null.
+             * @enum {string|null}
+             */
+            agent: "SUPERVISOR" | "DISCOVERY" | "TOPOLOGY" | "PLANNER" | null;
+            /** @enum {string} */
+            status: "SUCCEEDED" | "FAILED" | "STOPPED" | "BUDGET_EXCEEDED";
+            tools: string[];
         };
         SendMessageRequest: {
             /** @description Kullanıcı mesajı. Üst uzunluk sınırı kapsam bekçisinin yapılandırmasıdır (P4.4). */
@@ -366,6 +400,37 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ListSessions: {
+        parameters: {
+            query: {
+                project_id: string;
+                page?: components["parameters"]["Page"];
+                size?: components["parameters"]["Size"];
+            };
+            header?: {
+                /** @description İzleme kimliği; yoksa servis üretir ve yanıtta döner. */
+                "X-Trace-Id"?: components["parameters"]["TraceId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Oturum sayfası. */
+            200: {
+                headers: {
+                    "X-Trace-Id": components["headers"]["TraceId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     CreateSession: {
         parameters: {
             query?: never;

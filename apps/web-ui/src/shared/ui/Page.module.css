@@ -1,5 +1,6 @@
 .page {
-    max-width: 48rem;
+    max-width: 51rem;
+    padding: 1.5rem;
 }
 .title {
     margin: 0 0 1rem;
@@ -7,4 +8,14 @@
 }
 .wide {
     max-width: none;
+}
+@media (max-width: 767px) {
+    .page {
+        padding: 1rem;
+    }
+}
+@media print {
+    .page {
+        padding: 0;
+    }
 }

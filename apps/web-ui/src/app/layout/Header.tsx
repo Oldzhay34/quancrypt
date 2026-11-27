@@ -1,20 +1,16 @@
 import { useI18n } from '@/shared/i18n';
 import type { Language } from '@/shared/i18n';
 import { useProject } from '@/shared/project';
-import { useActiveSession } from '@/shared/session';
 import { SUPERSET_URL, useSupersetReachable } from '@/shared/superset';
-import { Button } from '@/shared/ui';
 import styles from './Layout.module.css';
 
 export function Header() {
     const { t, language, setLanguage } = useI18n();
     const { project, projects, selectProject } = useProject();
-    const { sessionId, stop, stopping } = useActiveSession();
     const dashboardUp = useSupersetReachable();
 
     return (
         <header className={styles.header}>
-            <strong className={styles.brand}>{t('app.title')}</strong>
             <div className={styles.project}>
                 {projects.length > 1 ? (
                     <select
@@ -45,9 +41,6 @@ export function Header() {
                 <option value="tr">Türkçe</option>
                 <option value="en">English</option>
             </select>
-            <Button variant="danger" disabled={!sessionId || stopping} onClick={stop}>
-                {stopping ? t('header.stopping') : t('header.stop')}
-            </Button>
         </header>
     );
 }

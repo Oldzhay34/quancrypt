@@ -1,1 +1,1 @@
-export { ActiveSessionProvider, useActiveSession } from './ActiveSession';
+export { stopSession } from './api';

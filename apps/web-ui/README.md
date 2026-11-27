@@ -25,6 +25,8 @@ kendiliğinden açması bu sürümde yoktur, D-286.)
 src/app/       yönlendirici, sağlayıcılar, düzen, geçitler (proje ve onay)
 src/features/  chat/ consent/ inventory/ plan/ settings/ topology/
 src/shared/    api/ auth/ i18n/ project/ session/ ui/
+src/components/ui/  shadcn tarzı temel bileşenler (Tailwind)
+src/lib/       cn yardımcısı
 ```
 
 - Sohbet yanıtları ve ilk tarama sunucu olayları (SSE) olarak gelir. `EventSource` `Authorization` başlığı gönderemediği için
@@ -44,6 +46,14 @@ src/shared/    api/ auth/ i18n/ project/ session/ ui/
 - Topoloji kenar rengi, kenara bağlı bulguların algoritma ailesinden istemcide türetilir (D-293a); renk tek işaret değildir: her
   durumun kendi çizgi kalınlığı ve ok biçimi, lejantta ve tabloda adı vardır.
 - Aydınlatma metni sunucudan düz metin olarak gelir ve düz metin olarak gösterilir (HTML olarak asla).
+
+## Tasarım (P5.5)
+
+- Kabuk ve sohbet ekranı Tailwind (yalnız tema ve yardımcı katmanları, preflight yok) ve `src/components/ui/` bileşenleriyle
+  yazılır; diğer ekranlar CSS Modules ile kalır. Renkler `global.css` değişkenlerindedir; açık ve koyu sistem ayarını izler.
+- Sohbet listesi `GET /api/v1/sessions?project_id=` ile gelir. Yanıt sırasında ajan adımları `step` olaylarıyla gösterilir
+  (yalnız adım ve araç adı); adımlar saklanmaz. Model etiketi `features/chat/model.ts`'tedir ve testle agent-service
+  yapılandırmasına bağlıdır. shadcn CLI kullanılmaz; dış görsel yüklenmez.
 
 ## Komutlar
 
@@ -69,3 +79,10 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
 - Kalan risk: tarayıcının genel geçmişi veya otomatik tamamlaması ilk açılan `#token=` adresini saklayabilir (fragment
   yaklaşımının doğası). Anahtar her `quancrypt init`'te yenilenir (D-273).
 - nginx dışındaki katman kuralları: modülden dışarı çıkan göreli içe aktarma ESLint ile yasaktır (D-290c).
+
+## Düzen (P5.5, D-356)
+
+- Tek kenar çubuğu: yeni sohbet, Analiz, Envanter, Topoloji, Plan, sohbet geçmişi ve Ayarlar. Geçmiş silme sohbet satırındaki simgedendir.
+- Sohbet ekranı tam yüksekliktir; Durdur, yanıt sürerken giriş kutusunda Gönder'in yerine çıkar.
+- Proje analizi `/analysis` sekmesindedir. Her tarama kendi oturumunu açar; yalnız tarama içeren oturumlar sohbet geçmişinde görünmez.
+- Yanıtlar ve tarama arka planda sürer, aynı anda en çok 2; başka sayfada biten için bildirim kartı çıkar (D-351).

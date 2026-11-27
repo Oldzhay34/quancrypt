@@ -128,3 +128,23 @@ describe('decodeAgentEvent', () => {
         expect(() => decode('token', { text: 5 })).toThrow(ProtocolError);
     });
 });
+
+describe('the step event (D-350f)', () => {
+    const step = { step: 'ACT', agent: 'DISCOVERY', status: 'SUCCEEDED', tools: ['analyze_crypto'] };
+    const decode = (data: unknown) => decodeAgentEvent({ event: 'step', data: JSON.stringify(data) });
+
+    it('is decoded with its codes and tool names', () => {
+        expect(decode(step)).toEqual({ type: 'step', step });
+        expect(decode({ ...step, agent: null })).toMatchObject({ step: { agent: null } });
+    });
+
+    it('is refused when a code or the tool list is not the contract', () => {
+        for (const bad of [
+            { ...step, step: 'THINK' },
+            { ...step, agent: 'OTHER' },
+            { ...step, status: 'OK' },
+            { ...step, tools: 'analyze_crypto' },
+        ])
+            expect(() => decode(bad)).toThrow(ProtocolError);
+    });
+});

@@ -1,3 +1,48 @@
+/*
+ * Tailwind theme and utilities only (P5.5, D-350d): no preflight, so the CSS Modules screens keep their look. The plain
+ * element rules below sit in the base layer, so a utility class on a new component always wins over them.
+ */
+@layer theme, base, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme inline {
+    --color-background: var(--bg);
+    --color-foreground: var(--text);
+    --color-card: var(--surface);
+    --color-border: var(--border);
+    --color-input: var(--border);
+    --color-ring: var(--accent);
+    --color-primary: var(--accent);
+    --color-primary-foreground: var(--on-accent);
+    --color-secondary: var(--hover);
+    --color-secondary-foreground: var(--text);
+    --color-accent: var(--hover);
+    --color-accent-foreground: var(--text);
+    --color-muted: var(--hover);
+    --color-muted-foreground: var(--muted);
+    --color-destructive: var(--danger);
+    --color-glow: var(--glow);
+    --animate-accordion-down: accordion-down 0.2s ease-out;
+    --animate-accordion-up: accordion-up 0.2s ease-out;
+    @keyframes accordion-down {
+        from {
+            height: 0;
+        }
+        to {
+            height: var(--radix-accordion-content-height);
+        }
+    }
+    @keyframes accordion-up {
+        from {
+            height: var(--radix-accordion-content-height);
+        }
+        to {
+            height: 0;
+        }
+    }
+}
+
 :root {
     --bg: #f6f7f9;
     --surface: #ffffff;
@@ -7,6 +52,8 @@
     --accent: #2557d6;
     --on-accent: #ffffff;
     --danger: #b3261e;
+    --hover: #eceff3;
+    --glow: #1488fc;
     color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -19,22 +66,26 @@
         --accent: #6b93ff;
         --on-accent: #0b1020;
         --danger: #ff8a80;
+        --hover: #2a2f37;
+        --glow: #1172e2;
     }
 }
-* {
-    box-sizing: border-box;
-}
-body {
-    margin: 0;
-    font:
-        16px/1.5 system-ui,
-        sans-serif;
-    background: var(--bg);
-    color: var(--text);
-}
-a {
-    color: var(--accent);
-}
-code {
-    font-family: ui-monospace, monospace;
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+    body {
+        margin: 0;
+        font:
+            16px/1.5 system-ui,
+            sans-serif;
+        background: var(--bg);
+        color: var(--text);
+    }
+    a {
+        color: var(--accent);
+    }
+    code {
+        font-family: ui-monospace, monospace;
+    }
 }

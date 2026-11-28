@@ -46,7 +46,13 @@ from src.memory.short_term import (
 from src.memory.short_term import Evidence as StoredEvidence
 from src.prompts.system_prompts import refusal
 from src.prompts.templates import CLARIFICATION_ANSWER_KINDS, CLARIFICATION_OPTIONS, CLARIFICATION_QUESTIONS
-from src.tools.base_tool import ToolContext, ToolError, ToolRejectedError, ToolUnavailableError
+from src.tools.base_tool import (
+    ToolContext,
+    ToolError,
+    ToolInputError,
+    ToolRejectedError,
+    ToolUnavailableError,
+)
 from src.workflows.agent_graph import (
     AnswerChecker,
     GraphDeps,
@@ -56,6 +62,8 @@ from src.workflows.agent_graph import (
 from src.workflows.task_router import TaskRouter
 
 _LOG = logging.getLogger("src.workflows")
+_FINDING_PAGE_SIZE = 200
+_FINDING_PAGES = 3
 
 Language = Literal["tr", "en"]
 ToolCaller = Callable[[str, Mapping[str, Any], ToolContext], tuple[Mapping[str, Any], int]]
@@ -126,6 +134,14 @@ class UsageReport:
     period_end: datetime
     prompt_tokens: int
     completion_tokens: int
+
+
+class SnippetNotFoundError(Exception):
+    """The analyzer does not serve these lines: no such file or line, a withheld file, or one too large (D-180)."""
+
+
+class SnippetInputError(Exception):
+    """The root, path or line does not fit the analyzer's contract."""
 
 
 class UsageMeter:
@@ -286,6 +302,45 @@ class Orchestrator:
 
     def list_sessions(self, project_id: UUID, page: int, size: int) -> SessionPage:
         return self._conversation.list_sessions(project_id, page, size)
+
+    def snippet(self, scan_id: UUID, root: str, path: str, line: int, context: int, trace_id: str) -> Mapping[str, Any]:
+        """Redacted source lines around one line, read by the analyzer (D-362b). Only a file the scan has a finding
+        in is read, so the endpoint cannot be used to browse the project (D-363). Nothing is kept."""
+        if not self._has_finding_in(scan_id, path, trace_id):
+            raise SnippetNotFoundError
+        arguments = {"root": root, "path": path, "line": line, "context": context}
+        try:
+            output, _ = self._call_tool("get_snippet", arguments, ToolContext(trace_id=trace_id))
+        except ToolInputError as exc:
+            raise SnippetInputError from exc
+        except ToolRejectedError as exc:
+            if exc.status in (400, 404, 422):
+                raise SnippetNotFoundError from exc
+            raise UpstreamUnavailableError from exc
+        except ToolError as exc:
+            _LOG.warning("a snippet could not be read (%s)", type(exc).__name__)
+            raise UpstreamUnavailableError from exc
+        return output
+
+    def _has_finding_in(self, scan_id: UUID, path: str, trace_id: str) -> bool:
+        """core-service is asked page by page (a scan holds at most 500 findings, D-141). Fail closed."""
+        for page in range(_FINDING_PAGES):
+            arguments = {"scanId": str(scan_id), "page": page, "size": _FINDING_PAGE_SIZE}
+            try:
+                found, _ = self._call_tool("list_findings", arguments, ToolContext(trace_id=trace_id))
+            except ToolRejectedError as exc:
+                if exc.status == 404:
+                    return False
+                raise UpstreamUnavailableError from exc
+            except ToolError as exc:
+                _LOG.warning("the findings of a scan could not be read (%s)", type(exc).__name__)
+                raise UpstreamUnavailableError from exc
+            items = found.get("items", [])
+            if any(item.get("path") == path for item in items):
+                return True
+            if len(items) < _FINDING_PAGE_SIZE:
+                return False
+        return False
 
     def usage(self) -> UsageReport:
         """The tokens spent in the current week, which starts on Monday 00:00 UTC (D-358d)."""

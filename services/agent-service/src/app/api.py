@@ -15,7 +15,7 @@ import hmac
 import json
 import logging
 import re
-from collections.abc import AsyncIterator, Callable, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from typing import Any, Literal, Protocol
 from uuid import UUID
 
@@ -42,6 +42,8 @@ from src.workflows.orchestrator import (
     Orchestrator,
     ProjectNotFoundError,
     SessionBusyError,
+    SnippetInputError,
+    SnippetNotFoundError,
     UpstreamUnavailableError,
 )
 
@@ -235,6 +237,19 @@ def install_api(
             "created_at": session.created_at.isoformat().replace("+00:00", "Z"),
         }
 
+    @router.get("/snippet")
+    def get_snippet(
+        scan_id: UUID,
+        root: str,
+        path: str,
+        line: int = Query(ge=1),
+        context: int = Query(default=3, ge=0, le=5),
+    ) -> Mapping[str, Any]:
+        # Only the mounted user project: the corpus clones are not served (D-362b).
+        if not _ROOT.fullmatch(root) or not (root == "/workspace" or root.startswith("/workspace/")):
+            raise ApiProblem(400, "validation-failed", "Bad Request", "root: must be /workspace or below it")
+        return orchestrator.snippet(scan_id, root, path, line, context, trace_id_var.get())
+
     @router.get("/usage")
     def get_usage() -> dict[str, Any]:
         report = orchestrator.usage()
@@ -364,6 +379,14 @@ def _install_handlers(app: FastAPI) -> None:
     @app.exception_handler(ProjectNotFoundError)
     async def project_not_found(_: Request, __: ProjectNotFoundError) -> JSONResponse:
         return problem(400, "validation-failed", "Bad Request", "project_id: no such project")
+
+    @app.exception_handler(SnippetNotFoundError)
+    async def snippet_not_found(_: Request, __: SnippetNotFoundError) -> JSONResponse:
+        return problem(404, "not-found", "Not Found")
+
+    @app.exception_handler(SnippetInputError)
+    async def snippet_input(_: Request, __: SnippetInputError) -> JSONResponse:
+        return problem(400, "validation-failed", "Bad Request", "path or line: not accepted")
 
     @app.exception_handler(UpstreamUnavailableError)
     async def upstream(_: Request, __: UpstreamUnavailableError) -> JSONResponse:

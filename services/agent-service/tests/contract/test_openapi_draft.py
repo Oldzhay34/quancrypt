@@ -16,6 +16,7 @@ CONTRACT = Path(__file__).resolve().parents[4] / "contracts" / "openapi" / "agen
 EXPECTED_OPERATIONS = {
     ("get", "/api/v1/sessions"),
     ("get", "/api/v1/usage"),
+    ("get", "/api/v1/snippet"),
     ("post", "/api/v1/sessions"),
     ("get", "/api/v1/sessions/{id}/messages"),
     ("post", "/api/v1/sessions/{id}/messages"),

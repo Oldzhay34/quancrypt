@@ -23,6 +23,7 @@ from referencing.jsonschema import DRAFT202012
 from src.app.api import ROOT_PATTERN
 from src.app.main import create_app
 from src.app.settings import CONFIG_DIR_ENV, load_settings
+from src.tools.base_tool import ToolError, ToolInputError, ToolRejectedError, ToolUnavailableError
 from tests.support.containers import inert_container
 from tests.support.workflow_fakes import PROJECT, World, waits_for, world
 
@@ -440,3 +441,84 @@ def test_usage_returns_the_current_week_and_needs_the_token(setup: tuple[TestCli
     assert (start.weekday(), start.hour, start.minute, (end - start).days) == (0, 0, 0, 7)
     assert body["prompt_tokens"] >= 0 and body["completion_tokens"] >= 0
     assert client.get("/api/v1/usage").status_code == 401
+
+
+SNIPPET: dict[str, str | int] = {
+    "scan_id": "55555555-5555-4555-8555-555555555555",
+    "root": "/workspace/qbank-payment-service",
+    "path": "src/Pay.java",
+    "line": 7,
+}
+
+
+def test_a_snippet_is_forwarded_to_the_analyzer_and_needs_the_token(setup: tuple[TestClient, World]) -> None:
+    client, w = setup
+    w.tools.finding_paths = ["src/Pay.java"]
+
+    response = client.get("/api/v1/snippet", params=SNIPPET, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == {"path": "src/Pay.java", "lines": [{"number": 7, "text": "int x = 1;"}]}
+    [(name, arguments, _)] = [call for call in w.tools.calls if call[0] == "get_snippet"]
+    assert arguments == {"root": SNIPPET["root"], "path": "src/Pay.java", "line": 7, "context": 3}
+    assert client.get("/api/v1/snippet", params=SNIPPET).status_code == 401
+
+
+def test_a_snippet_outside_the_workspace_never_reaches_the_analyzer(setup: tuple[TestClient, World]) -> None:
+    client, w = setup
+    for root in ("/corpus/some-clone", "/etc", "/workspace/../etc", "/workspacex", ""):
+        response = client.get("/api/v1/snippet", params={**SNIPPET, "root": root}, headers=AUTH)
+        assert response.status_code == 400, root
+    too_wide = client.get("/api/v1/snippet", params={**SNIPPET, "context": 6}, headers=AUTH)
+    assert too_wide.status_code == 400
+    assert client.get("/api/v1/snippet", params={**SNIPPET, "line": 0}, headers=AUTH).status_code == 400
+    assert [call for call in w.tools.calls if call[0] == "get_snippet"] == []
+
+
+@pytest.mark.parametrize(
+    ("error", "status"),
+    [
+        (ToolRejectedError(400, "path-not-allowed"), 404),
+        (ToolRejectedError(404, "not-found"), 404),
+        (ToolRejectedError(422, "unsupported-project"), 404),
+        (ToolRejectedError(401, "unauthorized"), 503),
+        (ToolUnavailableError("down"), 503),
+        (ToolInputError("bad path"), 400),
+    ],
+)
+def test_snippet_failures_map_without_repeating_the_request(
+    setup: tuple[TestClient, World], error: ToolError, status: int
+) -> None:
+    client, w = setup
+    w.tools.finding_paths = ["src/Pay.java"]
+    w.tools.fail["get_snippet"] = error
+
+    response = client.get("/api/v1/snippet", params=SNIPPET, headers=AUTH)
+
+    assert response.status_code == status
+    assert "Pay.java" not in response.text
+
+
+def test_only_a_file_with_a_finding_in_the_scan_is_read(setup: tuple[TestClient, World]) -> None:
+    client, w = setup
+    # The wanted file is on the third page of 200.
+    w.tools.finding_paths = [f"src/F{n}.java" for n in range(450)] + ["src/Pay.java"]
+
+    other = client.get("/api/v1/snippet", params={**SNIPPET, "path": ".git/config"}, headers=AUTH)
+
+    assert other.status_code == 404
+    assert [name for name, _, _ in w.tools.calls if name == "get_snippet"] == []
+    assert client.get("/api/v1/snippet", params=SNIPPET, headers=AUTH).status_code == 200
+
+
+def test_a_snippet_needs_a_scan_and_fails_closed_without_the_findings(setup: tuple[TestClient, World]) -> None:
+    client, w = setup
+    w.tools.finding_paths = ["src/Pay.java"]
+    without = {key: value for key, value in SNIPPET.items() if key != "scan_id"}
+    assert client.get("/api/v1/snippet", params=without, headers=AUTH).status_code == 400
+
+    w.tools.fail["list_findings"] = ToolRejectedError(404, "not-found")
+    assert client.get("/api/v1/snippet", params=SNIPPET, headers=AUTH).status_code == 404
+    w.tools.fail["list_findings"] = ToolUnavailableError("down")
+    assert client.get("/api/v1/snippet", params=SNIPPET, headers=AUTH).status_code == 503
+    assert [name for name, _, _ in w.tools.calls if name == "get_snippet"] == []

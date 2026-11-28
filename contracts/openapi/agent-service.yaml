@@ -17,6 +17,71 @@ tags:
 security:
 - bearerAuth: []
 paths:
+  /api/v1/snippet:
+    get:
+      operationId: GetSnippet
+      summary: GetSnippet
+      tags:
+      - Tarama
+      description: 'Analiz edilen projedeki bir dosyanın bir satırı ve çevresi, sırları maskelenmiş olarak (D-362b). İstek analizcinin
+        GetSnippet ucuna iletilir; maskeleme ve hiç sunulmayan dosya listesi oradadır (D-179, D-180). Yalnız `/workspace` ve altı kabul
+        edilir. Yalnız verilen taramada bulgusu olan bir dosya okunur; diğerleri, sunulmayan, bulunmayan veya çok büyük dosya 404 döner. Hiçbir şey saklanmaz.'
+      parameters:
+      - $ref: '#/components/parameters/TraceId'
+      - name: scan_id
+        in: query
+        required: true
+        description: Yalnız bu taramada bulgusu olan dosya sunulur (D-363).
+        schema:
+          type: string
+          format: uuid
+      - name: root
+        in: query
+        required: true
+        schema:
+          type: string
+          maxLength: 1024
+      - name: path
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 1024
+      - name: line
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: context
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 5
+          default: 3
+      responses:
+        '200':
+          description: Maskelenmiş satırlar.
+          headers:
+            X-Trace-Id:
+              $ref: '#/components/headers/TraceId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snippet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /api/v1/usage:
     get:
       operationId: GetUsage
@@ -567,6 +632,31 @@ components:
       - last_message_at
       - preview
       additionalProperties: false
+    Snippet:
+      type: object
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        lines:
+          type: array
+          maxItems: 11
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              number:
+                type: integer
+                minimum: 1
+              text:
+                type: string
+                maxLength: 4096
+            required:
+            - number
+            - text
+      required:
+      - path
+      - lines
     Usage:
       type: object
       additionalProperties: false

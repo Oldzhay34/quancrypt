@@ -82,11 +82,19 @@ class FakeTools:
         self.scans = list(scans if scans is not None else [{"id": SCAN, "status": "COMPLETED"}])
         self.answers: list[dict[str, Any]] = []
         self.fail: dict[str, ToolError] = {}
+        # The files the scan has findings in (`list_findings`).
+        self.finding_paths: list[str] = []
 
     def __call__(self, name: str, arguments: Mapping[str, Any], context: ToolContext) -> tuple[Mapping[str, Any], int]:
         self.calls.append((name, arguments, context))
         if name in self.fail:
             raise self.fail[name]
+        if name == "list_findings":
+            start = arguments["page"] * arguments["size"]
+            items = [{"path": path} for path in self.finding_paths[start : start + arguments["size"]]]
+            return {"items": items, "page": arguments["page"], "size": arguments["size"]}, 1
+        if name == "get_snippet":
+            return {"path": arguments["path"], "lines": [{"number": arguments["line"], "text": "int x = 1;"}]}, 1
         if name == "get_project":
             return {"project": {"id": str(PROJECT), "projectKey": KEY}, "currentRuntimeProfile": None}, 1
         if name == "list_scans":

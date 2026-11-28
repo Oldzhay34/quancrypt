@@ -7,6 +7,7 @@ import type {
     Session,
     SessionPage,
     SessionSummary,
+    Snippet,
 } from '@/shared/api/types';
 
 const PAGE_SIZE = 200;
@@ -93,4 +94,20 @@ export async function answerClarifications(
         { body: { answers }, idempotencyKey: true },
     );
     return response.data.items;
+}
+
+/** GetSnippet: the redacted source lines around one line of one file below the analysis root (D-362b). */
+export async function getSnippet(
+    api: ApiClient,
+    scanId: string,
+    root: string,
+    path: string,
+    line: number,
+    signal?: AbortSignal,
+): Promise<Snippet> {
+    const response = await api.request<Snippet>('agent', 'GET', '/api/v1/snippet', {
+        query: { scan_id: scanId, root, path, line, context: 3 },
+        signal,
+    });
+    return response.data;
 }

@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/snippet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * GetSnippet
+         * @description Analiz edilen projedeki bir dosyanın bir satırı ve çevresi, sırları maskelenmiş olarak (D-362b). İstek analizcinin GetSnippet ucuna iletilir; maskeleme ve hiç sunulmayan dosya listesi oradadır (D-179, D-180). Yalnız `/workspace` ve altı kabul edilir. Yalnız verilen taramada bulgusu olan bir dosya okunur; diğerleri, sunulmayan, bulunmayan veya çok büyük dosya 404 döner. Hiçbir şey saklanmaz.
+         */
+        get: operations["GetSnippet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/usage": {
         parameters: {
             query?: never;
@@ -203,6 +223,13 @@ export interface components {
             last_message_at: string;
             /** @description İlk kullanıcı mesajının başı; yalnız tarama yanıtı olan oturumda null. */
             preview: string | null;
+        };
+        Snippet: {
+            path: string;
+            lines: {
+                number: number;
+                text: string;
+            }[];
         };
         Usage: {
             /** Format: date-time */
@@ -428,6 +455,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    GetSnippet: {
+        parameters: {
+            query: {
+                /** @description Yalnız bu taramada bulgusu olan dosya sunulur (D-363). */
+                scan_id: string;
+                root: string;
+                path: string;
+                line: number;
+                context?: number;
+            };
+            header?: {
+                /** @description İzleme kimliği; yoksa servis üretir ve yanıtta döner. */
+                "X-Trace-Id"?: components["parameters"]["TraceId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maskelenmiş satırlar. */
+            200: {
+                headers: {
+                    "X-Trace-Id": components["headers"]["TraceId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Snippet"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["UpstreamUnavailable"];
+        };
+    };
     GetUsage: {
         parameters: {
             query?: never;

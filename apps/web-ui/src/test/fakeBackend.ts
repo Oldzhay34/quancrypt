@@ -307,6 +307,9 @@ export class FakeBackend {
         return null;
     }
 
+    /** File paths the snippet endpoint refuses with 404 (D-362b). */
+    withheld: string[] = [];
+
     /** What `GET /api/v1/usage` answers (D-358d). */
     usage = {
         period_start: '2026-11-23T00:00:00Z',
@@ -318,6 +321,19 @@ export class FakeBackend {
     /** The chat endpoints of agent-service and the scan endpoints of core-service; null for any other path. */
     private chatRoute(method: string, path: string, body: unknown): Response | null {
         if (method === 'GET' && path === '/api/v1/usage') return json(200, this.usage);
+        if (method === 'GET' && path === '/api/v1/snippet') {
+            const query = this.calls.at(-1)?.url.searchParams;
+            const file = query?.get('path') ?? '';
+            const line = Number(query?.get('line'));
+            if (this.withheld.includes(file)) return problem(404, 'not-found');
+            return json(200, {
+                path: file,
+                lines: [
+                    { number: line - 1, text: '// before' },
+                    { number: line, text: 'Cipher.getInstance("RSA");' },
+                ],
+            });
+        }
         if (method === 'GET' && path === '/api/v1/sessions') {
             const items = [...this.sessions.entries()]
                 .filter(([, found]) => found.messages.length > 0)

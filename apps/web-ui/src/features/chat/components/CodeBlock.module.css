@@ -1,0 +1,74 @@
+/* A dark box in both themes, like a code editor. */
+.box {
+    overflow: hidden;
+    border-radius: 14px;
+    background: #101214;
+    color: #d7dce2;
+}
+.head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.9rem 0;
+}
+.language {
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+.actions {
+    display: flex;
+    gap: 0.25rem;
+}
+.action {
+    display: inline-flex;
+    padding: 0.3rem;
+    cursor: pointer;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+}
+.action:hover {
+    background: #23272d;
+}
+.pre {
+    margin: 0;
+    padding: 0.6rem 0 0.8rem;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+.line {
+    display: block;
+    min-width: max-content;
+    padding-right: 0.9rem;
+    border-left: 3px solid transparent;
+    white-space: pre;
+}
+.marked {
+    border-left-color: #eaaa00;
+    background: #2a2410;
+}
+.number {
+    display: inline-block;
+    width: 3.2rem;
+    padding-right: 0.9rem;
+    color: #6f7885;
+    text-align: right;
+    user-select: none;
+}
+.plain {
+    color: inherit;
+}
+.keyword {
+    color: #8c9eff;
+}
+.string {
+    color: #9ccc65;
+}
+.comment {
+    color: #8b949e;
+}
+.literal {
+    color: #f2b46d;
+}

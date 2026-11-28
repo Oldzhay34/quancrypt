@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { useI18n } from '@/shared/i18n';
+import { QuantumComputer } from './QuantumComputer';
 
 /** The empty conversation (adapted from the given bolt-style screen): a title above the message box. */
 export function EmptyHero({ needsScan }: { needsScan: boolean }) {
@@ -13,6 +14,7 @@ export function EmptyHero({ needsScan }: { needsScan: boolean }) {
                     <Link to="/analysis">{t('chat.hero.scanFirst')}</Link>
                 </p>
             ) : null}
+            <QuantumComputer />
         </div>
     );
 }

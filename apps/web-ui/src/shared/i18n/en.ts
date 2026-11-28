@@ -37,6 +37,17 @@ export const en: Record<MessageKey, string> = {
     'subscription.allFeatures': 'All features open',
     'subscription.current': 'Current plan',
     'subscription.choose': 'Choose {plan}',
+    'code.findings': 'Findings',
+    'code.more': 'Show more ({count} findings left)',
+    'code.copy': 'Copy the code',
+    'code.copied': 'Copied',
+    'code.download': 'Download the code',
+    'code.wholeFile': 'This finding is about the whole file; no line is shown.',
+    'code.withheld':
+        'The code cannot be shown: the file is not below this root, or it is withheld for safety.',
+    'code.showWithRoot': 'Show the code with this root',
+    'chat.hero.drawing':
+        'A drawing of a quantum computer: a controller, five stages that get colder downwards and the qubits at the bottom.',
     'nav.label': 'Main menu',
     'header.project': 'Project',
     'header.stop': 'Stop',

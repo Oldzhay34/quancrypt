@@ -1,0 +1,112 @@
+.drawing {
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    height: min(38vh, 22rem);
+    margin: 0.5rem auto 0;
+}
+.label {
+    fill: var(--muted);
+    font-size: 11px;
+}
+.chip {
+    fill: none;
+    stroke: var(--highlight);
+    stroke-width: 4;
+}
+.core {
+    fill: var(--highlight);
+}
+.pin {
+    fill: none;
+    stroke: var(--highlight);
+    stroke-linecap: round;
+    stroke-width: 4;
+}
+.plate {
+    fill: var(--highlight);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: widen 0.5s ease-out both;
+}
+.rod {
+    fill: var(--highlight);
+    opacity: 0.55;
+    transform-box: fill-box;
+    transform-origin: top;
+    animation: lengthen 0.45s ease-in both;
+}
+.qubits {
+    fill: var(--muted);
+}
+.arrow {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1;
+    stroke-dasharray: 0.012 0.008;
+    animation: appear 3s linear both;
+    clip-path: inset(0 -10px 0 -10px);
+}
+.head {
+    fill: var(--muted);
+    animation: appear 0.4s ease-out both;
+}
+.part {
+    animation: appear 0.5s ease-out both;
+}
+
+/* Each stage starts after the one above it. */
+.s0 {
+    animation-delay: 0s;
+}
+.s1 {
+    animation-delay: 0.35s;
+}
+.s2 {
+    animation-delay: 0.8s;
+}
+.s3 {
+    animation-delay: 1.25s;
+}
+.s4 {
+    animation-delay: 1.7s;
+}
+.s5 {
+    animation-delay: 2.15s;
+}
+.s6 {
+    animation-delay: 2.6s;
+}
+
+@keyframes appear {
+    from {
+        opacity: 0;
+    }
+}
+@keyframes widen {
+    from {
+        opacity: 0;
+        transform: scaleX(0);
+    }
+}
+@keyframes lengthen {
+    from {
+        transform: scaleY(0);
+    }
+}
+
+/* On a short window the drawing shrinks so that the message box stays in sight. */
+@media (max-height: 620px) {
+    .drawing {
+        height: 28vh;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .plate,
+    .rod,
+    .arrow,
+    .head,
+    .part {
+        animation: none;
+    }
+}

@@ -35,6 +35,17 @@ export const tr = {
     'subscription.allFeatures': 'Tüm özellikler açık',
     'subscription.current': 'Seçili plan',
     'subscription.choose': '{plan} planını seç',
+    'code.findings': 'Bulgular',
+    'code.more': 'Daha fazla göster ({count} bulgu kaldı)',
+    'code.copy': 'Kodu kopyala',
+    'code.copied': 'Kopyalandı',
+    'code.download': 'Kodu indir',
+    'code.wholeFile': 'Bu bulgu dosyanın tamamına aittir; satır gösterilmez.',
+    'code.withheld':
+        'Kod gösterilemiyor: dosya bu kök altında bulunamadı ya da güvenlik nedeniyle sunulmuyor.',
+    'code.showWithRoot': 'Bu kökle kodu göster',
+    'chat.hero.drawing':
+        'Kuantum bilgisayarın çizimi: denetleyici, yukarıdan aşağıya soğuyan beş katman ve en altta kübitler.',
     'nav.label': 'Ana menü',
     'header.project': 'Proje',
     'header.stop': 'Durdur',

@@ -19,6 +19,7 @@ export type ClarificationQuestion = AgentSchemas['ClarificationQuestion'];
 export type ClarificationAnswer = AgentSchemas['ClarificationAnswer'];
 export type ClarificationList = AgentSchemas['ClarificationList'];
 export type Usage = AgentSchemas['Usage'];
+export type Snippet = AgentSchemas['Snippet'];
 export type SessionSummary = AgentSchemas['SessionSummary'];
 export type SessionPage = AgentSchemas['SessionPage'];
 export type StepEvent = AgentSchemas['StepEvent'];

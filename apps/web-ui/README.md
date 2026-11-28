@@ -73,9 +73,9 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
   `http://127.0.0.1:8083` ve (Dashboard bağlantısının yoklaması için) `http://127.0.0.1:8088`, `frame-ancestors 'none'`), `X-Content-Type-Options`, `Referrer-Policy: no-referrer`.
 - Yalnızca `GET` ve `HEAD` kabul edilir. Dış kaynak (CDN, yazı tipi) yoktur.
 - Anahtar yalnızca `Authorization: Bearer` başlığında gider; URL'ye, loga veya hata iletisine yazılmaz.
-- `localStorage`'da yalnızca dört kişisel olmayan bilgi durur: dil seçimi (`quancrypt.lang`), "ilk çalıştırma görüldü"
+- `localStorage`'da yalnızca beş bilgi durur (dördü kişisel olmayan; analiz kökü analiz edilen projenin klasör adını taşır): dil seçimi (`quancrypt.lang`), "ilk çalıştırma görüldü"
   işareti (`consentSeen:<projectId>:<noticeVersion>`, D-288) ve proje başına sohbet oturumunun kimliği
-  (`chatSession:<projectId>`, rastgele UUID; D-291c) ve seçilen demo planı (`quancrypt.plan`; D-358a). Oturum anahtarı ve seçili proje `sessionStorage`'dadır.
+  (`chatSession:<projectId>`, rastgele UUID; D-291c) ve seçilen demo planı (`quancrypt.plan`; D-358a). Ayrıca proje başına son analiz kökü (`quancrypt.scanRoot:<projectId>`; D-362a). Oturum anahtarı ve seçili proje `sessionStorage`'dadır.
 - Kalan risk: tarayıcının genel geçmişi veya otomatik tamamlaması ilk açılan `#token=` adresini saklayabilir (fragment
   yaklaşımının doğası). Anahtar her `quancrypt init`'te yenilenir (D-273).
 - nginx dışındaki katman kuralları: modülden dışarı çıkan göreli içe aktarma ESLint ile yasaktır (D-290c).
@@ -93,3 +93,10 @@ Node sürümü `.nvmrc` içindedir (`docs/VERSIONS.md`). `.npmrc` içindeki `leg
 - Ayarlar'a basınca menü açılır: Onaylar, Kullanım, Abonelik, Ayarlar ve dil seçimi.
 - Kullanım (`/settings/usage`) agent-service `GET /api/v1/usage` toplamını seçili planın haftalık sınırına oranlar; sınır uygulanmaz.
 - Abonelik (`/subscription`) demodur: ödeme alınmaz, seçim yalnız bu tarayıcıda saklanır (`quancrypt.plan`).
+
+## Analiz ekranı ve kod kutuları (P5.7, D-361, D-362)
+
+- Bulgular önceliğe göre 10'ar gösterilir; kod yalnız gösterilenler için `GET /api/v1/snippet`'ten istenir (maskeleme ve
+  sunulmayan dosyalar analizcidedir). Anahtar depoları ve satırsız bulgular için kod istenmez.
+- Analiz kökü proje başına bu tarayıcıda hatırlanır (`quancrypt.scanRoot:<projectId>`).
+- Boş sohbette kuantum bilgisayar çizimi yukarıdan aşağıya belirir; hareket azaltma ayarında animasyonsuzdur.
